@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-import { JwtModule } from '@nestjs/jwt';
+import { JwtModule, type JwtSignOptions } from '@nestjs/jwt';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
@@ -34,7 +34,9 @@ import { UsersModule } from './users/users.module';
         if (!secret || secret.length < 16) {
           throw new Error('JWT_ACCESS_SECRET must be set (at least 16 characters)');
         }
-        return { secret, signOptions: { expiresIn: config.get<string>('JWT_ACCESS_TTL') ?? '15m' } };
+        // @nestjs/jwt 11 types expiresIn as an `ms`-style duration literal, not a bare string
+        const expiresIn = (config.get<string>('JWT_ACCESS_TTL') ?? '15m') as NonNullable<JwtSignOptions['expiresIn']>;
+        return { secret, signOptions: { expiresIn } };
       },
     }),
     DbModule,

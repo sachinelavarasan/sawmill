@@ -38,5 +38,19 @@
   "packageManager": "npm@11.18.0",
   "devDependencies": {
     "turbo": "2.11.10"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "^11.1.1"
+    },
+    "@expo/fingerprint": {
+      "minimatch": "^11.0.8"
+    },
+    "@nestjs/cli": {
+      "glob": "^14.0.6"
+    },
+    "@esbuild-kit/core-utils": {
+      "esbuild": "^0.25.12"
+    }
   }
 }
