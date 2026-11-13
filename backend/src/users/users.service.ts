@@ -5,7 +5,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthService } from '../auth/auth.service';
 import type { AuthUser } from '../common/types';
 import { Database, InjectDb } from '../db/db.module';
-import { users } from '../db/schema';
+import { mills, users } from '../db/schema';
 import { CreateUserDto, ResetPasswordDto, UpdateUserDto } from './users.dto';
 
 /** Columns safe to return / audit — never the password hash. */
@@ -42,6 +42,8 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
     return this.db.transaction(async (tx) => {
+      // no language chosen → the mill's default (set by the owner in Settings)
+      const [mill] = await tx.select({ settings: mills.settings }).from(mills).where(eq(mills.id, actor.millId));
       const [user] = await tx
         .insert(users)
         .values({
@@ -50,7 +52,7 @@ export class UsersService {
           username,
           phone: dto.phone,
           role: dto.role ?? 'ACCOUNTANT',
-          preferredLanguage: dto.preferredLanguage ?? 'en',
+          preferredLanguage: dto.preferredLanguage ?? mill?.settings.defaultLanguage ?? 'en',
           passwordHash,
           createdById: actor.id,
         })
@@ -74,15 +76,19 @@ export class UsersService {
     if (id === actor.id && (dto.isActive === false || roleChanging)) {
       throw new BadRequestException('You cannot disable or change the role of your own account');
     }
-    if (before.role === 'OWNER' && (dto.isActive === false || dto.role === 'ACCOUNTANT')) {
-      const [{ owners }] = await this.db
-        .select({ owners: count() })
-        .from(users)
-        .where(and(eq(users.millId, actor.millId), eq(users.role, 'OWNER'), eq(users.isActive, true)));
-      if (owners <= 1) throw new BadRequestException('The mill must keep at least one active owner');
-    }
-
     const after = await this.db.transaction(async (tx) => {
+      if (before.role === 'OWNER' && (dto.isActive === false || dto.role === 'ACCOUNTANT')) {
+        // Lock the active owners first, so two owners disabling each other at the
+        // same moment can't both pass the check and leave the mill with none.
+        const owners = await tx
+          .select({ id: users.id })
+          .from(users)
+          .where(and(eq(users.millId, actor.millId), eq(users.role, 'OWNER'), eq(users.isActive, true)))
+          .orderBy(users.id)
+          .for('update');
+        if (owners.length <= 1) throw new BadRequestException('The mill must keep at least one active owner');
+      }
+
       const [updated] = await tx
         .update(users)
         .set({

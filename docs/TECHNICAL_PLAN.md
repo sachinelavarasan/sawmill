@@ -150,11 +150,14 @@ Base path `/api`. ✅ = implemented, with the phase it was delivered in.
 | `/imports`, `/imports/:id`, `/imports/:id/unloading` | `operations:create` | ✅ 2 |
 | `/imports/:id/logs` | `operations:create` | ✅ 3 |
 | `/imports/:id/financials`, `/suppliers` | `finance:view`, `suppliers:manage` | ✅ 2 |
-| `/production`, `/stock`, `/stock-adjustments` | `operations:*` | 4 |
-| `/exports`, `/exports/:id/measurements` | `operations:*` | 5 |
-| `/exports/:id/financials`, `/clients` | `finance:view`, `clients:manage` | 5/7 |
-| `POST /:entity/:id/submit` · `/approve` · `/reject` | `operations:submit` / `approve` | 6 |
-| `/reports/*` (PDF / Excel) | `reports:*` | 7 |
+| `/production`, `/production/:id/outputs`, `/stock`, `/stock/movements`, `/stock-adjustments` | `operations:*` | ✅ 4 |
+| `POST /{imports,production,stock-adjustments}/:id/submit` · `/approve` · `/reject` | `operations:submit` / `approve` | ✅ 4 (per record type) |
+| `/exports`, `/exports/:id/measurements` | `operations:*` | ✅ 5 |
+| `/exports/:id/financials`, `/clients` | `finance:view`, `clients:manage` | ✅ 5 |
+| `GET /approvals` (queue of everything submitted) | `operations:approve` | ✅ 6 |
+| `GET/PATCH /settings` | `settings:manage` | ✅ 6 |
+| `GET /accounts/summary`, `/expenses` | `finance:view` | ✅ 7 |
+| `GET /reports`, `/reports/:key`, `/reports/:key/xlsx` (PDF = browser print) | `reports:operational` / `reports:financial` | ✅ 7 |
 
 ## 6. Screens (wireframe outline)
 
@@ -177,10 +180,10 @@ Theme: dark green (`#1B4332`) + white. Tamil/English toggle on every screen.
 | 1 | Project setup, login, role-based dashboards, permission architecture | done |
 | 2 | Import management & unloading | built — web checked in a browser; Android not yet run on a device |
 | 3 | Import measurement & CFT | built — same as Phase 2. Submitted/approved loads are locked for everyone until Phase 6 |
-| 4 | Production & stock | — |
-| 5 | Export management & measurement | — |
-| 6 | Approval workflow & owner controls | — |
-| 7 | Accounts, reports & analytics (PDF/Excel) | — |
+| 4 | Production & stock | built (web) — production runs with finished sizes, stock by load/size, movement history, adjustments; submit/approve/reject on each record page. Android screens not yet built. The Approvals queue page is still Phase 6 |
+| 5 | Export management & measurement | built (web) — export loads, lines picked from finished stock (each line names its import load), owner-only sale details and clients. Android screens not yet built |
+| 6 | Approval workflow & owner controls | built (web) — approval queue across imports, production, exports and adjustments; mill settings (name, unloading rate, new-user language, time zone). Android screens not yet built |
+| 7 | Accounts, reports & analytics (PDF/Excel) | built (web) — Accounts: P&L for any period, other expenses, supplier/client balances. Reports: import/production/export registers, stock summary, P&L, balances, expenses; Excel download (server, exceljs) and Print / Save as PDF (browser, keeps Tamil text correct). Android screens not yet built |
 | 8 | Security testing, UAT, deployment, backups | — |
 
 Per the kickoff document, Phases 2–3 (Import + Measurement) will be demonstrated
@@ -195,3 +198,8 @@ for workflow approval before Phases 4+ are built.
 5. Can one export lorry carry stock from multiple import loads? (Schema allows one
    reference per export *measurement line*, so yes.)
 6. Production: is input raw CFT recorded per run, or derived at load level?
+   *Built as: entered per run (the form offers "use all" of what's left in the load).
+   Waste = input − finished CFT. Finished CFT higher than input is allowed but flagged,
+   since log CFT (girth formula) can under-measure.* Confirm with the client.
+7. Stock never goes below zero: approving a run, an adjustment, or an owner correction
+   that would overdraw a load is refused. Confirm this is wanted (vs. allowing it with a warning).

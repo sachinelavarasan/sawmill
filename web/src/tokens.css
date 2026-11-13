@@ -1,0 +1,137 @@
+/*
+ * SAWMILL PRO theme — forest green, white, one timber-amber accent.
+ * Tokens mirror packages/shared/src/theme.ts (used by the Android app); change both together.
+ * Light is the default. Dark applies when the device asks for it, or when the user
+ * picks it with the toggle (which sets data-theme on <html>).
+ */
+:root {
+  --bg: #f4f6f3;
+  --surface: #ffffff;
+  --surface-2: #eef2ee;
+  --border: #dde4de;
+  --text: #14231b;
+  --muted: #55655c;
+  --primary: #1b4332;
+  --primary-hover: #143326;
+  --on-primary: #ffffff;
+  --primary-soft: #e3efe8;
+  --accent: #b45309;
+  --accent-soft: #fcefdc;
+  --ok: #1b6b45;
+  --ok-soft: #e0f2e7;
+  --bad: #a32d22;
+  --bad-soft: #fbe6e3;
+  --hero: #1b4332;
+  --side: #1b4332;
+  --side-text: #d5e5dc;
+  --side-muted: #a9c7b6;
+  --side-active: #2d6a4f;
+  --shadow: 0 1px 2px rgba(20, 35, 27, 0.05);
+  /* chart series (validated: dataviz validator, light on #ffffff) */
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-axis: #c3cbc5;
+
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+
+  color-scheme: light;
+  font-family: Inter, 'Noto Sans Tamil', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--bg);
+}
+
+:root[data-theme='dark'] {
+  --bg: #0e1512;
+  --surface: #16201b;
+  --surface-2: #1e2b24;
+  --border: #2c3b33;
+  --text: #e8efea;
+  --muted: #9db0a5;
+  --primary: #52b788;
+  --primary-hover: #6cc79b;
+  --on-primary: #0b1f16;
+  --primary-soft: #1d3a2c;
+  --accent: #f0a04b;
+  --accent-soft: #3a2a14;
+  --ok: #6fd3a0;
+  --ok-soft: #173526;
+  --bad: #f2958b;
+  --bad-soft: #3d1d19;
+  --hero: #12281e;
+  --side: #101a15;
+  --side-text: #d5e5dc;
+  --side-muted: #9db0a5;
+  --side-active: #1d3a2c;
+  --shadow: none;
+  /* chart series (validated on #16201b) */
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-axis: #3a4a41;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0e1512;
+    --surface: #16201b;
+    --surface-2: #1e2b24;
+    --border: #2c3b33;
+    --text: #e8efea;
+    --muted: #9db0a5;
+    --primary: #52b788;
+    --primary-hover: #6cc79b;
+    --on-primary: #0b1f16;
+    --primary-soft: #1d3a2c;
+    --accent: #f0a04b;
+    --accent-soft: #3a2a14;
+    --ok: #6fd3a0;
+    --ok-soft: #173526;
+    --bad: #f2958b;
+    --bad-soft: #3d1d19;
+    --hero: #12281e;
+    --side: #101a15;
+    --side-text: #d5e5dc;
+    --side-muted: #9db0a5;
+    --side-active: #1d3a2c;
+    --shadow: none;
+    --chart-1: #3987e5;
+    --chart-2: #d95926;
+    --chart-axis: #3a4a41;
+    color-scheme: dark;
+  }
+}
+
+body { margin: 0; background: var(--bg); color: var(--text); }
+
+/* Paper is white: always print with the light palette, even in dark mode. */
+@media print {
+  :root,
+  :root[data-theme='dark'],
+  :root:not([data-theme='light']) {
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #eef2ee;
+    --border: #dde4de;
+    --text: #14231b;
+    --muted: #55655c;
+    --primary: #1b4332;
+    --primary-hover: #143326;
+    --on-primary: #ffffff;
+    --primary-soft: #e3efe8;
+    --accent: #b45309;
+    --accent-soft: #fcefdc;
+    --ok: #1b6b45;
+    --ok-soft: #e0f2e7;
+    --bad: #a32d22;
+    --bad-soft: #fbe6e3;
+    --shadow: none;
+    --chart-1: #2a78d6;
+    --chart-2: #eb6834;
+    --chart-axis: #c3cbc5;
+    color-scheme: light;
+  }
+}

@@ -46,11 +46,14 @@ export class JwtAuthGuard implements CanActivate {
         username: users.username,
         role: users.role,
         isActive: users.isActive,
+        tokenVersion: users.tokenVersion,
       })
       .from(users)
       .where(eq(users.id, payload.sub))
       .limit(1);
     if (!user || !user.isActive) throw new UnauthorizedException('Account is disabled');
+    // password reset / disable / role change since this token was issued
+    if ((payload.tv ?? 0) !== user.tokenVersion) throw new UnauthorizedException('Session expired, please log in again');
 
     const authUser: AuthUser = {
       id: user.id,

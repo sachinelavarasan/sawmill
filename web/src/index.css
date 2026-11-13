@@ -1,0 +1,82 @@
+/*
+ * Stylesheet entry: Tailwind v4 + shadcn/ui on the SAWMILL PRO theme.
+ * Colours are defined once in tokens.css (light + dark) and mapped to Tailwind /
+ * shadcn colour names below. Components: src/components/ui (shadcn) and
+ * src/components/page.tsx (app building blocks).
+ */
+
+@import 'tailwindcss';
+@import 'tw-animate-css';
+/* the app's colour tokens (light + dark), shared by everything below */
+@import './tokens.css' layer(base);
+
+/*
+ * Dark mode follows the same rule as the rest of the app: the device setting,
+ * unless the user picked a theme with the toggle (data-theme on <html>).
+ */
+@custom-variant dark {
+  &:where([data-theme='dark'], [data-theme='dark'] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme='light']), :root:not([data-theme='light']) *) {
+      @slot;
+    }
+  }
+}
+
+/*
+ * shadcn's colour names, mapped onto the app's own tokens (defined in tokens.css
+ * for light and dark, mirrored in packages/shared/src/theme.ts for Android).
+ * Note the app's --muted is a text colour and --accent is the amber highlight;
+ * shadcn's "muted"/"accent" are quiet surfaces, hence the mapping below.
+ */
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--on-primary);
+  --color-secondary: var(--surface-2);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--surface-2);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--surface-2);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--bad);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--primary);
+
+  /* brand extras */
+  --color-primary-soft: var(--primary-soft);
+  --color-success: var(--ok);
+  --color-success-soft: var(--ok-soft);
+  --color-warning: var(--accent);
+  --color-warning-soft: var(--accent-soft);
+  --color-destructive-soft: var(--bad-soft);
+  --color-hero: var(--hero);
+  --color-sidebar: var(--side);
+  --color-sidebar-foreground: var(--side-text);
+  --color-sidebar-muted: var(--side-muted);
+  --color-sidebar-active: var(--side-active);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-axis: var(--chart-axis);
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+
+  --font-sans: Inter, 'Noto Sans Tamil', system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+}

@@ -1,9 +1,21 @@
 import { formatDuration, importLogCft, Permission } from '@sawmill/shared';
-import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { CheckIcon, ClockIcon, HashIcon, PencilIcon, PlusIcon, RulerIcon, Trash2Icon, WalletIcon, XIcon } from 'lucide-react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
+import { useLocation, useParams } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
-import { dateTime, Icon, Kpi, LoadState, money, num3, StatusBadge, useLoad } from '../components/ui';
+import { dateTime, money, num3, useLoad } from '../components/common';
+import { useConfirmDelete } from '../components/confirm';
+import { EntryField, EntryFigure, EntryRow, Field, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging, wide } from '../components/page';
+import { StatusBadge } from '../components/status-badge';
+import { WorkflowBar } from '../components/workflow';
 import { useI18n } from '../i18n';
 import { fromLocalInput, ImportFields, ImportForm, importFormBody, ImportSummary, toLocalInput } from './Imports';
 
@@ -33,6 +45,8 @@ interface ImportDetail extends ImportSummary {
   originLocation: string | null;
   notes: string | null;
   editable: boolean;
+  canSubmit: boolean;
+  canReview: boolean;
   defaultUnloadingRate: number | null;
   unloadings: Unloading[];
   logs: Log[];
@@ -61,36 +75,43 @@ export function ImportDetailPage() {
   const unloadingTotal = load?.unloadings.reduce((sum, u) => sum + (u.totalCharges ?? 0), 0) ?? 0;
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <div>
-          <Link className="back-link" to="/imports">
-            ← {t('imports')}
-          </Link>
-          <h1 className="title-row">
-            {load?.code ?? t('importDetails')}
-            {load && <StatusBadge status={load.status} />}
-          </h1>
-          {load && (
-            <p className="muted">
+    <Page>
+      <PageHeader
+        title={load?.code ?? t('importDetails')}
+        back={{ to: '/imports', label: t('imports') }}
+        badge={load && <StatusBadge status={load.status} />}
+        subtitle={
+          load && (
+            <>
               {t('lorry')} {load.lorryNumber} · {load.woodType} · {dateTime(load.arrivalAt)}
-            </p>
-          )}
-        </div>
-      </div>
+            </>
+          )
+        }
+      />
 
       <LoadState loading={loading && !load} error={error} onRetry={reload} />
 
       {load && (
         <>
-          {!load.editable && <div className="notice notice-info">{t('lockedRecord')}</div>}
-          {load.rejectionReason && <div className="notice notice-error">{load.rejectionReason}</div>}
+          {!load.editable && load.status !== 'SUBMITTED' && <Notice>{t('lockedRecord')}</Notice>}
+          {load.rejectionReason && <Notice tone="error">{load.rejectionReason}</Notice>}
 
-          <div className="kpi-grid">
-            <Kpi label={t('logsMeasured')} value={load.totalLogs} />
-            <Kpi label={t('totalCft')} value={num3(load.totalCft)} unit="CFT" />
-            <Kpi label={t('totalUnloadingCharges')} value={money(unloadingTotal)} />
-          </div>
+          <StatGrid className="lg:grid-cols-3">
+            <Stat icon={<HashIcon />} label={t('logsMeasured')} value={load.totalLogs} />
+            <Stat icon={<RulerIcon />} label={t('totalCft')} value={num3(load.totalCft)} unit="CFT" />
+            <Stat icon={<WalletIcon />} label={t('totalUnloadingCharges')} value={money(unloadingTotal)} className="max-lg:col-span-2" />
+          </StatGrid>
+
+          <WorkflowBar
+            base={`/imports/${load.id}`}
+            status={load.status}
+            canSubmit={load.canSubmit}
+            canReview={load.canReview}
+            submitBlocked={load.totalLogs === 0 ? t('needLogsToSubmit') : null}
+            confirmApprove={t('confirmApprove', { code: load.code, cft: num3(load.totalCft) })}
+            approvedNote={load.editable ? t('approvedStockNote') : undefined}
+            onDone={reload}
+          />
 
           <DetailsSection load={load} onSaved={reload} />
           <UnloadingSection load={load} onChanged={reload} />
@@ -98,19 +119,7 @@ export function ImportDetailPage() {
           <LogsSection load={load} onChanged={reload} />
         </>
       )}
-    </div>
-  );
-}
-
-function Section({ title, tools, children }: { title: ReactNode; tools?: ReactNode; children: ReactNode }) {
-  return (
-    <>
-      <div className="section-head">
-        <h2 className="section-title">{title}</h2>
-        {tools}
-      </div>
-      {children}
-    </>
+    </Page>
   );
 }
 
@@ -169,34 +178,38 @@ function DetailsSection({ load, onSaved }: { load: ImportDetail; onSaved: () => 
       tools={
         load.editable &&
         !form && (
-          <button className="btn btn-small" onClick={startEdit}>
-            {t('edit')}
-          </button>
+          <Button variant="outline" size="sm" onClick={startEdit}>
+            <PencilIcon /> {t('edit')}
+          </Button>
         )
       }
     >
       {form ? (
-        <form className="card form-card" onSubmit={submit}>
+        <FormCard onSubmit={submit}>
           <ImportFields form={form} onChange={setForm} />
-          {error && <div className="notice notice-error">{error}</div>}
-          <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>
+          {error && <Notice tone="error">{error}</Notice>}
+          <FormActions>
+            <Button type="button" variant="ghost" onClick={() => setForm(null)}>
               {t('cancel')}
-            </button>
-            <button className="btn btn-primary" disabled={busy}>
+            </Button>
+            <Button type="submit" disabled={busy}>
               {t('save')}
-            </button>
-          </div>
-        </form>
+            </Button>
+          </FormActions>
+        </FormCard>
       ) : (
-        <dl className="card facts">
-          {facts.map(([label, value]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>{value || '—'}</dd>
-            </div>
-          ))}
-        </dl>
+        <Card className="py-5">
+          <CardContent className="px-5">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-4 md:grid-cols-4">
+              {facts.map(([label, value]) => (
+                <div key={label} className="min-w-0">
+                  <dt className="text-xs text-muted-foreground">{label}</dt>
+                  <dd className="mt-0.5 font-medium break-words">{value || '—'}</dd>
+                </div>
+              ))}
+            </dl>
+          </CardContent>
+        </Card>
       )}
     </Section>
   );
@@ -206,6 +219,7 @@ function DetailsSection({ load, onSaved }: { load: ImportDetail; onSaved: () => 
 
 function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: () => void }) {
   const { t } = useI18n();
+  const confirmDelete = useConfirmDelete();
   const blank = () => ({
     vehicleNumber: '',
     driverName: '',
@@ -249,8 +263,12 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
   const endNow = (u: Unloading) =>
     run(() => api(`/imports/${load.id}/unloading/${u.id}`, { method: 'PATCH', body: JSON.stringify({ endAt: new Date().toISOString() }) }));
   const remove = (u: Unloading) => {
-    if (window.confirm(t('confirmDelete'))) run(() => api(`/imports/${load.id}/unloading/${u.id}`, { method: 'DELETE' }));
+    confirmDelete().then((ok) => {
+      if (ok) run(() => api(`/imports/${load.id}/unloading/${u.id}`, { method: 'DELETE' }));
+    });
   };
+
+  const unloadings = useClientPaging(load.unloadings, 10);
 
   return (
     <Section
@@ -258,101 +276,95 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
       tools={
         load.editable &&
         !form && (
-          <button className="btn btn-small" onClick={() => setForm(blank())}>
-            + {t('addUnloading')}
-          </button>
+          <Button variant="outline" size="sm" onClick={() => setForm(blank())}>
+            <PlusIcon /> {t('addUnloading')}
+          </Button>
         )
       }
     >
-      {error && <div className="notice notice-error">{error}</div>}
+      {error && <Notice tone="error">{error}</Notice>}
       {form && (
-        <form className="card form-card" onSubmit={submit}>
-          <div className="form-grid">
-            <label className="field">
-              <span>{t('vehicleNumber')} *</span>
-              <input value={form.vehicleNumber} onChange={set('vehicleNumber')} required minLength={2} maxLength={20} autoFocus />
-            </label>
-            <label className="field">
-              <span>{t('driverName')}</span>
-              <input value={form.driverName} onChange={set('driverName')} maxLength={100} />
-            </label>
-            <label className="field">
-              <span>{t('startTime')}</span>
-              <input type="datetime-local" value={form.startAt} onChange={set('startAt')} required />
-            </label>
-            <label className="field">
-              <span>{t('endTime')}</span>
-              <input type="datetime-local" value={form.endAt} onChange={set('endAt')} min={form.startAt} />
-            </label>
-            <label className="field">
-              <span>{t('ratePerHour')}</span>
-              <input type="number" value={form.ratePerHour} onChange={set('ratePerHour')} min={0} step="0.01" inputMode="decimal" />
-              <small className="muted">{t('calcFromRate')}</small>
-            </label>
-          </div>
-          <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>
+        <FormCard onSubmit={submit}>
+          <FormGrid>
+            <Field id="unl-vehicle" label={`${t('vehicleNumber')} *`}>
+              <Input id="unl-vehicle" value={form.vehicleNumber} onChange={set('vehicleNumber')} required minLength={2} maxLength={20} autoFocus />
+            </Field>
+            <Field id="unl-driver" label={t('driverName')}>
+              <Input id="unl-driver" value={form.driverName} onChange={set('driverName')} maxLength={100} />
+            </Field>
+            <Field id="unl-start" label={t('startTime')}>
+              <Input id="unl-start" type="datetime-local" value={form.startAt} onChange={set('startAt')} required />
+            </Field>
+            <Field id="unl-end" label={t('endTime')}>
+              <Input id="unl-end" type="datetime-local" value={form.endAt} onChange={set('endAt')} min={form.startAt} />
+            </Field>
+            <Field id="unl-rate" label={t('ratePerHour')} hint={t('calcFromRate')}>
+              <Input id="unl-rate" type="number" value={form.ratePerHour} onChange={set('ratePerHour')} min={0} step="0.01" inputMode="decimal" />
+            </Field>
+          </FormGrid>
+          <FormActions>
+            <Button type="button" variant="ghost" onClick={() => setForm(null)}>
               {t('cancel')}
-            </button>
-            <button className="btn btn-primary">{t('save')}</button>
-          </div>
-        </form>
+            </Button>
+            <Button type="submit">{t('save')}</Button>
+          </FormActions>
+        </FormCard>
       )}
-      <div className="card table-wrap">
-        {load.unloadings.length === 0 ? (
-          <div className="empty">{t('noUnloading')}</div>
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>{t('vehicleNumber')}</th>
-                <th className="hide-sm">{t('startTime')}</th>
-                <th className="hide-sm">{t('endTime')}</th>
-                <th className="num">{t('duration')}</th>
-                <th className="num hide-sm">{t('ratePerHour')}</th>
-                <th className="num">{t('totalCharges')}</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {load.unloadings.map((u) => (
-                <tr key={u.id}>
-                  <td>
-                    {u.vehicleNumber}
-                    {u.driverName && <div className="muted small">{u.driverName}</div>}
-                  </td>
-                  <td className="hide-sm">{dateTime(u.startAt)}</td>
-                  <td className="hide-sm">{u.endAt ? dateTime(u.endAt) : '—'}</td>
-                  <td className="num">
-                    {u.durationMinutes != null ? (
-                      formatDuration(u.durationMinutes)
-                    ) : (
-                      <span className="status status-submitted">{t('inProgress')}</span>
-                    )}
-                  </td>
-                  <td className="num hide-sm">{u.ratePerHour != null ? money(u.ratePerHour) : '—'}</td>
-                  <td className="num">{u.totalCharges != null ? money(u.totalCharges) : '—'}</td>
-                  <td className="actions">
-                    {load.editable && (
-                      <>
-                        {!u.endAt && (
-                          <button className="btn btn-small" onClick={() => endNow(u)}>
-                            {t('endNow')}
-                          </button>
-                        )}
-                        <button className="btn btn-small btn-ghost" aria-label={t('delete')} onClick={() => remove(u)}>
-                          <Icon name="trash" size={16} />
-                          <span className="btn-label">{t('delete')}</span>
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <TableCard empty={load.unloadings.length === 0} emptyText={t('noUnloading')} pager={unloadings.pager}>
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead className="pl-4">{t('vehicleNumber')}</TableHead>
+              <TableHead className={wide}>{t('startTime')}</TableHead>
+              <TableHead className={wide}>{t('endTime')}</TableHead>
+              <TableHead className={numCell}>{t('duration')}</TableHead>
+              <TableHead className={cn(numCell, wide)}>{t('ratePerHour')}</TableHead>
+              <TableHead className={numCell}>{t('totalCharges')}</TableHead>
+              <TableHead className="pr-4" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {unloadings.rows.map((u) => (
+              <TableRow key={u.id}>
+                <TableCell className="pl-4 font-medium">
+                  {u.vehicleNumber}
+                  {u.driverName && <div className="text-xs font-normal text-muted-foreground">{u.driverName}</div>}
+                  <div className="text-xs font-normal text-muted-foreground md:hidden">{dateTime(u.startAt)}</div>
+                </TableCell>
+                <TableCell className={cn(wide, 'text-muted-foreground')}>{dateTime(u.startAt)}</TableCell>
+                <TableCell className={cn(wide, 'text-muted-foreground')}>{u.endAt ? dateTime(u.endAt) : '—'}</TableCell>
+                <TableCell className={numCell}>
+                  {u.durationMinutes != null ? (
+                    formatDuration(u.durationMinutes)
+                  ) : (
+                    <Badge variant="secondary" className="rounded-full border-transparent bg-warning-soft font-semibold text-warning">
+                      {t('inProgress')}
+                    </Badge>
+                  )}
+                </TableCell>
+                <TableCell className={cn(numCell, wide)}>{u.ratePerHour != null ? money(u.ratePerHour) : '—'}</TableCell>
+                <TableCell className={cn(numCell, 'font-semibold')}>{u.totalCharges != null ? money(u.totalCharges) : '—'}</TableCell>
+                <TableCell className="pr-4 text-right">
+                  {load.editable && (
+                    <div className="flex justify-end gap-1">
+                      {!u.endAt && (
+                        <Button variant="outline" size="sm" onClick={() => endNow(u)} aria-label={t('endNow')}>
+                          <ClockIcon />
+                          <span className="max-md:sr-only">{t('endNow')}</span>
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" aria-label={t('delete')} onClick={() => remove(u)}>
+                        <Trash2Icon />
+                        <span className="max-md:sr-only">{t('delete')}</span>
+                      </Button>
+                    </div>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableCard>
     </Section>
   );
 }
@@ -371,6 +383,9 @@ interface Financials {
 
 const str = (n: number | null) => (n == null ? '' : String(n));
 const numOrNull = (v: string) => (v.trim() === '' ? null : Number(v));
+/** Radix Select can't hold '', so "no supplier" is this sentinel in the picker. */
+const NO_SUPPLIER = 'none';
+const PAY_TONE = { UNPAID: 'bg-muted text-muted-foreground', PARTIAL: 'bg-warning-soft text-warning', PAID: 'bg-success-soft text-success' } as const;
 
 function PurchaseSection({ load, canPickSupplier }: { load: ImportDetail; canPickSupplier: boolean }) {
   const { t } = useI18n();
@@ -420,75 +435,83 @@ function PurchaseSection({ load, canPickSupplier }: { load: ImportDetail; canPic
   const rate = form ? positive(form.rate) : null;
   const fillAmount = () => rate != null && setForm((f) => (f ? { ...f, amount: (rate * load.totalCft).toFixed(2) } : f));
   const balance = data?.purchaseAmount != null ? data.purchaseAmount - data.amountPaid : null;
-  const payKey = ({ UNPAID: 'unpaid', PARTIAL: 'partial', PAID: 'paid' } as const)[data?.paymentStatus ?? 'UNPAID'];
-  const payClass = { UNPAID: 'status-draft', PARTIAL: 'status-submitted', PAID: 'status-approved' }[data?.paymentStatus ?? 'UNPAID'];
+  const pay = data?.paymentStatus ?? 'UNPAID';
+  const payKey = ({ UNPAID: 'unpaid', PARTIAL: 'partial', PAID: 'paid' } as const)[pay];
 
   return (
     <Section
       title={
         <>
-          {t('purchaseDetails')}{' '}
-          <span className="lock">
-            <Icon name="lock" size={12} />
-            {t('ownerOnly')}
-          </span>
+          {t('purchaseDetails')} <OwnerOnly />
         </>
       }
     >
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
       {form && (
-        <form className="card form-card" onSubmit={submit}>
-          <div className="form-grid">
-            <label className="field">
-              <span>{t('supplier')}</span>
-              <select value={form.supplierId} onChange={set('supplierId')}>
-                <option value="">{t('noSupplier')}</option>
-                {suppliers.data?.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>{t('purchaseRate')}</span>
-              <input type="number" value={form.rate} onChange={set('rate')} min={0} step="0.01" inputMode="decimal" />
-            </label>
-            <label className="field">
-              <span>{t('purchaseAmount')}</span>
-              <input type="number" value={form.amount} onChange={set('amount')} min={0} step="0.01" inputMode="decimal" />
-              <button type="button" className="link-btn" disabled={rate == null} onClick={fillAmount}>
-                {t('rateTimesCft')}
-                {rate != null && ` = ${money(rate * load.totalCft)}`}
-              </button>
-            </label>
-            <label className="field">
-              <span>{t('transportCharges')}</span>
-              <input type="number" value={form.transport} onChange={set('transport')} min={0} step="0.01" inputMode="decimal" />
-            </label>
-            <label className="field">
-              <span>{t('amountPaid')}</span>
-              <input type="number" value={form.paid} onChange={set('paid')} min={0} step="0.01" inputMode="decimal" />
-            </label>
-            <label className="field">
-              <span>{t('notes')}</span>
-              <input value={form.notes} onChange={set('notes')} maxLength={1000} />
-            </label>
-          </div>
-          {message && <div className={`notice notice-${message.kind}`}>{message.text}</div>}
-          <div className="form-actions">
-            <span className="form-summary">
-              {t('paymentStatus')}: <span className={`status ${payClass}`}>{t(payKey)}</span>
-              {balance != null && (
-                <>
-                  {' '}
-                  · {t('balance')}: <strong>{money(balance)}</strong>
-                </>
-              )}
-            </span>
-            <button className="btn btn-primary">{t('save')}</button>
-          </div>
-        </form>
+        <FormCard onSubmit={submit}>
+          <FormGrid>
+            <Field label={t('supplier')}>
+              <Select value={form.supplierId || NO_SUPPLIER} onValueChange={(v) => setForm({ ...form, supplierId: v === NO_SUPPLIER ? '' : v })}>
+                <SelectTrigger className="w-full" aria-label={t('supplier')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_SUPPLIER}>{t('noSupplier')}</SelectItem>
+                  {suppliers.data?.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field id="pur-rate" label={t('purchaseRate')}>
+              <Input id="pur-rate" type="number" value={form.rate} onChange={set('rate')} min={0} step="0.01" inputMode="decimal" />
+            </Field>
+            <Field
+              id="pur-amount"
+              label={t('purchaseAmount')}
+              hint={
+                <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" disabled={rate == null} onClick={fillAmount}>
+                  {t('rateTimesCft')}
+                  {rate != null && ` = ${money(rate * load.totalCft)}`}
+                </Button>
+              }
+            >
+              <Input id="pur-amount" type="number" value={form.amount} onChange={set('amount')} min={0} step="0.01" inputMode="decimal" />
+            </Field>
+            <Field id="pur-transport" label={t('transportCharges')}>
+              <Input id="pur-transport" type="number" value={form.transport} onChange={set('transport')} min={0} step="0.01" inputMode="decimal" />
+            </Field>
+            <Field id="pur-paid" label={t('amountPaid')}>
+              <Input id="pur-paid" type="number" value={form.paid} onChange={set('paid')} min={0} step="0.01" inputMode="decimal" />
+            </Field>
+            <Field id="pur-notes" label={t('notes')}>
+              <Input id="pur-notes" value={form.notes} onChange={set('notes')} maxLength={1000} />
+            </Field>
+          </FormGrid>
+          {message && <Notice tone={message.kind}>{message.text}</Notice>}
+          <FormActions
+            summary={
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                {t('paymentStatus')}:
+                <Badge variant="secondary" className={cn('rounded-full border-transparent font-semibold', PAY_TONE[pay])}>
+                  {t(payKey)}
+                </Badge>
+                {balance != null && (
+                  <>
+                    <span>·</span>
+                    <span>
+                      {t('balance')}: <strong className="text-foreground tabular-nums">{money(balance)}</strong>
+                    </span>
+                  </>
+                )}
+              </span>
+            }
+          >
+            <Button type="submit">{t('save')}</Button>
+          </FormActions>
+        </FormCard>
       )}
     </Section>
   );
@@ -498,6 +521,7 @@ function PurchaseSection({ load, canPickSupplier }: { load: ImportDetail; canPic
 
 function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () => void }) {
   const { t } = useI18n();
+  const confirmDelete = useConfirmDelete();
   const [girth, setGirth] = useState('');
   const [length, setLength] = useState('');
   const [editing, setEditing] = useState<{ id: string; girth: string; length: string } | null>(null);
@@ -530,6 +554,7 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
       await api(`/imports/${load.id}/logs`, { method: 'POST', body: JSON.stringify({ girthIn: g, lengthFt: l }) });
       setGirth('');
       setLength('');
+      logs.reset(); // the new log is the first row of page 1
       girthRef.current?.focus(); // ready for the next log without touching the mouse
     });
   }
@@ -547,117 +572,157 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
   }
 
   const remove = (log: Log) => {
-    if (window.confirm(t('confirmDelete'))) run(() => api(`/imports/${load.id}/logs/${log.id}`, { method: 'DELETE' }));
+    confirmDelete().then((ok) => {
+      if (ok) run(() => api(`/imports/${load.id}/logs/${log.id}`, { method: 'DELETE' }));
+    });
   };
 
   const newestFirst = [...load.logs].reverse();
+  const logs = useClientPaging(newestFirst);
+  const cellInput = 'ml-auto h-8 w-24 text-right tabular-nums';
 
   return (
-    <section id="logs" className="page-section">
-      <Section title={t('measurement')}>
-        {load.editable && (
-          <form className="card log-entry" onSubmit={add}>
-            <div className="log-entry-no">
-              <span className="muted small">{t('logNo')}</span>
-              <strong>{nextNo}</strong>
-            </div>
-            <label className="field">
-              <span>{t('girth')}</span>
-              <input ref={girthRef} type="number" value={girth} onChange={(e) => setGirth(e.target.value)} min={0.01} max={999} step="0.01" inputMode="decimal" required />
-            </label>
-            <label className="field">
-              <span>{t('lengthFt')}</span>
-              <input type="number" value={length} onChange={(e) => setLength(e.target.value)} min={0.01} max={999} step="0.01" inputMode="decimal" required />
-            </label>
-            <div className="log-entry-cft">
-              <span className="muted small">CFT</span>
-              <strong>{liveCft != null ? num3(liveCft) : '0.000'}</strong>
-            </div>
-            <button className="btn btn-primary" disabled={busy || liveCft == null}>
-              {t('saveLog', { n: nextNo })}
-            </button>
-          </form>
-        )}
-        {error && <div className="notice notice-error">{error}</div>}
+    <Section id="logs" title={t('measurement')}>
+      {load.editable && (
+        <EntryRow
+          onSubmit={add}
+          result={liveCft != null ? num3(liveCft) : '0.000'}
+          resultLabel="CFT"
+          submitLabel={t('saveLog', { n: nextNo })}
+          submitDisabled={busy || liveCft == null}
+        >
+          <EntryFigure label={t('logNo')}>{nextNo}</EntryFigure>
+          <EntryField
+            label={t('girth')}
+            inputRef={girthRef}
+            value={girth}
+            onChange={(e) => setGirth(e.target.value)}
+            min={0.01}
+            max={999}
+            step="0.01"
+            inputMode="decimal"
+            required
+          />
+          <EntryField
+            label={t('lengthFt')}
+            value={length}
+            onChange={(e) => setLength(e.target.value)}
+            min={0.01}
+            max={999}
+            step="0.01"
+            inputMode="decimal"
+            required
+          />
+        </EntryRow>
+      )}
+      {error && <Notice tone="error">{error}</Notice>}
 
-        <div className="card table-wrap">
-          {load.logs.length === 0 ? (
-            <div className="empty">{t('noLogs')}</div>
-          ) : (
-            <form onSubmit={saveEdit}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>{t('logNo')}</th>
-                    <th className="num">{t('girth')}</th>
-                    <th className="num">{t('lengthFt')}</th>
-                    <th className="num">CFT</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {newestFirst.map((log) =>
-                    editing?.id === log.id ? (
-                      <tr key={log.id}>
-                        <td>{log.logNumber}</td>
-                        <td className="num">
-                          <input className="cell-input" type="number" aria-label={t('girth')} value={editing.girth} onChange={(e) => setEditing({ ...editing, girth: e.target.value })} min={0.01} max={999} step="0.01" required autoFocus />
-                        </td>
-                        <td className="num">
-                          <input className="cell-input" type="number" aria-label={t('lengthFt')} value={editing.length} onChange={(e) => setEditing({ ...editing, length: e.target.value })} min={0.01} max={999} step="0.01" required />
-                        </td>
-                        <td className="num">
-                          {positive(editing.girth) != null && positive(editing.length) != null
-                            ? num3(importLogCft(positive(editing.girth)!, positive(editing.length)!))
-                            : '—'}
-                        </td>
-                        <td className="actions">
-                          <button className="btn btn-small btn-primary" disabled={busy}>
-                            {t('save')}
-                          </button>
-                          <button type="button" className="btn btn-small btn-ghost" onClick={() => setEditing(null)}>
-                            {t('cancel')}
-                          </button>
-                        </td>
-                      </tr>
-                    ) : (
-                      <tr key={log.id}>
-                        <td>{log.logNumber}</td>
-                        <td className="num">{log.girthIn}</td>
-                        <td className="num">{log.lengthFt}</td>
-                        <td className="num">{num3(log.cft)}</td>
-                        <td className="actions">
-                          {load.editable && (
-                            <>
-                              <button type="button" className="btn btn-small" aria-label={t('edit')} onClick={() => setEditing({ id: log.id, girth: String(log.girthIn), length: String(log.lengthFt) })}>
-                                <Icon name="edit" size={16} />
-                                <span className="btn-label">{t('edit')}</span>
-                              </button>
-                              <button type="button" className="btn btn-small btn-ghost" aria-label={t('delete')} onClick={() => remove(log)}>
-                                <Icon name="trash" size={16} />
-                                <span className="btn-label">{t('delete')}</span>
-                              </button>
-                            </>
-                          )}
-                        </td>
-                      </tr>
-                    ),
-                  )}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td colSpan={3}>
-                      {t('logsMeasured')}: {load.totalLogs}
-                    </td>
-                    <td className="num">{num3(load.totalCft)}</td>
-                    <td />
-                  </tr>
-                </tfoot>
-              </table>
-            </form>
-          )}
-        </div>
-      </Section>
-    </section>
+      <TableCard empty={load.logs.length === 0} emptyText={t('noLogs')} pager={logs.pager}>
+        <form onSubmit={saveEdit}>
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                <TableHead className="pl-4">{t('logNo')}</TableHead>
+                <TableHead className={numCell}>{t('girth')}</TableHead>
+                <TableHead className={numCell}>{t('lengthFt')}</TableHead>
+                <TableHead className={numCell}>CFT</TableHead>
+                <TableHead className="pr-4" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {logs.rows.map((log) =>
+                editing?.id === log.id ? (
+                  <TableRow key={log.id} data-state="selected">
+                    <TableCell className="pl-4 font-medium">{log.logNumber}</TableCell>
+                    <TableCell className={numCell}>
+                      <Input
+                        className={cellInput}
+                        type="number"
+                        aria-label={t('girth')}
+                        value={editing.girth}
+                        onChange={(e) => setEditing({ ...editing, girth: e.target.value })}
+                        min={0.01}
+                        max={999}
+                        step="0.01"
+                        inputMode="decimal"
+                        required
+                        autoFocus
+                      />
+                    </TableCell>
+                    <TableCell className={numCell}>
+                      <Input
+                        className={cellInput}
+                        type="number"
+                        aria-label={t('lengthFt')}
+                        value={editing.length}
+                        onChange={(e) => setEditing({ ...editing, length: e.target.value })}
+                        min={0.01}
+                        max={999}
+                        step="0.01"
+                        inputMode="decimal"
+                        required
+                      />
+                    </TableCell>
+                    <TableCell className={cn(numCell, 'font-semibold')}>
+                      {positive(editing.girth) != null && positive(editing.length) != null
+                        ? num3(importLogCft(positive(editing.girth)!, positive(editing.length)!))
+                        : '—'}
+                    </TableCell>
+                    <TableCell className="pr-4 text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button type="submit" size="sm" disabled={busy} aria-label={t('save')}>
+                          <CheckIcon />
+                          <span className="max-md:sr-only">{t('save')}</span>
+                        </Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(null)} aria-label={t('cancel')}>
+                          <XIcon />
+                          <span className="max-md:sr-only">{t('cancel')}</span>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  <TableRow key={log.id}>
+                    <TableCell className="pl-4 font-medium">{log.logNumber}</TableCell>
+                    <TableCell className={numCell}>{log.girthIn}</TableCell>
+                    <TableCell className={numCell}>{log.lengthFt}</TableCell>
+                    <TableCell className={cn(numCell, 'font-semibold')}>{num3(log.cft)}</TableCell>
+                    <TableCell className="pr-4 text-right">
+                      {load.editable && (
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            aria-label={t('edit')}
+                            onClick={() => setEditing({ id: log.id, girth: String(log.girthIn), length: String(log.lengthFt) })}
+                          >
+                            <PencilIcon />
+                            <span className="max-md:sr-only">{t('edit')}</span>
+                          </Button>
+                          <Button type="button" variant="ghost" size="sm" aria-label={t('delete')} onClick={() => remove(log)}>
+                            <Trash2Icon />
+                            <span className="max-md:sr-only">{t('delete')}</span>
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ),
+              )}
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={3} className="pl-4">
+                  {t('logsMeasured')}: {load.totalLogs}
+                </TableCell>
+                <TableCell className={numCell}>{num3(load.totalCft)}</TableCell>
+                <TableCell className="pr-4" />
+              </TableRow>
+            </TableFooter>
+          </Table>
+        </form>
+      </TableCard>
+    </Section>
   );
 }

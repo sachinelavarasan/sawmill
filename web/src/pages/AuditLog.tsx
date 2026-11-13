@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import { api } from '../api';
-import { dateTime, LoadState, useLoad } from '../components/ui';
+import { dateTime, useLoad } from '../components/common';
+import { LoadState, Page, PageHeader, usePaging, TableCard, wide } from '../components/page';
 import { useI18n } from '../i18n';
 
 interface AuditRow {
@@ -13,64 +15,55 @@ interface AuditRow {
   user: { name: string; username: string; role: string } | null;
 }
 
-const PAGE = 50;
 
 export function AuditLogPage() {
   const { t } = useI18n();
-  const [skip, setSkip] = useState(0);
+  const paging = usePaging();
   const { data, loading, error, reload } = useLoad(
-    () => api<{ items: AuditRow[]; total: number }>(`/audit-logs?take=${PAGE}&skip=${skip}`),
-    [skip],
+    () => api<{ items: AuditRow[]; total: number }>(`/audit-logs?take=${paging.take}&skip=${paging.skip}`),
+    [paging.skip, paging.take],
   );
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <h1>{t('auditLog')}</h1>
-      </div>
+    <Page>
+      <PageHeader title={t('auditLog')} />
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
       {data && (
         <>
-          <div className="card table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>{t('time')}</th>
-                  <th>{t('user')}</th>
-                  <th>{t('action')}</th>
-                  <th>{t('record')}</th>
-                  <th>IP</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.items.map((r) => (
-                  <tr key={r.id}>
-                    <td>{dateTime(r.createdAt)}</td>
-                    <td>{r.user ? `${r.user.name} (${r.user.username})` : '—'}</td>
-                    <td>
-                      <code>{r.action}</code>
-                    </td>
-                    <td>{r.entityType}</td>
-                    <td className="muted small">{r.ip ?? '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {data.items.length === 0 && <div className="empty">{t('noData')}</div>}
-          </div>
-          <div className="pager">
-            <button className="btn btn-small" disabled={skip === 0} onClick={() => setSkip(Math.max(0, skip - PAGE))}>
-              ← {t('previous')}
-            </button>
-            <span className="muted small">
-              {data.total === 0 ? 0 : skip + 1}–{Math.min(skip + PAGE, data.total)} / {data.total}
-            </span>
-            <button className="btn btn-small" disabled={skip + PAGE >= data.total} onClick={() => setSkip(skip + PAGE)}>
-              {t('next')} →
-            </button>
-          </div>
+          <TableCard empty={data.items.length === 0} emptyText={t('noData')} pager={paging.pager(data.total)}>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className={cn(wide, 'pl-4')}>{t('time')}</TableHead>
+                  <TableHead className="max-md:pl-4">{t('action')}</TableHead>
+                  <TableHead className={wide}>{t('user')}</TableHead>
+                  <TableHead className="max-md:pr-4">{t('record')}</TableHead>
+                  <TableHead className={cn(wide, 'pr-4')}>IP</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.items.map((r) => {
+                  const who = r.user ? `${r.user.name} (${r.user.username})` : '—';
+                  return (
+                    <TableRow key={r.id}>
+                      <TableCell className={cn(wide, 'pl-4 text-muted-foreground')}>{dateTime(r.createdAt)}</TableCell>
+                      <TableCell className="max-md:pl-4">
+                        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{r.action}</code>
+                        <div className="mt-1 text-xs text-muted-foreground md:hidden">
+                          {dateTime(r.createdAt)} · {who}
+                        </div>
+                      </TableCell>
+                      <TableCell className={wide}>{who}</TableCell>
+                      <TableCell className="max-md:pr-4">{r.entityType}</TableCell>
+                      <TableCell className={cn(wide, 'pr-4 text-xs text-muted-foreground')}>{r.ip ?? '—'}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableCard>
         </>
       )}
-    </div>
+    </Page>
   );
 }

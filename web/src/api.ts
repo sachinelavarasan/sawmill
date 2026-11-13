@@ -114,6 +114,36 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 }
 
+/**
+ * Download a file from the API (e.g. an Excel report) and save it with the
+ * server's filename. Uses the same login/refresh as api().
+ */
+export async function download(path: string): Promise<void> {
+  const get = () => fetch(`${BASE}${path}`, { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {} });
+  let res = await get();
+  if (res.status === 401 && (await tryRefresh())) res = await get();
+  if (!res.ok) {
+    if (res.status === 401) onSessionLost();
+    let message = res.statusText;
+    try {
+      const body = await res.json();
+      message = Array.isArray(body.message) ? body.message.join(', ') : (body.message ?? message);
+    } catch {
+      /* not JSON */
+    }
+    throw new ApiError(res.status, message);
+  }
+  const filename = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ?? 'download';
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export const auth = {
   async login(username: string, password: string): Promise<Profile> {
     return applyAuth(

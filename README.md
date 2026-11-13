@@ -18,6 +18,7 @@ cp backend/.env.example backend/.env
 npm run db:up                     # PostgreSQL in Docker
 npm run db:migrate                # apply backend/drizzle/*.sql
 npm run db:seed                   # demo mill + owner + accountant
+npm run db:seed:demo              # optional: ~6 months of demo data for every screen (db:seed:demo:reset wipes the DEMO mill's records and re-creates it)
 
 npm run dev                       # API (http://localhost:3000/api) + web (http://localhost:5173) together
 npm run dev:api                   # or just the API
@@ -49,6 +50,25 @@ Schema changes: edit `backend/src/db/schema.ts`, then `npm run db:generate` (cre
 
 For a real phone, copy `mobile/.env.example` to `mobile/.env` and set your computer's LAN IP.
 
+## Web UI (shadcn/ui + Tailwind v4)
+
+Every screen is built from shadcn components + Tailwind classes; there is no hand-written page CSS.
+
+- `web/src/components/ui/` — shadcn components ("new-york" style). Add more with
+  `cd web && npm run ui:add -- <name>` (wraps the shadcn CLI and fixes an import it gets wrong here).
+- `web/src/components/page.tsx` — app building blocks: Page, PageHeader, Section, Stat/StatGrid,
+  TableCard, Pager, Notice, LoadState, Field/FormGrid/FormActions, StatusFilter, EntryRow (fast numeric entry).
+- Colours live once in `web/src/tokens.css` (light + dark; mirrored for Android in
+  `packages/shared/src/theme.ts`). `web/src/index.css` maps them to Tailwind/shadcn names
+  (`bg-primary`, `text-muted-foreground`, `bg-success-soft`, …). Change colours there, never in components.
+- Dark mode follows the theme toggle (`data-theme` on `<html>`) or the device; `dark:` classes work as usual.
+- Confirmations: `useConfirm()` / `useConfirmDelete()` from `web/src/components/confirm.tsx` — not `window.confirm`.
+- Icons: `lucide-react`.
+- Charts: `web/src/components/charts.tsx` (plain SVG, no chart library) — LineChart, ColumnChart, StackedBars in a
+  ChartCard with legend, hover/keyboard tooltip and a Table view. Series colours are `--chart-1` / `--chart-2` in
+  `tokens.css` (blue/orange, checked for colour-blind safety in light and dark). Never use the status colours
+  (green/amber/red) for chart series.
+
 ## Tests
 
 ```bash
@@ -58,4 +78,12 @@ npm run test:e2e                  # imports API against a separate <DB_NAME>_tes
 
 ## Status
 
-Phases 1–3 are built: login, the Owner and Accountant dashboards, user management, the audit log, import loads with unloading, log measurement with CFT, and owner-only purchase details and suppliers. The web app has been checked in a browser; the Android screens have not yet been run on a device. See `docs/TECHNICAL_PLAN.md` for the later phases.
+Phases 1–3 are built: login, the Owner and Accountant dashboards, user management, the audit log, import loads with unloading, log measurement with CFT, and owner-only purchase details and suppliers. The web app has been checked in a browser; the Android screens have not yet been run on a device.
+
+Phase 4 (production & stock) is built on the web: production runs, finished sizes, stock balances and history, stock adjustments, and submit/approve/reject buttons on each record. Stock changes only on approval and never goes below zero (`backend/src/stock/ledger.ts`). Not built yet on Android.
+
+Phase 5 (exports) is built on the web: export loads, measurement lines picked from finished stock, owner-only sale details, and clients. Approving an export takes the pieces out of finished stock, traceable to each import load.
+
+Phase 6 is built on the web: the owner's Approvals queue (everything submitted, oldest first, approve/reject in place) and Settings (mill name, standard unloading rate, language for new users, time zone). See `docs/TECHNICAL_PLAN.md` for the later phases.
+
+Phase 7 is built on the web: Accounts (profit & loss for any period, other expenses, what suppliers are owed and clients owe) and Reports (registers, stock, P&L, balances, expenses) with Excel download and Print / Save as PDF.

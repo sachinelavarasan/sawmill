@@ -11,6 +11,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",
+    "db:seed:demo": "tsx src/db/seed-demo.ts",
+    "db:seed:demo:reset": "tsx src/db/seed-demo.ts --reset",
+    "setup:owner": "tsx src/db/create-owner.ts",
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:e2e": "jest --config test/jest-e2e.json --runInBand"
@@ -29,6 +32,7 @@
     "class-validator": "^0.14.1",
     "dotenv": "^16.4.5",
     "drizzle-orm": "^0.36.4",
+    "exceljs": "^4.4.0",
     "helmet": "^8.0.0",
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.2",

@@ -1,8 +1,15 @@
-import { FormEvent, useState } from 'react';
+import { ArrowRightIcon, PlusIcon, RulerIcon } from 'lucide-react';
+import { FormEvent, useId, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
-import { dateTime, Icon, LoadState, num3, StatusBadge, useLoad } from '../components/ui';
+import { dateTime, num3, useLoad } from '../components/common';
+import { StatusBadge } from '../components/status-badge';
+import { Field, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, Page, PageHeader, usePaging, StatusFilter, TableCard, wide } from '../components/page';
 import { useI18n } from '../i18n';
 
 export interface ImportSummary {
@@ -55,8 +62,6 @@ export const emptyImportForm = (): ImportForm => ({
 
 export const importFormBody = (f: ImportForm) => JSON.stringify({ ...f, arrivalAt: fromLocalInput(f.arrivalAt) });
 
-const PAGE = 50;
-const STATUSES = ['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED'] as const;
 
 /** `/imports` lists every load; `/measurement` (openOnly) lists the ones still being measured. */
 export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
@@ -64,161 +69,134 @@ export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
   const { user } = useAuth();
   const isOwner = user?.role === 'OWNER';
   const [status, setStatus] = useState('');
-  const [skip, setSkip] = useState(0);
-  const query = `take=${PAGE}&skip=${skip}${openOnly ? '&open=1' : status ? `&status=${status}` : ''}`;
+  const paging = usePaging();
+  const query = `take=${paging.take}&skip=${paging.skip}${openOnly ? '&open=1' : status ? `&status=${status}` : ''}`;
   const { data, loading, error, reload } = useLoad(
     () => api<{ items: ImportSummary[]; total: number }>(`/imports?${query}`),
     [query],
   );
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <h1>{t(openOnly ? 'measurement' : 'imports')}</h1>
-        <div className="head-tools">
-          {!openOnly && (
-            <select
-              className="select"
-              aria-label={t('status')}
-              value={status}
-              onChange={(e) => {
-                setStatus(e.target.value);
-                setSkip(0);
-              }}
-            >
-              <option value="">{t('allStatuses')}</option>
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {t(s === 'SUBMITTED' ? 'pending' : (s.toLowerCase() as 'draft' | 'approved' | 'rejected'))}
-                </option>
-              ))}
-            </select>
-          )}
-          <Link className="btn btn-primary" to="/imports/new">
-            + {t('newImport')}
-          </Link>
-        </div>
-      </div>
+    <Page>
+      <PageHeader
+        title={t(openOnly ? 'measurement' : 'imports')}
+        actions={
+          <>
+            {!openOnly && (
+              <StatusFilter
+                value={status}
+                onChange={(v) => {
+                  setStatus(v);
+                  paging.reset();
+                }}
+              />
+            )}
+            <Button asChild>
+              <Link to="/imports/new">
+                <PlusIcon /> {t('newImport')}
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
 
       {data && (
         <>
-          <div className="card table-wrap">
-            {data.items.length === 0 ? (
-              <div className="empty">{t(openOnly ? 'noOpenLoads' : 'noImports')}</div>
-            ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>{t('importId')}</th>
-                    <th className="hide-sm">{t('arrival')}</th>
-                    <th className="hide-sm">{t('lorry')}</th>
-                    <th className="hide-sm">{t('woodType')}</th>
-                    <th className="num hide-sm">{t('logs')}</th>
-                    <th className="num">{t('totalCft')}</th>
-                    <th>{t('status')}</th>
-                    {isOwner && <th className="hide-sm">{t('createdBy')}</th>}
-                    <th className="hide-sm" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.items.map((l) => (
-                    <tr key={l.id}>
-                      <td>
-                        <Link className="row-link" to={`/imports/${l.id}`}>
-                          {l.code}
+          <TableCard empty={data.items.length === 0} emptyText={t(openOnly ? 'noOpenLoads' : 'noImports')} pager={paging.pager(data.total)}>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="pl-4">{t('importId')}</TableHead>
+                  <TableHead className={wide}>{t('arrival')}</TableHead>
+                  <TableHead className={wide}>{t('lorry')}</TableHead>
+                  <TableHead className={wide}>{t('woodType')}</TableHead>
+                  <TableHead className={cn(numCell, wide)}>{t('logs')}</TableHead>
+                  <TableHead className={numCell}>{t('totalCft')}</TableHead>
+                  <TableHead>{t('status')}</TableHead>
+                  {isOwner && <TableHead className={wide}>{t('createdBy')}</TableHead>}
+                  <TableHead className="pr-4" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.items.map((l) => (
+                  <TableRow key={l.id}>
+                    <TableCell className="pl-4 font-medium">
+                      <Link className="text-primary hover:underline" to={`/imports/${l.id}`}>
+                        {l.code}
+                      </Link>
+                      <div className="text-xs text-muted-foreground md:hidden">
+                        {l.lorryNumber} · {l.woodType}
+                      </div>
+                    </TableCell>
+                    <TableCell className={cn(wide, 'text-muted-foreground')}>{dateTime(l.arrivalAt)}</TableCell>
+                    <TableCell className={wide}>{l.lorryNumber}</TableCell>
+                    <TableCell className={wide}>{l.woodType}</TableCell>
+                    <TableCell className={cn(numCell, wide)}>{l.totalLogs}</TableCell>
+                    <TableCell className={cn(numCell, 'font-semibold')}>{num3(l.totalCft)}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={l.status} />
+                    </TableCell>
+                    {isOwner && <TableCell className={wide}>{l.createdByName}</TableCell>}
+                    <TableCell className="pr-4 text-right">
+                      <Button asChild variant="outline" size="sm">
+                        <Link to={`/imports/${l.id}${openOnly ? '#logs' : ''}`} aria-label={t(openOnly ? 'measure' : 'open')}>
+                          {openOnly ? <RulerIcon /> : <ArrowRightIcon />}
+                          <span className="max-md:sr-only">{t(openOnly ? 'measure' : 'open')}</span>
                         </Link>
-                        <div className="muted small show-sm">{l.lorryNumber}</div>
-                      </td>
-                      <td className="hide-sm">{dateTime(l.arrivalAt)}</td>
-                      <td className="hide-sm">{l.lorryNumber}</td>
-                      <td className="hide-sm">{l.woodType}</td>
-                      <td className="num hide-sm">{l.totalLogs}</td>
-                      <td className="num">{num3(l.totalCft)}</td>
-                      <td>
-                        <StatusBadge status={l.status} />
-                      </td>
-                      {isOwner && <td className="hide-sm">{l.createdByName}</td>}
-                      <td className="actions hide-sm">
-                        <Link className="btn btn-small" to={`/imports/${l.id}${openOnly ? '#logs' : ''}`}>
-                          {openOnly && <Icon name="measurement" size={16} />}
-                          {t(openOnly ? 'measure' : 'open')}
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-          {data.total > PAGE && (
-            <div className="pager">
-              <button className="btn btn-small" disabled={skip === 0} onClick={() => setSkip(Math.max(0, skip - PAGE))}>
-                ← {t('previous')}
-              </button>
-              <span className="muted small">
-                {skip + 1}–{Math.min(skip + PAGE, data.total)} / {data.total}
-              </span>
-              <button className="btn btn-small" disabled={skip + PAGE >= data.total} onClick={() => setSkip(skip + PAGE)}>
-                {t('next')} →
-              </button>
-            </div>
-          )}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableCard>
         </>
       )}
-    </div>
+    </Page>
   );
 }
 
 /** The import form fields, shared by "New Import" and the edit panel on the detail page. */
 export function ImportFields({ form, onChange }: { form: ImportForm; onChange: (f: ImportForm) => void }) {
   const { t } = useI18n();
+  const uid = useId();
+  const id = (k: keyof ImportForm) => `${uid}-${k}`;
   const set = (k: keyof ImportForm) => (e: { target: { value: string } }) => onChange({ ...form, [k]: e.target.value });
   return (
-    <div className="form-grid">
-      <label className="field">
-        <span>{t('lorryNumber')} *</span>
-        <input value={form.lorryNumber} onChange={set('lorryNumber')} required minLength={4} maxLength={20} autoCapitalize="characters" placeholder="TN 45 AB 1234" />
-      </label>
-      <label className="field">
-        <span>{t('woodType')} *</span>
-        <input value={form.woodType} onChange={set('woodType')} required minLength={2} maxLength={60} />
-        <small className="muted">{t('woodTypeHint')}</small>
-      </label>
-      <label className="field">
-        <span>{t('arrivalDateTime')}</span>
-        <input type="datetime-local" value={form.arrivalAt} onChange={set('arrivalAt')} required />
-      </label>
-      <label className="field">
-        <span>{t('woodCategory')}</span>
-        <input value={form.woodCategory} onChange={set('woodCategory')} maxLength={60} />
-      </label>
-      <label className="field">
-        <span>{t('driverName')}</span>
-        <input value={form.driverName} onChange={set('driverName')} maxLength={100} />
-      </label>
-      <label className="field">
-        <span>{t('driverMobile')}</span>
-        <input value={form.driverMobile} onChange={set('driverMobile')} inputMode="tel" maxLength={15} />
-      </label>
-      <label className="field">
-        <span>{t('lorryOwnerName')}</span>
-        <input value={form.lorryOwnerName} onChange={set('lorryOwnerName')} maxLength={100} />
-      </label>
-      <label className="field">
-        <span>{t('lorryOwnerMobile')}</span>
-        <input value={form.lorryOwnerMobile} onChange={set('lorryOwnerMobile')} inputMode="tel" maxLength={15} />
-      </label>
-      <label className="field">
-        <span>{t('originLocation')}</span>
-        <input value={form.originLocation} onChange={set('originLocation')} maxLength={120} />
-      </label>
-      <label className="field field-wide">
-        <span>{t('notes')}</span>
-        <input value={form.notes} onChange={set('notes')} maxLength={1000} />
-      </label>
-    </div>
+    <FormGrid>
+      <Field id={id('lorryNumber')} label={`${t('lorryNumber')} *`}>
+        <Input id={id('lorryNumber')} value={form.lorryNumber} onChange={set('lorryNumber')} required minLength={4} maxLength={20} autoCapitalize="characters" placeholder="TN 45 AB 1234" />
+      </Field>
+      <Field id={id('woodType')} label={`${t('woodType')} *`} hint={t('woodTypeHint')}>
+        <Input id={id('woodType')} value={form.woodType} onChange={set('woodType')} required minLength={2} maxLength={60} />
+      </Field>
+      <Field id={id('arrivalAt')} label={t('arrivalDateTime')}>
+        <Input id={id('arrivalAt')} type="datetime-local" value={form.arrivalAt} onChange={set('arrivalAt')} required />
+      </Field>
+      <Field id={id('woodCategory')} label={t('woodCategory')}>
+        <Input id={id('woodCategory')} value={form.woodCategory} onChange={set('woodCategory')} maxLength={60} />
+      </Field>
+      <Field id={id('driverName')} label={t('driverName')}>
+        <Input id={id('driverName')} value={form.driverName} onChange={set('driverName')} maxLength={100} />
+      </Field>
+      <Field id={id('driverMobile')} label={t('driverMobile')}>
+        <Input id={id('driverMobile')} value={form.driverMobile} onChange={set('driverMobile')} inputMode="tel" maxLength={15} />
+      </Field>
+      <Field id={id('lorryOwnerName')} label={t('lorryOwnerName')}>
+        <Input id={id('lorryOwnerName')} value={form.lorryOwnerName} onChange={set('lorryOwnerName')} maxLength={100} />
+      </Field>
+      <Field id={id('lorryOwnerMobile')} label={t('lorryOwnerMobile')}>
+        <Input id={id('lorryOwnerMobile')} value={form.lorryOwnerMobile} onChange={set('lorryOwnerMobile')} inputMode="tel" maxLength={15} />
+      </Field>
+      <Field id={id('originLocation')} label={t('originLocation')}>
+        <Input id={id('originLocation')} value={form.originLocation} onChange={set('originLocation')} maxLength={120} />
+      </Field>
+      <Field id={id('notes')} label={t('notes')} className="sm:col-span-full">
+        <Input id={id('notes')} value={form.notes} onChange={set('notes')} maxLength={1000} />
+      </Field>
+    </FormGrid>
   );
 }
 
@@ -243,27 +221,20 @@ export function NewImportPage() {
   }
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <div>
-          <Link className="back-link" to="/imports">
-            ← {t('imports')}
-          </Link>
-          <h1>{t('newImport')}</h1>
-        </div>
-      </div>
-      <form className="card form-card" onSubmit={submit}>
+    <Page>
+      <PageHeader title={t('newImport')} back={{ to: '/imports', label: t('imports') }} />
+      <FormCard onSubmit={submit}>
         <ImportFields form={form} onChange={setForm} />
-        {error && <div className="notice notice-error">{error}</div>}
-        <div className="form-actions">
-          <Link className="btn btn-ghost" to="/imports">
-            {t('cancel')}
-          </Link>
-          <button className="btn btn-primary" disabled={busy}>
+        {error && <Notice tone="error">{error}</Notice>}
+        <FormActions>
+          <Button asChild variant="ghost">
+            <Link to="/imports">{t('cancel')}</Link>
+          </Button>
+          <Button type="submit" disabled={busy}>
             {t('create')}
-          </button>
-        </div>
-      </form>
-    </div>
+          </Button>
+        </FormActions>
+      </FormCard>
+    </Page>
   );
 }

@@ -100,6 +100,8 @@ export const users = pgTable(
     isActive: boolean('is_active').notNull().default(true),
     preferredLanguage: text('preferred_language').notNull().default('en'),
     lastLoginAt: ts('last_login_at'),
+    /** bumped to end every session at once (password reset, disable, role change) — checked on each request */
+    tokenVersion: integer('token_version').notNull().default(0),
     createdById: uuid('created_by_id'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

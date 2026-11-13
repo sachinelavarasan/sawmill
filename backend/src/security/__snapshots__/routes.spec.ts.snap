@@ -1,0 +1,82 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`API route policies route → policy table is unchanged (review any diff) 1`] = `
+"DELETE /expenses/:id                             finance:view   [owner only]
+DELETE /exports/:id/measurements/:lineId         operations:create
+DELETE /imports/:id/logs/:logId                  operations:create
+DELETE /imports/:id/unloading/:unloadingId       operations:create
+DELETE /production/:id/outputs/:outputId         operations:create
+GET /accounts/summary                            finance:view   [owner only]
+GET /approvals                                   operations:approve   [owner only]
+GET /approvals/count                             operations:approve   [owner only]
+GET /audit-logs                                  audit:view   [owner only]
+GET /auth/me                                     login
+GET /clients                                     clients:manage   [owner only]
+GET /dashboard/accountant                        dashboard:accountant
+GET /dashboard/accountant/charts                 dashboard:accountant
+GET /dashboard/owner                             dashboard:owner   [owner only]
+GET /dashboard/owner/charts                      dashboard:owner   [owner only]
+GET /expenses                                    finance:view   [owner only]
+GET /exports                                     operations:create
+GET /exports/:id                                 operations:create
+GET /exports/:id/financials                      operations:create + finance:view   [owner only]
+GET /health                                      public
+GET /imports                                     operations:create
+GET /imports/:id                                 operations:create
+GET /imports/:id/financials                      operations:create + finance:view   [owner only]
+GET /production                                  operations:create
+GET /production/:id                              operations:create
+GET /reports                                     login
+GET /reports/:key                                reports:operational
+GET /reports/:key/xlsx                           reports:operational
+GET /settings                                    settings:manage   [owner only]
+GET /stock                                       operations:create
+GET /stock-adjustments                           operations:create
+GET /stock-adjustments/:id                       operations:create
+GET /stock/movements                             operations:create
+GET /suppliers                                   suppliers:manage   [owner only]
+GET /users                                       users:manage   [owner only]
+PATCH /clients/:id                               clients:manage   [owner only]
+PATCH /expenses/:id                              finance:view   [owner only]
+PATCH /exports/:id                               operations:create
+PATCH /exports/:id/measurements/:lineId          operations:create
+PATCH /imports/:id                               operations:create
+PATCH /imports/:id/logs/:logId                   operations:create
+PATCH /imports/:id/unloading/:unloadingId        operations:create
+PATCH /production/:id                            operations:create
+PATCH /production/:id/outputs/:outputId          operations:create
+PATCH /settings                                  settings:manage   [owner only]
+PATCH /stock-adjustments/:id                     operations:create
+PATCH /suppliers/:id                             suppliers:manage   [owner only]
+PATCH /users/:id                                 users:manage   [owner only]
+POST /auth/login                                 public
+POST /auth/logout                                login
+POST /auth/refresh                               public
+POST /clients                                    clients:manage   [owner only]
+POST /expenses                                   finance:view   [owner only]
+POST /exports                                    operations:create
+POST /exports/:id/approve                        operations:approve   [owner only]
+POST /exports/:id/measurements                   operations:create
+POST /exports/:id/reject                         operations:approve   [owner only]
+POST /exports/:id/submit                         operations:submit
+POST /imports                                    operations:create
+POST /imports/:id/approve                        operations:approve   [owner only]
+POST /imports/:id/logs                           operations:create
+POST /imports/:id/reject                         operations:approve   [owner only]
+POST /imports/:id/submit                         operations:submit
+POST /imports/:id/unloading                      operations:create
+POST /production                                 operations:create
+POST /production/:id/approve                     operations:approve   [owner only]
+POST /production/:id/outputs                     operations:create
+POST /production/:id/reject                      operations:approve   [owner only]
+POST /production/:id/submit                      operations:submit
+POST /stock-adjustments                          operations:create
+POST /stock-adjustments/:id/approve              operations:approve   [owner only]
+POST /stock-adjustments/:id/reject               operations:approve   [owner only]
+POST /stock-adjustments/:id/submit               operations:submit
+POST /suppliers                                  suppliers:manage   [owner only]
+POST /users                                      users:manage   [owner only]
+POST /users/:id/reset-password                   users:manage   [owner only]
+PUT /exports/:id/financials                      operations:create + finance:view   [owner only]
+PUT /imports/:id/financials                      operations:create + finance:view   [owner only]"
+`;

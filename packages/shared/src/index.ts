@@ -4,3 +4,4 @@ export * from './cft';
 export * from './i18n';
 export * from './theme';
 export * from './unloading';
+export * from './production';

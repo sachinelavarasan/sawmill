@@ -1,7 +1,14 @@
+import { CheckCircle2Icon, ClockIcon, FilePenIcon, TruckIcon, XCircleIcon } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
-import { Kpi, LoadState, StatusBadge, useLoad } from '../components/ui';
+import { ChartCard, ColumnChart } from '../components/charts';
+import { num3, useLoad } from '../components/common';
+import { LoadState, numCell, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging, wide } from '../components/page';
+import { StatusBadge } from '../components/status-badge';
 import { useI18n } from '../i18n';
+import { shortDay } from './OwnerDashboard';
 
 interface AccountantDashboardData {
   kpis: {
@@ -28,67 +35,75 @@ export function AccountantDashboard() {
   const { t } = useI18n();
   const { user } = useAuth();
   const { data, loading, error, reload } = useLoad(() => api<AccountantDashboardData>('/dashboard/accountant'));
+  const charts = useLoad(() => api<{ logsByDay: { day: string; logs: number; cft: number }[] }>('/dashboard/accountant/charts'));
+  const logs = charts.data?.logsByDay ?? [];
+  const LOGS = { key: 'logs', label: t('logsMeasured'), color: 'var(--chart-1)' };
   const k = data?.kpis;
+  const progress = useClientPaging(data?.measurementProgress ?? [], 10);
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <div>
-          <h1>{t('dashboard')}</h1>
-          <p className="muted">
-            {t('welcome')}, {user?.name}
-          </p>
-        </div>
-      </div>
+    <Page>
+      <PageHeader title={t('dashboard')} subtitle={`${t('welcome')}, ${user?.name ?? ''}`} />
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
 
       {k && (
         <>
-          <div className="kpi-grid">
-            <Kpi label={t('todayImports')} value={k.todayImports} />
-            <Kpi label={t('todayExports')} value={k.todayExports} />
-            <Kpi label={t('draftEntries')} value={k.draftEntries} />
-            <Kpi label={t('pendingSubmissions')} value={k.pendingSubmissions} tone={k.pendingSubmissions ? 'warn' : undefined} />
-            <Kpi label={t('approvedEntries')} value={k.approvedEntries} tone="good" />
-            <Kpi label={t('rejectedEntries')} value={k.rejectedEntries} tone={k.rejectedEntries ? 'bad' : undefined} />
-          </div>
+          <StatGrid className="lg:grid-cols-3">
+            <Stat icon={<TruckIcon />} label={t('todayImports')} value={k.todayImports} />
+            <Stat icon={<TruckIcon />} label={t('todayExports')} value={k.todayExports} />
+            <Stat icon={<FilePenIcon />} label={t('draftEntries')} value={k.draftEntries} />
+            <Stat icon={<ClockIcon />} label={t('pendingSubmissions')} value={k.pendingSubmissions} tone={k.pendingSubmissions ? 'warn' : undefined} />
+            <Stat icon={<CheckCircle2Icon />} label={t('approvedEntries')} value={k.approvedEntries} tone="good" />
+            <Stat icon={<XCircleIcon />} label={t('rejectedEntries')} value={k.rejectedEntries} tone={k.rejectedEntries ? 'bad' : undefined} />
+          </StatGrid>
 
-          <h2 className="section-title">{t('measurementProgress')}</h2>
-          <div className="card table-wrap">
-            {data!.measurementProgress.length === 0 ? (
-              <div className="empty">{t('noData')}</div>
-            ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>{t('lorry')}</th>
-                    <th>{t('woodType')}</th>
-                    <th className="num">{t('logs')}</th>
-                    <th className="num">{t('totalCft')}</th>
-                    <th>{t('status')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data!.measurementProgress.map((l) => (
-                    <tr key={l.id}>
-                      <td>{l.code}</td>
-                      <td>{l.lorryNumber}</td>
-                      <td>{l.woodType}</td>
-                      <td className="num">{l.totalLogs}</td>
-                      <td className="num">{l.totalCft.toFixed(3)}</td>
-                      <td>
+          <ChartCard
+            title={t('chartLogsTitle')}
+            subtitle={t('chartLogsSub')}
+            empty={!charts.data || logs.every((d) => !d.logs)}
+            table={{ columns: [t('day'), t('logsMeasured'), 'CFT'], rows: logs.map((d) => [shortDay(d.day), d.logs, num3(d.cft)]) }}
+          >
+            <ColumnChart data={logs} xKey="day" series={[LOGS]} formatX={shortDay} formatValue={(n) => `${n} ${t('logs').toLowerCase()}`} ariaLabel={t('chartLogsTitle')} height={180} />
+          </ChartCard>
+
+          <Section title={t('measurementProgress')}>
+            <TableCard empty={data!.measurementProgress.length === 0} emptyText={t('noData')} pager={progress.pager}>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="pl-4">ID</TableHead>
+                    <TableHead className={wide}>{t('lorry')}</TableHead>
+                    <TableHead className={wide}>{t('woodType')}</TableHead>
+                    <TableHead className={cn(numCell, wide)}>{t('logs')}</TableHead>
+                    <TableHead className={numCell}>{t('totalCft')}</TableHead>
+                    <TableHead className="pr-4">{t('status')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {progress.rows.map((l) => (
+                    <TableRow key={l.id}>
+                      <TableCell className="pl-4 font-medium">
+                        {l.code}
+                        <div className="text-xs font-normal text-muted-foreground md:hidden">
+                          {l.lorryNumber} · {l.woodType} · {l.totalLogs} {t('logs')}
+                        </div>
+                      </TableCell>
+                      <TableCell className={wide}>{l.lorryNumber}</TableCell>
+                      <TableCell className={wide}>{l.woodType}</TableCell>
+                      <TableCell className={cn(numCell, wide)}>{l.totalLogs}</TableCell>
+                      <TableCell className={cn(numCell, 'font-semibold')}>{l.totalCft.toFixed(3)}</TableCell>
+                      <TableCell className="pr-4 whitespace-normal">
                         <StatusBadge status={l.status} />
-                        {l.rejectionReason && <div className="muted small">{l.rejectionReason}</div>}
-                      </td>
-                    </tr>
+                        {l.rejectionReason && <div className="mt-1 max-w-56 text-xs text-destructive">{l.rejectionReason}</div>}
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+                </TableBody>
+              </Table>
+            </TableCard>
+          </Section>
         </>
       )}
-    </div>
+    </Page>
   );
 }

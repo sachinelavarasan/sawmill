@@ -9,12 +9,13 @@ import {
   UnloadingInputError,
   unloadingCharges,
 } from '@sawmill/shared';
-import { and, asc, count, desc, eq, inArray, max, SQL, sum } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, max, ne, SQL, sum } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { nextCode } from '../common/codes';
 import type { AuthUser } from '../common/types';
 import { Database, DbOrTx, InjectDb } from '../db/db.module';
 import { importFinancials, importLoads, logMeasurements, mills, stockMovements, suppliers, unloadingEntries, users } from '../db/schema';
+import { assertStockNotNegative, syncMovements } from '../stock/ledger';
 import {
   CreateImportDto,
   CreateUnloadingDto,
@@ -202,6 +203,20 @@ export class ImportsService {
   async update(actor: AuthUser, id: string, dto: UpdateImportDto) {
     await this.db.transaction(async (tx) => {
       const { load: before, action } = await this.findEditableLoad(tx, actor, id);
+      if (before.status === 'APPROVED' && dto.woodType && dto.woodType !== before.woodType) {
+        // Production, exports and adjustments copied the old wood type onto their own
+        // stock lines; moving only the import's raw stock would split the load across
+        // two wood types. Allow the correction only while nothing else has used the load.
+        const [used] = await tx
+          .select({ n: count() })
+          .from(stockMovements)
+          .where(and(eq(stockMovements.importLoadId, id), ne(stockMovements.source, 'IMPORT')));
+        if (used.n > 0) {
+          throw new ConflictException(
+            'The wood type cannot be changed: production, exports or stock adjustments already use this load.',
+          );
+        }
+      }
       const [after] = await tx
         .update(importLoads)
         .set({
@@ -567,43 +582,31 @@ export class ImportsService {
   }
 
   /**
-   * Make the raw-stock ledger match an approved load. The ledger is append-only:
-   * instead of editing earlier rows, post the difference (and move stock between
-   * wood types if the owner corrected the wood type).
+   * Make the raw-stock ledger match an approved load (the ledger posts only the
+   * difference, and moves stock between wood types if the owner corrected it).
+   * The load row is already locked by the caller. A correction that would leave
+   * less raw CFT than production has already consumed is refused.
    */
   private async repostStock(tx: DbOrTx, actor: AuthUser, loadId: string) {
     const [load] = await tx.select().from(importLoads).where(eq(importLoads.id, loadId));
-    const posted = await tx
-      .select({ woodType: stockMovements.woodType, cft: sum(stockMovements.cftDelta), pieces: sum(stockMovements.piecesDelta) })
-      .from(stockMovements)
-      .where(and(eq(stockMovements.source, 'IMPORT'), eq(stockMovements.sourceId, loadId)))
-      .groupBy(stockMovements.woodType);
-
-    const rows: { woodType: string; cft: number; pieces: number }[] = [];
-    for (const p of posted) {
-      if (p.woodType !== load.woodType && (Number(p.cft) !== 0 || Number(p.pieces) !== 0)) {
-        rows.push({ woodType: p.woodType, cft: -Number(p.cft ?? 0), pieces: -Number(p.pieces ?? 0) });
-      }
-    }
-    const current = posted.find((p) => p.woodType === load.woodType);
-    const cftDelta = roundTo(Number(load.totalCft) - Number(current?.cft ?? 0));
-    const piecesDelta = load.totalLogs - Number(current?.pieces ?? 0);
-    if (cftDelta !== 0 || piecesDelta !== 0) rows.push({ woodType: load.woodType, cft: cftDelta, pieces: piecesDelta });
-
-    if (rows.length) {
-      await tx.insert(stockMovements).values(
-        rows.map((r) => ({
-          millId: load.millId,
-          kind: 'RAW' as const,
-          woodType: r.woodType,
+    await syncMovements(tx, {
+      millId: load.millId,
+      source: 'IMPORT',
+      sourceId: load.id,
+      postedById: actor.id,
+      target: [
+        {
+          kind: 'RAW',
+          woodType: load.woodType,
           importLoadId: load.id,
-          piecesDelta: r.pieces,
-          cftDelta: String(roundTo(r.cft)),
-          source: 'IMPORT' as const,
-          sourceId: load.id,
-          postedById: actor.id,
-        })),
-      );
-    }
+          thicknessIn: null,
+          widthIn: null,
+          lengthFt: null,
+          pieces: load.totalLogs,
+          cft: Number(load.totalCft),
+        },
+      ],
+    });
+    await assertStockNotNegative(tx, [load.id]);
   }
 }
