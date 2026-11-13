@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { num3, useLoad } from '../components/common';
-import { ALL, Field, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, Page, PageHeader, usePaging, StatusFilter, TableCard, wide } from '../components/page';
+import { ALL, Field, FormActions, FormCard, FormGrid, LinkRow, LoadState, Notice, numCell, Page, PageHeader, SearchBox, StatusFilter, TableCard, Toolbar, usePaging, wide } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
 import { useI18n } from '../i18n';
 import { fromLocalInput } from './Imports';
@@ -81,8 +81,9 @@ export function ExportsPage() {
   const { user } = useAuth();
   const isOwner = user?.role === 'OWNER';
   const [status, setStatus] = useState('');
+  const [q, setQ] = useState('');
   const paging = usePaging();
-  const query = `take=${paging.take}&skip=${paging.skip}${status ? `&status=${status}` : ''}`;
+  const query = `take=${paging.take}&skip=${paging.skip}${status ? `&status=${status}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}`;
   const { data, loading, error, reload } = useLoad(() => api<{ items: ExportSummary[]; total: number }>(`/exports?${query}`), [query]);
 
   return (
@@ -91,13 +92,6 @@ export function ExportsPage() {
         title={t('exports')}
         actions={
           <>
-            <StatusFilter
-              value={status}
-              onChange={(v) => {
-                setStatus(v);
-                paging.reset();
-              }}
-            />
             <Button asChild>
               <Link to="/exports/new">
                 <PlusIcon /> {t('newExport')}
@@ -107,11 +101,30 @@ export function ExportsPage() {
         }
       />
 
+
+      <Toolbar>
+        <SearchBox
+          value={q}
+          onChange={(v) => {
+            setQ(v);
+            paging.reset();
+          }}
+          placeholder={t('searchRecords')}
+        />
+        <StatusFilter
+          value={status}
+          onChange={(v) => {
+            setStatus(v);
+            paging.reset();
+          }}
+        />
+      </Toolbar>
+
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
 
       {data && (
         <>
-          <TableCard empty={data.items.length === 0} emptyText={t('noExports')} pager={paging.pager(data.total)}>
+          <TableCard empty={data.items.length === 0} emptyText={q ? t('noMatches', { q }) : t('noExports')} pager={paging.pager(data.total)} className={cn(loading && 'opacity-60')}>
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -127,7 +140,7 @@ export function ExportsPage() {
               </TableHeader>
               <TableBody>
                 {data.items.map((e) => (
-                  <TableRow key={e.id}>
+                  <LinkRow key={e.id} to={`/exports/${e.id}`}>
                     <TableCell className="pl-4 font-medium">
                       <Link className="text-primary hover:underline" to={`/exports/${e.id}`}>
                         {e.code}
@@ -145,7 +158,7 @@ export function ExportsPage() {
                       <StatusBadge status={e.status} />
                     </TableCell>
                     {isOwner && <TableCell className={cn(wide, 'pr-4')}>{e.createdByName}</TableCell>}
-                  </TableRow>
+                  </LinkRow>
                 ))}
               </TableBody>
             </Table>

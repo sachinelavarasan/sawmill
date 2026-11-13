@@ -15,7 +15,7 @@ Timber mill management: an Android app plus a web dashboard, with Owner and Acco
 ```bash
 npm install                       # installs all workspaces, builds packages/shared
 cp backend/.env.example backend/.env
-npm run db:up                     # PostgreSQL in Docker
+# set DB_USER / DB_PASSWORD for your local PostgreSQL in backend/.env
 npm run db:migrate                # apply backend/drizzle/*.sql
 npm run db:seed                   # demo mill + owner + accountant
 npm run db:seed:demo              # optional: ~6 months of demo data for every screen (db:seed:demo:reset wipes the DEMO mill's records and re-creates it)
@@ -64,6 +64,9 @@ Every screen is built from shadcn components + Tailwind classes; there is no han
 - Dark mode follows the theme toggle (`data-theme` on `<html>`) or the device; `dark:` classes work as usual.
 - Confirmations: `useConfirm()` / `useConfirmDelete()` from `web/src/components/confirm.tsx` — not `window.confirm`.
 - Icons: `lucide-react`.
+- Tables: put the pager in the card footer — `usePaging()` for lists the API pages (`?take=&skip=`),
+  `useClientPaging(rows)` for lists loaded whole; pass `pager={…}` to `TableCard`.
+- Fonts (Inter, Noto Sans Tamil) are bundled via `@fontsource`, so the site loads nothing from other domains.
 - Charts: `web/src/components/charts.tsx` (plain SVG, no chart library) — LineChart, ColumnChart, StackedBars in a
   ChartCard with legend, hover/keyboard tooltip and a Table view. Series colours are `--chart-1` / `--chart-2` in
   `tokens.css` (blue/orange, checked for colour-blind safety in light and dark). Never use the status colours
@@ -73,7 +76,7 @@ Every screen is built from shadcn components + Tailwind classes; there is no han
 
 ```bash
 npm test                          # all unit tests (CFT formulas, permissions, edit rules) — cached
-npm run test:e2e                  # imports API against a separate <DB_NAME>_test database (wiped each run, never cached)
+npm run test:e2e                  # whole API against a separate <DB_NAME>_test database (wiped each run, never cached)
 ```
 
 ## Status
@@ -87,3 +90,13 @@ Phase 5 (exports) is built on the web: export loads, measurement lines picked fr
 Phase 6 is built on the web: the owner's Approvals queue (everything submitted, oldest first, approve/reject in place) and Settings (mill name, standard unloading rate, language for new users, time zone). See `docs/TECHNICAL_PLAN.md` for the later phases.
 
 Phase 7 is built on the web: Accounts (profit & loss for any period, other expenses, what suppliers are owed and clients owe) and Reports (registers, stock, P&L, balances, expenses) with Excel download and Print / Save as PDF.
+
+Phase 8 (web): security hardening, deployment and backups.
+- Security: account lockout after 5 wrong passwords, sessions end at once on password reset / disable / role change,
+  production settings checked at startup, report size limits, and a test that every API route has a permission
+  rule (`backend/src/security/routes.spec.ts`, with a reviewable route → permission snapshot).
+- Deployment on one Linux server (nginx + systemd + PostgreSQL), daily verified backups with off-site copy, restore,
+  and a one-command update: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), files in `deploy/`.
+- Create the real mill and owner with `npm run setup:owner` (the demo seed refuses to run in production).
+- Acceptance testing with the client: [`docs/UAT.md`](docs/UAT.md).
+

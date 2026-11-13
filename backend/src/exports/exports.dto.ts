@@ -21,6 +21,8 @@ export class ListExportsQuery {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(200) take = 50;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) skip = 0;
   @IsOptional() @IsIn(Object.values(ApprovalStatus)) status?: ApprovalStatus;
+  /** search: record ID, lorry number, wood type (spaces ignored) */
+  @IsOptional() @IsString() @MaxLength(60) q?: string;
 }
 
 export class CreateExportDto {

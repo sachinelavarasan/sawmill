@@ -5,8 +5,8 @@
 #   sawmill-restore.sh <file.dump> --replace       replace the live database (stops the API first)
 #
 # Encrypted off-site copies (.dump.gpg) are decrypted first with: gpg --output x.dump --decrypt x.dump.gpg
-# Settings: same /etc/sawmill/backup.env as the backup script. Needs a database user that may
-# CREATE DATABASE (for --replace, run as the postgres superuser: sudo -u postgres ...).
+# Settings: same /etc/sawmill/backup.env as the backup script. The database user needs CREATEDB
+# (docs/DEPLOYMENT.md creates it that way). --replace also stops/starts the service, so run it with sudo.
 set -euo pipefail
 
 ENV_FILE="${SAWMILL_BACKUP_ENV:-/etc/sawmill/backup.env}"

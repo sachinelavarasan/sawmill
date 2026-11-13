@@ -1,6 +1,6 @@
 # SAWMILL PRO — Technical Implementation Plan
 
-Status: Phases 1–3 built · Source: *SAWMILL PRO Project Kickoff & Software Requirements*
+Status: Phases 1–8 built for the web (UAT pending) · Source: *SAWMILL PRO Project Kickoff & Software Requirements*
 
 ## 1. Architecture
 
@@ -56,6 +56,17 @@ in `Mill.settings`.
   the service layer for accountant edits (HTTP 409/403).
 * **Audit log:** login, logout, user changes, create/update/submit/approve/
   reject/owner-edit — with before/after JSON snapshots, user, IP, timestamp.
+  Financial report downloads are logged too (`DOWNLOAD_REPORT`).
+* **Account lockout:** 5 wrong passwords in 15 minutes lock the account for 15
+  minutes (counted from the audit log; a successful login or owner reset clears it).
+* **Instant session end:** `users.token_version` is in every access token and
+  checked on each request; password reset, disable and role change bump it.
+* **Accountant stock view (decision):** stock balances, stock history and the stock
+  report show the whole mill — the accountant needs them to pick stock for
+  production and exports. They contain quantities only, never prices.
+* **Route policy test:** `backend/src/security/routes.spec.ts` fails if a route has
+  no permission rule, if anything new is public, or if an accountant could reach
+  money, client, supplier, user, settings or audit routes.
 
 ### Permission matrix
 
@@ -184,7 +195,7 @@ Theme: dark green (`#1B4332`) + white. Tamil/English toggle on every screen.
 | 5 | Export management & measurement | built (web) — export loads, lines picked from finished stock (each line names its import load), owner-only sale details and clients. Android screens not yet built |
 | 6 | Approval workflow & owner controls | built (web) — approval queue across imports, production, exports and adjustments; mill settings (name, unloading rate, new-user language, time zone). Android screens not yet built |
 | 7 | Accounts, reports & analytics (PDF/Excel) | built (web) — Accounts: P&L for any period, other expenses, supplier/client balances. Reports: import/production/export registers, stock summary, P&L, balances, expenses; Excel download (server, exceljs) and Print / Save as PDF (browser, keeps Tamil text correct). Android screens not yet built |
-| 8 | Security testing, UAT, deployment, backups | — |
+| 8 | Security testing, UAT, deployment, backups | built (web) — security review fixes, lockout, instant session revoke, route-policy test, all 68 API integration tests passing on PostgreSQL 16; deployment + backup guide in `docs/DEPLOYMENT.md`; client test checklist in `docs/UAT.md`. UAT with the client still to run |
 
 Per the kickoff document, Phases 2–3 (Import + Measurement) will be demonstrated
 for workflow approval before Phases 4+ are built.

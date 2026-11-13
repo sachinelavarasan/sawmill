@@ -2,15 +2,16 @@
  * App-level building blocks on top of shadcn/ui (src/components/ui).
  * Pages compose these + shadcn components + Tailwind classes; nothing else.
  */
-import { ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, InboxIcon, LockIcon } from 'lucide-react';
-import { ReactNode, useCallback, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, InboxIcon, LockIcon, SearchIcon, XIcon } from 'lucide-react';
+import { MouseEvent, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { TKey, useI18n } from '../i18n';
 
@@ -217,6 +218,75 @@ export function TableCard({
         </>
       )}
     </Card>
+  );
+}
+
+// ───────── list toolbar ─────────
+
+/** The row above a list: search on the left, filters on the right. */
+export function Toolbar({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn('flex flex-wrap items-center gap-2 print:hidden', className)}>{children}</div>;
+}
+
+/**
+ * Search box that reports its text 300 ms after typing stops (one API call, not one per key).
+ * Esc or the × clears it.
+ */
+export function SearchBox({ value, onChange, placeholder, className }: { value: string; onChange: (v: string) => void; placeholder: string; className?: string }) {
+  const { t } = useI18n();
+  const [text, setText] = useState(value);
+  const latest = useRef(onChange);
+  latest.current = onChange;
+  useEffect(() => setText(value), [value]);
+  useEffect(() => {
+    if (text.trim() === value.trim()) return;
+    const id = setTimeout(() => latest.current(text.trim()), 300);
+    return () => clearTimeout(id);
+  }, [text, value]);
+  return (
+    <div className={cn('relative w-full sm:w-72', className)}>
+      <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        type="search"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => e.key === 'Escape' && setText('')}
+        placeholder={placeholder}
+        aria-label={t('search')}
+        maxLength={60}
+        className="bg-card pr-8 pl-8 [&::-webkit-search-cancel-button]:hidden"
+      />
+      {text && (
+        <button
+          type="button"
+          onClick={() => setText('')}
+          aria-label={t('clear')}
+          className="absolute top-1/2 right-1.5 grid size-6 -translate-y-1/2 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <XIcon className="size-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A table row that opens a record when clicked anywhere. The record ID inside stays a
+ * real link (keyboard, screen readers, open in new tab); clicks on buttons, links and
+ * inputs in the row, or while selecting text, keep their own behaviour.
+ */
+export function LinkRow({ to, children, className }: { to: string; children: ReactNode; className?: string }) {
+  const navigate = useNavigate();
+  const open = (e: MouseEvent<HTMLTableRowElement>) => {
+    if ((e.target as HTMLElement).closest('a, button, input, select, textarea, label, [role="combobox"]')) return;
+    if (window.getSelection()?.toString()) return;
+    if (e.metaKey || e.ctrlKey) window.open(to, '_blank', 'noopener');
+    else navigate(to);
+  };
+  return (
+    <TableRow onClick={open} className={cn('cursor-pointer', className)}>
+      {children}
+    </TableRow>
   );
 }
 

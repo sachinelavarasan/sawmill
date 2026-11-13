@@ -20,6 +20,7 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { Lang, useI18n } from '../i18n';
 import { NAV_ITEMS } from '../nav';
+import { QuickJump } from './quick-jump';
 import { useTheme } from '../theme';
 
 /** The app frame: green sidebar (a slide-in sheet on phones) + top bar + page. */
@@ -46,6 +47,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <Button variant="outline" size="icon" className="lg:hidden" aria-label={t('menu')} onClick={() => setOpen(true)}>
             <MenuIcon />
           </Button>
+          <QuickJump />
           <div className="flex-1" />
           <ThemeToggle />
           <LangToggle />

@@ -12,6 +12,7 @@ import {
 import { and, asc, count, desc, eq, inArray, max, ne, SQL, sum } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { nextCode } from '../common/codes';
+import { textSearch } from '../common/search';
 import type { AuthUser } from '../common/types';
 import { Database, DbOrTx, InjectDb } from '../db/db.module';
 import { importFinancials, importLoads, logMeasurements, mills, stockMovements, suppliers, unloadingEntries, users } from '../db/schema';
@@ -113,6 +114,8 @@ export class ImportsService {
     if (!hasPermission(actor.role, Permission.OPERATIONS_VIEW_ALL)) conditions.push(eq(importLoads.createdById, actor.id));
     if (q.status) conditions.push(eq(importLoads.status, q.status));
     if (q.open === '1') conditions.push(inArray(importLoads.status, [...ACCOUNTANT_EDITABLE_STATUSES]));
+    const search = textSearch(q.q, [importLoads.code, importLoads.lorryNumber, importLoads.woodType]);
+    if (search) conditions.push(search);
     const where = and(...conditions);
 
     const [rows, [{ total }]] = await Promise.all([

@@ -10,7 +10,7 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { num3, useLoad } from '../components/common';
 import { StatusBadge } from '../components/status-badge';
-import { Field, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, Page, PageHeader, usePaging, StatusFilter, TableCard, wide } from '../components/page';
+import { Field, FormActions, FormCard, FormGrid, LinkRow, LoadState, Notice, numCell, Page, PageHeader, SearchBox, StatusFilter, TableCard, Toolbar, usePaging, wide } from '../components/page';
 import { useI18n } from '../i18n';
 import { fromLocalInput, toLocalInput } from './Imports';
 
@@ -73,8 +73,9 @@ export function ProductionPage() {
   const { user } = useAuth();
   const isOwner = user?.role === 'OWNER';
   const [status, setStatus] = useState('');
+  const [q, setQ] = useState('');
   const paging = usePaging();
-  const query = `take=${paging.take}&skip=${paging.skip}${status ? `&status=${status}` : ''}`;
+  const query = `take=${paging.take}&skip=${paging.skip}${status ? `&status=${status}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}`;
   const { data, loading, error, reload } = useLoad(
     () => api<{ items: ProductionSummary[]; total: number }>(`/production?${query}`),
     [query],
@@ -86,13 +87,6 @@ export function ProductionPage() {
         title={t('production')}
         actions={
           <>
-            <StatusFilter
-              value={status}
-              onChange={(v) => {
-                setStatus(v);
-                paging.reset();
-              }}
-            />
             <Button asChild>
               <Link to="/production/new">
                 <PlusIcon /> {t('newProduction')}
@@ -102,11 +96,30 @@ export function ProductionPage() {
         }
       />
 
+
+      <Toolbar>
+        <SearchBox
+          value={q}
+          onChange={(v) => {
+            setQ(v);
+            paging.reset();
+          }}
+          placeholder={t('searchProduction')}
+        />
+        <StatusFilter
+          value={status}
+          onChange={(v) => {
+            setStatus(v);
+            paging.reset();
+          }}
+        />
+      </Toolbar>
+
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
 
       {data && (
         <>
-          <TableCard empty={data.items.length === 0} emptyText={t('noProduction')} pager={paging.pager(data.total)}>
+          <TableCard empty={data.items.length === 0} emptyText={q ? t('noMatches', { q }) : t('noProduction')} pager={paging.pager(data.total)} className={cn(loading && 'opacity-60')}>
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -123,7 +136,7 @@ export function ProductionPage() {
               </TableHeader>
               <TableBody>
                 {data.items.map((r) => (
-                  <TableRow key={r.id}>
+                  <LinkRow key={r.id} to={`/production/${r.id}`}>
                     <TableCell className="pl-4 font-medium">
                       <Link className="text-primary hover:underline" to={`/production/${r.id}`}>
                         {r.code}
@@ -144,7 +157,7 @@ export function ProductionPage() {
                       <StatusBadge status={r.status} />
                     </TableCell>
                     {isOwner && <TableCell className={cn(wide, 'pr-4')}>{r.createdByName}</TableCell>}
-                  </TableRow>
+                  </LinkRow>
                 ))}
               </TableBody>
             </Table>

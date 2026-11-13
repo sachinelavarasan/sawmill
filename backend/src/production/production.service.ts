@@ -13,6 +13,7 @@ import { and, asc, count, desc, eq, SQL, sum } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { nextCode } from '../common/codes';
 import { assertEditable, assertVisible, canEdit } from '../common/editability';
+import { textSearch } from '../common/search';
 import type { AuthUser } from '../common/types';
 import { Database, DbOrTx, InjectDb } from '../db/db.module';
 import { importLoads, productionOutputs, productionRuns, users } from '../db/schema';
@@ -71,6 +72,8 @@ export class ProductionService {
     if (!hasPermission(actor.role, Permission.OPERATIONS_VIEW_ALL)) conditions.push(eq(productionRuns.createdById, actor.id));
     if (q.status) conditions.push(eq(productionRuns.status, q.status));
     if (q.importLoadId) conditions.push(eq(productionRuns.importLoadId, q.importLoadId));
+    const search = textSearch(q.q, [productionRuns.code, productionRuns.woodType, importLoads.code]);
+    if (search) conditions.push(search);
     const where = and(...conditions);
 
     const [rows, [{ total }]] = await Promise.all([
@@ -83,7 +86,8 @@ export class ProductionService {
         .orderBy(desc(productionRuns.productionDate), desc(productionRuns.createdAt))
         .limit(q.take)
         .offset(q.skip),
-      this.db.select({ total: count() }).from(productionRuns).where(where),
+      // joined like the list, because the search can match the import code
+      this.db.select({ total: count() }).from(productionRuns).innerJoin(importLoads, eq(importLoads.id, productionRuns.importLoadId)).where(where),
     ]);
     return {
       items: rows.map((r) => ({ ...r, inputCft: num(r.inputCft), outputCft: Number(r.outputCft), wasteCft: num(r.wasteCft) })),

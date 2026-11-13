@@ -4,6 +4,7 @@ import { and, asc, count, desc, eq, inArray, max, SQL, sum } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { nextCode } from '../common/codes';
 import { assertEditable, assertVisible, canEdit } from '../common/editability';
+import { textSearch } from '../common/search';
 import type { AuthUser } from '../common/types';
 import { Database, DbOrTx, InjectDb } from '../db/db.module';
 import { clients, exportFinancials, exportLoads, exportMeasurements, importLoads, users } from '../db/schema';
@@ -64,6 +65,8 @@ export class ExportsService {
     const conditions: SQL[] = [eq(exportLoads.millId, actor.millId)];
     if (!hasPermission(actor.role, Permission.OPERATIONS_VIEW_ALL)) conditions.push(eq(exportLoads.createdById, actor.id));
     if (q.status) conditions.push(eq(exportLoads.status, q.status));
+    const search = textSearch(q.q, [exportLoads.code, exportLoads.lorryNumber, exportLoads.woodType]);
+    if (search) conditions.push(search);
     const where = and(...conditions);
     const [rows, [{ total }]] = await Promise.all([
       this.db

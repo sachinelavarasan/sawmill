@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
-import { ChartCard, ColumnChart, LineChart, StackedBars } from '../components/charts';
+import { ChartCard, ColumnChart, StackedBars } from '../components/charts';
 import { dateTime, money, num3, useLoad } from '../components/common';
 import { LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging, wide } from '../components/page';
 import { useI18n } from '../i18n';
@@ -118,14 +118,12 @@ export function OwnerDashboard() {
               className="lg:col-span-3"
               title={t('chartFlowTitle')}
               subtitle={t('chartFlowSub')}
-              series={[
-                { ...IN, shape: 'line' },
-                { ...OUT, shape: 'line' },
-              ]}
+              series={[IN, OUT]}
               empty={!c || c.flow.every((d) => !d.receivedCft && !d.shippedCft)}
               table={{ columns: [t('day'), IN.label, OUT.label], rows: (c?.flow ?? []).map((d) => [shortDay(d.day), num3(d.receivedCft), num3(d.shippedCft)]) }}
             >
-              {c && <LineChart data={c.flow} xKey="day" series={[IN, OUT]} formatX={shortDay} formatValue={(n) => `${num3(n)} CFT`} ariaLabel={t('chartFlowTitle')} />}
+              {/* columns, not a line: each day is its own amount, and many days have none */}
+              {c && <ColumnChart data={c.flow} xKey="day" series={[IN, OUT]} formatX={shortDay} formatValue={(n) => `${num3(n)} CFT`} ariaLabel={t('chartFlowTitle')} />}
             </ChartCard>
             <ChartCard
               className="lg:col-span-2"

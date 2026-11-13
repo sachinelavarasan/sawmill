@@ -1,4 +1,4 @@
-import { ArrowRightIcon, PlusIcon, RulerIcon } from 'lucide-react';
+import { PlusIcon, RulerIcon } from 'lucide-react';
 import { FormEvent, useId, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { dateTime, num3, useLoad } from '../components/common';
 import { StatusBadge } from '../components/status-badge';
-import { Field, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, Page, PageHeader, usePaging, StatusFilter, TableCard, wide } from '../components/page';
+import { Field, FormActions, FormCard, FormGrid, LinkRow, LoadState, Notice, numCell, Page, PageHeader, SearchBox, StatusFilter, TableCard, Toolbar, usePaging, wide } from '../components/page';
 import { useI18n } from '../i18n';
 
 export interface ImportSummary {
@@ -69,8 +69,11 @@ export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
   const { user } = useAuth();
   const isOwner = user?.role === 'OWNER';
   const [status, setStatus] = useState('');
+  const [q, setQ] = useState('');
+  // status is the last column unless a Measure button or (on wide screens) Created by follows
+  const lastPad = cn(!openOnly && !isOwner && 'pr-4', !openOnly && isOwner && 'max-md:pr-4');
   const paging = usePaging();
-  const query = `take=${paging.take}&skip=${paging.skip}${openOnly ? '&open=1' : status ? `&status=${status}` : ''}`;
+  const query = `take=${paging.take}&skip=${paging.skip}${openOnly ? '&open=1' : status ? `&status=${status}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}`;
   const { data, loading, error, reload } = useLoad(
     () => api<{ items: ImportSummary[]; total: number }>(`/imports?${query}`),
     [query],
@@ -82,15 +85,6 @@ export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
         title={t(openOnly ? 'measurement' : 'imports')}
         actions={
           <>
-            {!openOnly && (
-              <StatusFilter
-                value={status}
-                onChange={(v) => {
-                  setStatus(v);
-                  paging.reset();
-                }}
-              />
-            )}
             <Button asChild>
               <Link to="/imports/new">
                 <PlusIcon /> {t('newImport')}
@@ -100,11 +94,32 @@ export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
         }
       />
 
+
+      <Toolbar>
+        <SearchBox
+          value={q}
+          onChange={(v) => {
+            setQ(v);
+            paging.reset();
+          }}
+          placeholder={t('searchRecords')}
+        />
+        {!openOnly && (
+          <StatusFilter
+            value={status}
+            onChange={(v) => {
+              setStatus(v);
+              paging.reset();
+            }}
+          />
+        )}
+      </Toolbar>
+
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
 
       {data && (
         <>
-          <TableCard empty={data.items.length === 0} emptyText={t(openOnly ? 'noOpenLoads' : 'noImports')} pager={paging.pager(data.total)}>
+          <TableCard empty={data.items.length === 0} emptyText={q ? t('noMatches', { q }) : t(openOnly ? 'noOpenLoads' : 'noImports')} pager={paging.pager(data.total)} className={cn(loading && 'opacity-60')}>
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -114,14 +129,14 @@ export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
                   <TableHead className={wide}>{t('woodType')}</TableHead>
                   <TableHead className={cn(numCell, wide)}>{t('logs')}</TableHead>
                   <TableHead className={numCell}>{t('totalCft')}</TableHead>
-                  <TableHead>{t('status')}</TableHead>
-                  {isOwner && <TableHead className={wide}>{t('createdBy')}</TableHead>}
-                  <TableHead className="pr-4" />
+                  <TableHead className={lastPad}>{t('status')}</TableHead>
+                  {isOwner && <TableHead className={cn(wide, !openOnly && 'pr-4')}>{t('createdBy')}</TableHead>}
+                  {openOnly && <TableHead className="pr-4" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {data.items.map((l) => (
-                  <TableRow key={l.id}>
+                  <LinkRow key={l.id} to={`/imports/${l.id}${openOnly ? '#logs' : ''}`}>
                     <TableCell className="pl-4 font-medium">
                       <Link className="text-primary hover:underline" to={`/imports/${l.id}`}>
                         {l.code}
@@ -135,19 +150,21 @@ export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
                     <TableCell className={wide}>{l.woodType}</TableCell>
                     <TableCell className={cn(numCell, wide)}>{l.totalLogs}</TableCell>
                     <TableCell className={cn(numCell, 'font-semibold')}>{num3(l.totalCft)}</TableCell>
-                    <TableCell>
+                    <TableCell className={lastPad}>
                       <StatusBadge status={l.status} />
                     </TableCell>
-                    {isOwner && <TableCell className={wide}>{l.createdByName}</TableCell>}
-                    <TableCell className="pr-4 text-right">
-                      <Button asChild variant="outline" size="sm">
-                        <Link to={`/imports/${l.id}${openOnly ? '#logs' : ''}`} aria-label={t(openOnly ? 'measure' : 'open')}>
-                          {openOnly ? <RulerIcon /> : <ArrowRightIcon />}
-                          <span className="max-md:sr-only">{t(openOnly ? 'measure' : 'open')}</span>
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                    {isOwner && <TableCell className={cn(wide, !openOnly && 'pr-4')}>{l.createdByName}</TableCell>}
+                    {openOnly && (
+                      <TableCell className="pr-4 text-right">
+                        <Button asChild variant="outline" size="sm">
+                          <Link to={`/imports/${l.id}#logs`} aria-label={t('measure')}>
+                            <RulerIcon />
+                            <span className="max-md:sr-only">{t('measure')}</span>
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    )}
+                  </LinkRow>
                 ))}
               </TableBody>
             </Table>

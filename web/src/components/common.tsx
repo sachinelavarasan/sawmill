@@ -2,7 +2,7 @@
  * Data loading and number/date formatting shared by all pages.
  * UI components live in components/ui (shadcn) and components/page.tsx.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /** Tiny data loader with loading / error / retry states. */
 export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []) {
@@ -12,13 +12,17 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []) {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const run = useCallback(fn, deps);
+  // Only the newest request may update the screen: while someone types in a search box,
+  // an older, slower response must not replace the results of a newer one.
+  const latest = useRef(0);
   const reload = useCallback(() => {
+    const id = ++latest.current;
     setLoading(true);
     setError(null);
     run()
-      .then(setData)
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setLoading(false));
+      .then((d) => id === latest.current && setData(d))
+      .catch((e: Error) => id === latest.current && setError(e.message))
+      .finally(() => id === latest.current && setLoading(false));
   }, [run]);
 
   useEffect(reload, [reload]);

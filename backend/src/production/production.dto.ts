@@ -23,6 +23,8 @@ export class ListProductionQuery {
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) skip = 0;
   @IsOptional() @IsIn(Object.values(ApprovalStatus)) status?: ApprovalStatus;
   @IsOptional() @IsUUID() importLoadId?: string;
+  /** search: record ID, import ID, wood type (spaces ignored) */
+  @IsOptional() @IsString() @MaxLength(60) q?: string;
 }
 
 export class CreateProductionDto {
