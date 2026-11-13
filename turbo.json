@@ -1,0 +1,93 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "stream",
+  "globalDependencies": [
+    "tsconfig*.json"
+  ],
+  "globalPassThroughEnv": [
+    "DB_*",
+    "DATABASE_URL",
+    "JWT_*",
+    "REFRESH_TOKEN_TTL_DAYS",
+    "CORS_ORIGINS",
+    "PORT",
+    "SEED_*",
+    "ANDROID_HOME",
+    "JAVA_HOME"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!.turbo/**",
+        "!dist/**",
+        "!**/*.tsbuildinfo",
+        "!node_modules/**",
+        "!.expo/**",
+        "!coverage/**",
+        "!**/*.md",
+        "!test/**"
+      ],
+      "outputs": [
+        "dist/**"
+      ],
+      "env": [
+        "VITE_*",
+        "EXPO_PUBLIC_*",
+        "NODE_ENV"
+      ]
+    },
+    "typecheck": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!.turbo/**",
+        "!dist/**",
+        "!**/*.tsbuildinfo",
+        "!node_modules/**",
+        "!.expo/**",
+        "!coverage/**",
+        "!**/*.md"
+      ]
+    },
+    "test": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!.turbo/**",
+        "!dist/**",
+        "!**/*.tsbuildinfo",
+        "!node_modules/**",
+        "!.expo/**",
+        "!coverage/**",
+        "!**/*.md"
+      ],
+      "outputs": []
+    },
+    "test:e2e": {
+      "dependsOn": [
+        "^build"
+      ],
+      "cache": false
+    },
+    "dev": {
+      "dependsOn": [
+        "^build"
+      ],
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": [
+        "EXPO_PUBLIC_*",
+        "VITE_*",
+        "NODE_ENV"
+      ]
+    }
+  }
+}

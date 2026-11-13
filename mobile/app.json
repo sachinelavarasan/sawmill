@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "Sawmill Pro",
+    "slug": "sawmill-pro",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#1b4332",
+    "android": {
+      "package": "com.sawmillpro.app",
+      "adaptiveIcon": { "backgroundColor": "#1b4332" }
+    },
+    "plugins": ["expo-secure-store"]
+  }
+}

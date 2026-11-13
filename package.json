@@ -1,0 +1,39 @@
+{
+  "name": "sawmill-pro",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/*",
+    "backend",
+    "web",
+    "mobile"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --filter=backend --filter=web",
+    "dev:api": "turbo run dev --filter=backend",
+    "dev:web": "turbo run dev --filter=web",
+    "dev:mobile": "npm run dev -w mobile",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e --filter=backend",
+    "check": "turbo run typecheck test build",
+    "build:shared": "npm run build -w @sawmill/shared",
+    "test:shared": "turbo run test --filter=@sawmill/shared",
+    "postinstall": "npm run build:shared",
+    "db:up": "docker compose up -d db",
+    "db:generate": "npm run db:generate -w backend",
+    "db:migrate": "npm run db:migrate -w backend",
+    "db:seed": "npm run db:seed -w backend"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true,
+    "esbuild@0.19.12": true,
+    "esbuild@0.28.2": true,
+    "esbuild@0.18.20": true
+  },
+  "packageManager": "npm@11.18.0",
+  "devDependencies": {
+    "turbo": "2.11.10"
+  }
+}

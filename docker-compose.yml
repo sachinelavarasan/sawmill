@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sawmill
+      POSTGRES_PASSWORD: sawmill_dev_password
+      POSTGRES_DB: sawmill_pro
+    ports:
+      - "5432:5432"
+    volumes:
+      - sawmill_pgdata:/var/lib/postgresql/data
+
+volumes:
+  sawmill_pgdata:
