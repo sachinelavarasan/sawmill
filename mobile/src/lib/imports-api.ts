@@ -47,6 +47,8 @@ export interface ImportDetail extends ImportSummary {
   originLocation: string | null;
   notes: string | null;
   editable: boolean;
+  canSubmit: boolean;
+  canReview: boolean;
   defaultUnloadingRate: number | null;
   unloadings: Unloading[];
   logs: Log[];
@@ -73,9 +75,11 @@ const json = (method: string, body?: unknown): RequestInit => ({ method, body: b
 export const importsApi = {
   list: (opts: { open?: boolean } = {}) =>
     api<{ items: ImportSummary[]; total: number }>(`/imports?take=100${opts.open ? '&open=1' : ''}`),
+  financials: (id: string) => api<import('./types').PurchaseFinancials>(`/imports/${id}/financials`),
+  saveFinancials: (id: string, f: Record<string, unknown>) => api(`/imports/${id}/financials`, json('PUT', f)),
   get: (id: string) => api<ImportDetail>(`/imports/${id}`),
-  create: (f: ImportForm) => api<ImportDetail>('/imports', json('POST', f)),
-  update: (id: string, f: Partial<ImportForm>) => api<ImportDetail>(`/imports/${id}`, json('PATCH', f)),
+  create: (f: ImportForm & { notes?: string }) => api<ImportDetail>('/imports', json('POST', f)),
+  update: (id: string, f: Partial<ImportForm> & { notes?: string }) => api<ImportDetail>(`/imports/${id}`, json('PATCH', f)),
 
   startUnloading: (id: string, b: { vehicleNumber: string; driverName?: string; ratePerHour?: number }) =>
     api<Unloading>(`/imports/${id}/unloading`, json('POST', b)),

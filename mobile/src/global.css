@@ -1,0 +1,130 @@
+/*
+ * TimberTrail on Android — Tailwind v4 through Uniwind.
+ *
+ * Brand: slate text and surfaces, saffron (#E5A000) for the primary action and the
+ * selected tab, soft neutral backgrounds, 8–12px corners.
+ *
+ * The colour names are the same ones the web dashboard uses (bg-background,
+ * text-muted-foreground, bg-success-soft, …) and the values mirror
+ * web/src/tokens.css. Change both together; never put colours in components.
+ */
+@import 'tailwindcss';
+@import 'uniwind';
+
+/* the shared package holds no class names, but keep it scanned in case it ever does */
+@source '../../packages/shared/src';
+
+@theme {
+  --color-background: #f8fafc;
+  --color-foreground: #1e293b;
+  --color-card: #ffffff;
+  --color-secondary: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-input: #cbd5e1;
+  --color-muted-foreground: #64748b;
+
+  --color-primary: #334155;
+  --color-primary-foreground: #ffffff;
+  --color-primary-soft: #f1f5f9;
+
+  --color-saffron: #e5a000;
+  --color-saffron-foreground: #1e293b;
+  --color-saffron-soft: #fef3c7;
+
+  --color-success: #15803d;
+  --color-success-soft: #dcfce7;
+  --color-warning: #92400e;
+  --color-warning-soft: #fef3c7;
+  --color-destructive: #b42318;
+  --color-destructive-soft: #fee4e2;
+  --color-info: #1d4ed8;
+  --color-info-soft: #dbeafe;
+
+  /* app bar and sidebar: dark slate in both themes */
+  --color-hero: #1e293b;
+  --color-hero-foreground: #ffffff;
+  --color-hero-muted: #cbd5e1;
+  --color-hero-chip: #334155;
+  --color-sidebar: #1e293b;
+  --color-sidebar-foreground: #ffffff;
+  --color-sidebar-muted: #cbd5e1;
+  --color-sidebar-active: #334155;
+  --color-sidebar-accent: #e5a000;
+
+  /* controls 8px, cards 12px — as on the web */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+}
+
+@layer theme {
+  :root {
+    @variant light {
+      --color-background: #f8fafc;
+      --color-foreground: #1e293b;
+      --color-card: #ffffff;
+      --color-secondary: #f1f5f9;
+      --color-border: #e2e8f0;
+      --color-input: #cbd5e1;
+      --color-muted-foreground: #64748b;
+      --color-primary: #334155;
+      --color-primary-foreground: #ffffff;
+      --color-primary-soft: #f1f5f9;
+      --color-saffron: #e5a000;
+      --color-saffron-foreground: #1e293b;
+  --color-saffron-soft: #fef3c7;
+      --color-success: #15803d;
+      --color-success-soft: #dcfce7;
+      --color-warning: #92400e;
+      --color-warning-soft: #fef3c7;
+      --color-destructive: #b42318;
+      --color-destructive-soft: #fee4e2;
+      --color-info: #1d4ed8;
+      --color-info-soft: #dbeafe;
+      --color-hero: #1e293b;
+      --color-hero-foreground: #ffffff;
+      --color-hero-muted: #cbd5e1;
+      --color-hero-chip: #334155;
+      --color-sidebar: #1e293b;
+      --color-sidebar-foreground: #ffffff;
+      --color-sidebar-muted: #cbd5e1;
+      --color-sidebar-active: #334155;
+      --color-sidebar-accent: #e5a000;
+    }
+
+    @variant dark {
+      --color-background: #0f172a;
+      --color-foreground: #e2e8f0;
+      --color-card: #172033;
+      --color-secondary: #1e293b;
+      --color-border: #334155;
+      --color-input: #475569;
+      --color-muted-foreground: #94a3b8;
+      --color-primary: #cbd5e1;
+      --color-primary-foreground: #0f172a;
+      --color-primary-soft: #1e293b;
+      --color-saffron: #e5a000;
+      --color-saffron-foreground: #1e293b;
+      --color-saffron-soft: #3b2f12;
+      --color-success: #6fd39a;
+      --color-success-soft: #173526;
+      --color-warning: #f2b535;
+      --color-warning-soft: #3b2f12;
+      --color-destructive: #f2958b;
+      --color-destructive-soft: #3d1d19;
+      --color-info: #8fbdf3;
+      --color-info-soft: #172a40;
+      --color-hero: #172033;
+      --color-hero-foreground: #f8fafc;
+      --color-hero-muted: #94a3b8;
+      --color-hero-chip: #334155;
+      --color-sidebar: #172033;
+      --color-sidebar-foreground: #f8fafc;
+      --color-sidebar-muted: #94a3b8;
+      --color-sidebar-active: #334155;
+      --color-sidebar-accent: #e5a000;
+    }
+  }
+}

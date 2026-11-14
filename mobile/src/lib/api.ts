@@ -1,4 +1,5 @@
 import type { Permission, Role } from '@sawmill/shared';
+import { Directory, File, Paths } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 
 export interface Profile {
@@ -96,6 +97,29 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       if (await tryRefresh()) return raw<T>(path, init);
       onSessionLost();
     }
+    throw err;
+  }
+}
+
+/**
+ * Download a file from the API (an Excel report) into the app's cache folder, using
+ * the same login and refresh as api(). Returns the saved file; nothing is kept elsewhere.
+ */
+export async function downloadToCache(path: string, filename: string): Promise<File> {
+  const dir = new Directory(Paths.cache, 'reports');
+  dir.create({ idempotent: true });
+  const target = new File(dir, filename);
+  const get = () =>
+    File.downloadFileAsync(`${BASE}${path}`, target, {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      idempotent: true,
+    });
+  try {
+    return await get();
+  } catch (err) {
+    // the access token may have expired: refresh once and try again
+    if (await tryRefresh()) return get();
+    onSessionLost();
     throw err;
   }
 }
