@@ -15,9 +15,10 @@ function saved(): ThemeName | null {
 const systemQuery = () => window.matchMedia('(prefers-color-scheme: dark)');
 const current = (): ThemeName => saved() ?? (systemQuery().matches ? 'dark' : 'light');
 
-/** Browser chrome (Android address bar) follows the brand band colour. */
+/** Browser chrome (Android address bar) follows the brand band colour (--hero in tokens.css). */
 function syncMeta(theme: ThemeName) {
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEMES[theme].hero);
+  const hero = getComputedStyle(document.documentElement).getPropertyValue('--hero').trim() || THEMES[theme].hero;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', hero);
 }
 
 /**

@@ -11,4 +11,6 @@ export interface AuthUser {
 
 export interface JwtPayload {
   sub: string;
+  /** users.tokenVersion when the token was issued; tokens from before a bump are refused */
+  tv?: number;
 }

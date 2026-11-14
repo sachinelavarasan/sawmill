@@ -24,7 +24,10 @@
     "db:up": "docker compose up -d db",
     "db:generate": "npm run db:generate -w backend",
     "db:migrate": "npm run db:migrate -w backend",
-    "db:seed": "npm run db:seed -w backend"
+    "db:seed": "npm run db:seed -w backend",
+    "db:seed:demo": "npm run db:seed:demo -w backend",
+    "db:seed:demo:reset": "npm run db:seed:demo:reset -w backend",
+    "setup:owner": "npm run setup:owner -w backend --"
   },
   "allowScripts": {
     "esbuild@0.21.5": true,
@@ -35,5 +38,19 @@
   "packageManager": "npm@11.18.0",
   "devDependencies": {
     "turbo": "2.11.10"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "^11.1.1"
+    },
+    "@expo/fingerprint": {
+      "minimatch": "^11.0.8"
+    },
+    "@nestjs/cli": {
+      "glob": "^14.0.6"
+    },
+    "@esbuild-kit/core-utils": {
+      "esbuild": "^0.25.12"
+    }
   }
 }

@@ -13,7 +13,8 @@
     "noUnusedParameters": true,
     "types": ["vite/client"],
     "paths": {
-      "@sawmill/shared": ["../packages/shared/src/index.ts"]
+      "@sawmill/shared": ["../packages/shared/src/index.ts"],
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src"]

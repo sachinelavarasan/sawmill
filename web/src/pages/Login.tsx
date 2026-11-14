@@ -1,6 +1,13 @@
+import { BarChart3Icon, LogInIcon, RulerIcon, ShieldCheckIcon } from 'lucide-react';
 import { FormEvent, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { ApiError } from '../api';
 import { useAuth } from '../auth';
-import { LangToggle, ThemeToggle } from '../components/ui';
+import { GrowthRings, LogoMark } from '../components/brand';
+import { LangToggle, ThemeToggle } from '../components/Layout';
+import { Field, Notice } from '../components/page';
 import { useI18n } from '../i18n';
 
 export function LoginPage() {
@@ -18,62 +25,84 @@ export function LoginPage() {
     try {
       await login(username, password);
     } catch (err) {
-      setError((err as Error).message);
+      // known answers in the user's language; anything else (network, server) as sent
+      const status = err instanceof ApiError ? err.status : 0;
+      setError(status === 401 ? t('loginWrong') : status === 429 ? t('loginLocked') : (err as Error).message);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="login-page">
-      <div className="login-hero">
+    <div className="grid min-h-svh bg-background lg:grid-cols-2">
+      <div className="relative flex flex-col items-center justify-center gap-3 overflow-hidden bg-hero px-6 py-12 text-center text-white lg:py-0">
         {/* growth rings of a sawn log */}
-        <svg className="login-rings" aria-hidden width="560" height="560" viewBox="0 0 420 420" fill="none" stroke="#fff" strokeWidth="1.2">
-          {[30, 62, 96, 132, 168, 204].map((r) => (
-            <circle key={r} cx="210" cy="210" r={r} />
-          ))}
-        </svg>
-        <div className="brand-mark large">SP</div>
-        <h1>SAWMILL PRO</h1>
-        <p>{t('appTagline')}</p>
-      </div>
-      <form className="login-card" onSubmit={submit}>
-        <div className="login-card-head">
-          <h2>{t('login')}</h2>
-          <div className="login-card-tools">
-            <ThemeToggle />
-            <LangToggle />
-          </div>
+        <div className="pointer-events-none absolute top-1/2 left-1/2 size-[640px] -translate-x-1/2 -translate-y-1/2 opacity-10" aria-hidden>
+          <GrowthRings className="inset-0 size-full" />
         </div>
-        <label className="field">
-          <span>{t('username')}</span>
-          <input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="username"
-            autoCapitalize="none"
-            autoFocus
-            required
-          />
-        </label>
-        <label className="field">
-          <span>{t('password')}</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            required
-          />
-        </label>
-        {error && <div className="notice notice-error">{error}</div>}
-        <button className="btn btn-primary btn-block" disabled={busy}>
-          {busy ? t('signingIn') : t('signIn')}
-        </button>
-        {import.meta.env.DEV && (
-          <p className="muted small">Dev accounts: owner / Owner@123 · accountant / Accountant@123</p>
-        )}
-      </form>
+        <LogoMark className="relative size-14 rounded-2xl lg:size-20" />
+        <h1 className="relative mt-2 text-2xl font-extrabold tracking-[0.08em] lg:text-4xl">SAWMILL PRO</h1>
+        <p className="relative max-w-sm text-sm text-balance opacity-80 lg:text-base">{t('appTagline')}</p>
+        <ul className="relative mt-8 hidden max-w-xs flex-col gap-3 text-left text-sm lg:flex">
+          {(
+            [
+              [RulerIcon, 'loginFeature1'],
+              [ShieldCheckIcon, 'loginFeature2'],
+              [BarChart3Icon, 'loginFeature3'],
+            ] as const
+          ).map(([Icon, key]) => (
+            <li key={key} className="flex items-center gap-3">
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/10 ring-1 ring-white/10">
+                <Icon className="size-4" />
+              </span>
+              <span className="opacity-90">{t(key)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="flex items-start justify-center px-4 py-8 lg:items-center lg:py-12">
+        <Card className="w-full max-w-sm py-7">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 px-6">
+            <CardTitle className="text-xl">{t('login')}</CardTitle>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <LangToggle />
+            </div>
+          </CardHeader>
+          <CardContent className="px-6">
+            <form onSubmit={submit} className="grid gap-4">
+              <Field id="login-username" label={t('username')}>
+                <Input
+                  id="login-username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  autoFocus
+                  required
+                />
+              </Field>
+              <Field id="login-password" label={t('password')}>
+                <Input
+                  id="login-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
+              </Field>
+              {error && <Notice tone="error">{error}</Notice>}
+              <Button type="submit" size="lg" className="w-full" disabled={busy}>
+                <LogInIcon />
+                {busy ? t('signingIn') : t('signIn')}
+              </Button>
+              {import.meta.env.DEV && <p className="text-xs text-muted-foreground">Dev accounts: owner / Owner@123 · accountant / Accountant@123</p>}
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

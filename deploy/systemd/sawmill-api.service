@@ -1,0 +1,38 @@
+# SAWMILL PRO API as a system service.
+#   sudo cp deploy/systemd/sawmill-api.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now sawmill-api
+#   journalctl -u sawmill-api -f        # logs
+[Unit]
+Description=SAWMILL PRO API
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sawmill
+Group=sawmill
+WorkingDirectory=/opt/sawmill/backend
+EnvironmentFile=/etc/sawmill/api.env
+ExecStart=/usr/bin/node dist/main.js
+Restart=on-failure
+RestartSec=5
+# Give in-flight requests time to finish on restart (the API closes the DB pool on SIGTERM).
+TimeoutStopSec=20
+
+# Hardening: the API needs no write access to the disk at all.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

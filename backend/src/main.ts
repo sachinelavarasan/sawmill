@@ -1,11 +1,19 @@
 import 'reflect-metadata';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { trustProxy } from './config/env';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
+
+  // Behind nginx, req.ip must be the visitor's address (rate limits, audit log), not 127.0.0.1.
+  app.set('trust proxy', trustProxy(process.env.TRUST_PROXY));
+  // The largest real request (an import with all its logs) is well under this.
+  app.useBodyParser('json', { limit: '1mb' });
+  app.useBodyParser('urlencoded', { limit: '100kb', extended: false });
 
   app.use(helmet());
   app.setGlobalPrefix('api');
@@ -23,7 +31,9 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   const port = Number(process.env.PORT ?? 3000);
-  await app.listen(port, '0.0.0.0');
-  console.log(`SAWMILL PRO API listening on http://localhost:${port}/api`);
+  // HOST=127.0.0.1 in production so only nginx on the same server can reach the API.
+  const host = process.env.HOST ?? '0.0.0.0';
+  await app.listen(port, host);
+  new Logger('Bootstrap').log(`SAWMILL PRO API listening on http://${host}:${port}/api (${process.env.NODE_ENV ?? 'development'})`);
 }
 bootstrap();

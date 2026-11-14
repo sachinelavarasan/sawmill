@@ -37,6 +37,8 @@ export class ListImportsQuery {
   @IsOptional() @IsIn(Object.values(ApprovalStatus)) status?: ApprovalStatus;
   /** `1` = only loads that can still be edited / measured (Draft or Rejected). */
   @IsOptional() @IsIn(['0', '1']) open?: string;
+  /** search: record ID, lorry number, wood type (spaces ignored) */
+  @IsOptional() @IsString() @MaxLength(60) q?: string;
 }
 
 export class CreateImportDto {

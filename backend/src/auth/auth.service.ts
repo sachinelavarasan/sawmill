@@ -1,13 +1,17 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { ROLE_PERMISSIONS } from '@sawmill/shared';
 import * as bcrypt from 'bcryptjs';
 import { createHash, randomBytes } from 'crypto';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, count, eq, gt, inArray, isNull, max, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { Database, InjectDb } from '../db/db.module';
-import { mills, refreshTokens, Role, users } from '../db/schema';
+import { auditLogs, mills, refreshTokens, Role, users } from '../db/schema';
+
+/** Account lockout: this many wrong passwords within the window locks the account for the window. */
+export const LOCKOUT_ATTEMPTS = 5;
+export const LOCKOUT_MINUTES = 15;
 
 // Used so that "unknown user" and "wrong password" take the same time.
 const DUMMY_HASH = bcrypt.hashSync('timing-equaliser', 12);
@@ -27,6 +31,7 @@ const userWithMill = {
   role: users.role,
   isActive: users.isActive,
   passwordHash: users.passwordHash,
+  tokenVersion: users.tokenVersion,
   preferredLanguage: users.preferredLanguage,
   mill: { id: mills.id, name: mills.name, code: mills.code },
 };
@@ -64,6 +69,16 @@ export class AuthService {
     const user = await this.findUser(eq(users.username, username));
 
     const passwordOk = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
+
+    // Checked after bcrypt so a locked account answers in the same time as any other.
+    if (user?.isActive && (await this.recentFailures(user.id)) >= LOCKOUT_ATTEMPTS) {
+      await this.audit.log({ millId: user.millId, userId: user.id, action: 'LOGIN_LOCKED', entityType: 'User', entityId: user.id, ip: client.ip });
+      throw new HttpException(
+        `Too many wrong passwords. Try again in ${LOCKOUT_MINUTES} minutes, or ask the owner to reset your password.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     if (!user || !passwordOk || !user.isActive) {
       if (user) {
         await this.audit.log({
@@ -88,7 +103,7 @@ export class AuthService {
       ip: client.ip,
     });
 
-    const tokens = await this.issueTokens(user.id, client);
+    const tokens = await this.issueTokens(user, client);
     return { ...tokens, user: this.profile(user) };
   }
 
@@ -128,7 +143,7 @@ export class AuthService {
       .returning({ id: refreshTokens.id });
     if (rotated.length === 0) throw expired();
 
-    const tokens = await this.issueTokens(user.id, client);
+    const tokens = await this.issueTokens(user, client);
     return { ...tokens, user: this.profile(user) };
   }
 
@@ -154,15 +169,41 @@ export class AuthService {
     return this.profile(user);
   }
 
+  /**
+   * Wrong passwords in the last LOCKOUT_MINUTES, counted from the last successful
+   * login or owner password reset (either one clears the count). Uses the audit
+   * log, so no extra table — and every attempt stays on record.
+   */
+  private async recentFailures(userId: string): Promise<number> {
+    const forUser = and(eq(auditLogs.entityType, 'User'), eq(auditLogs.entityId, userId));
+    const [cleared] = await this.db
+      .select({ at: max(auditLogs.createdAt) })
+      .from(auditLogs)
+      .where(and(forUser, inArray(auditLogs.action, ['LOGIN', 'RESET_PASSWORD'])));
+    const windowStart = new Date(Date.now() - LOCKOUT_MINUTES * 60_000);
+    const since = cleared?.at && cleared.at > windowStart ? cleared.at : windowStart;
+    const [row] = await this.db
+      .select({ n: count() })
+      .from(auditLogs)
+      .where(and(forUser, eq(auditLogs.action, 'LOGIN_FAILED'), gt(auditLogs.createdAt, since)));
+    return row?.n ?? 0;
+  }
+
+  /** Ends every session of a user now: refresh tokens are revoked and already-issued access tokens stop working. */
   async revokeAllSessions(userId: string) {
+    await this.db
+      .update(users)
+      .set({ tokenVersion: sql`${users.tokenVersion} + 1` })
+      .where(eq(users.id, userId));
     await this.db
       .update(refreshTokens)
       .set({ revokedAt: new Date() })
       .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)));
   }
 
-  private async issueTokens(userId: string, client: ClientInfo) {
-    const accessToken = await this.jwt.signAsync({ sub: userId });
+  private async issueTokens(user: { id: string; tokenVersion: number }, client: ClientInfo) {
+    const userId = user.id;
+    const accessToken = await this.jwt.signAsync({ sub: userId, tv: user.tokenVersion });
     const refreshToken = randomBytes(48).toString('base64url');
     const days = Number(this.config.get('REFRESH_TOKEN_TTL_DAYS') ?? 30);
     await this.db.insert(refreshTokens).values({
