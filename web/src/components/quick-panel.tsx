@@ -19,6 +19,7 @@ export function QuickPanel({
   sub,
   tags,
   fullTo,
+  actions,
   children,
 }: {
   open: boolean;
@@ -32,6 +33,8 @@ export function QuickPanel({
   tags?: ReactNode;
   /** the full record page */
   fullTo?: string;
+  /** the decision to take on the record (e.g. Approve / Reject), kept in view at the bottom */
+  actions?: ReactNode;
   children?: ReactNode;
 }) {
   const { t } = useI18n();
@@ -55,13 +58,16 @@ export function QuickPanel({
           </div>
           {children}
         </div>
-        {fullTo && (
-          <div className="flex justify-end border-t border-border/70 px-5 py-3.5">
-            <Button asChild variant="outline">
-              <Link to={fullTo}>
-                <ArrowUpRightIcon /> {t('openFullRecord')}
-              </Link>
-            </Button>
+        {(fullTo || actions) && (
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/70 px-5 py-3.5">
+            {fullTo && (
+              <Button asChild variant={actions ? 'ghost' : 'outline'} className={actions ? 'mr-auto' : undefined}>
+                <Link to={fullTo}>
+                  <ArrowUpRightIcon /> {t('openFullRecord')}
+                </Link>
+              </Button>
+            )}
+            {actions}
           </div>
         )}
       </SheetContent>

@@ -1,15 +1,16 @@
-import { PlusIcon } from 'lucide-react';
+import { PlusIcon, RulerIcon } from 'lucide-react';
 import { FormEvent, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { num3, useLoad } from '../components/common';
 import { DataTable } from '../components/data-table';
-import { ListEmpty, ListToolbar, openColumn, PageSum, useRecordList, type ListColumn } from '../components/record-list';
-import { ALL, Field, FormActions, FormCard, FormGrid, LoadState, Notice, Page, PageHeader } from '../components/page';
+import { ListEmpty, ListToolbar, openColumn, PageSum, StatusCards, useRecordList, type ListColumn } from '../components/record-list';
+import { ALL, Field, FormActions, FormCard, FormSection, LoadState, Notice, Page, PageHeader } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
 import { useI18n } from '../i18n';
 import { fromLocalInput } from './Imports';
@@ -135,6 +136,9 @@ export function ExportsPage() {
         }
       />
 
+      {/* the list at a glance; each card also filters the table to that state */}
+      <StatusCards list={list} totalLabel={t('totalExportLoads')} />
+
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
 
       {data && (
@@ -158,7 +162,10 @@ export function ExportsPage() {
   );
 }
 
-/** Export fields shared by "New Export" and the edit panel. Wood types and loads are suggested from finished stock. */
+/**
+ * The export form, in numbered sections, shared by "New Export" and the edit panel on the
+ * detail page. Wood types and loads are suggested from finished stock.
+ */
 export function ExportFields({ form, onChange, finished }: { form: ExportForm; onChange: (f: ExportForm) => void; finished: FinishedStockRow[] }) {
   const { t } = useI18n();
   const set = (k: keyof ExportForm) => (e: { target: { value: string } }) => onChange({ ...form, [k]: e.target.value });
@@ -169,67 +176,78 @@ export function ExportFields({ form, onChange, finished }: { form: ExportForm; o
   if (form.importLoadId && !loads.has(form.importLoadId)) loads.set(form.importLoadId, '…');
 
   return (
-    <FormGrid>
-      <Field id="exp-date" label={`${t('exportDate')} *`}>
-        <Input id="exp-date" type="date" value={form.exportDate} onChange={set('exportDate')} required />
-      </Field>
-      <Field id="exp-lorry" label={`${t('lorryNumber')} *`}>
-        <Input
-          id="exp-lorry"
-          value={form.lorryNumber}
-          onChange={set('lorryNumber')}
-          required
-          minLength={4}
-          maxLength={20}
-          autoCapitalize="characters"
-          placeholder="TN 45 AB 1234"
-        />
-      </Field>
-      <Field id="exp-wood" label={`${t('woodType')} *`} hint={t('exportWoodHint')}>
-        <Input id="exp-wood" value={form.woodType} onChange={set('woodType')} required minLength={2} maxLength={60} list="finished-woods" />
-        <datalist id="finished-woods">
-          {woods.map((w) => (
-            <option key={w} value={w} />
-          ))}
-        </datalist>
-      </Field>
-      <Field id="exp-load" label={t('defaultLoad')}>
-        <Select value={form.importLoadId || ALL} onValueChange={(v) => onChange({ ...form, importLoadId: v === ALL ? '' : v })}>
-          <SelectTrigger id="exp-load" className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{t('notSet')}</SelectItem>
-            {[...loads].map(([id, code]) => (
-              <SelectItem key={id} value={id}>
-                {code}
-              </SelectItem>
+    <>
+      <FormSection step={1} title={t('secExportInfo')} description={t('secExportInfoSub')}>
+        <Field id="exp-date" label={t('exportDate')} required>
+          <Input id="exp-date" type="date" value={form.exportDate} onChange={set('exportDate')} required />
+        </Field>
+        <Field id="exp-wood" label={t('woodType')} required hint={t('exportWoodHint')}>
+          <Input id="exp-wood" value={form.woodType} onChange={set('woodType')} required minLength={2} maxLength={60} list="finished-woods" />
+          <datalist id="finished-woods">
+            {woods.map((w) => (
+              <option key={w} value={w} />
             ))}
-          </SelectContent>
-        </Select>
-      </Field>
-      <Field id="exp-driver" label={t('driverName')}>
-        <Input id="exp-driver" value={form.driverName} onChange={set('driverName')} maxLength={100} />
-      </Field>
-      <Field id="exp-driver-mobile" label={t('driverMobile')}>
-        <Input id="exp-driver-mobile" value={form.driverMobile} onChange={set('driverMobile')} inputMode="tel" maxLength={15} />
-      </Field>
-      <Field id="exp-owner" label={t('lorryOwnerName')}>
-        <Input id="exp-owner" value={form.lorryOwnerName} onChange={set('lorryOwnerName')} maxLength={100} />
-      </Field>
-      <Field id="exp-owner-mobile" label={t('lorryOwnerMobile')}>
-        <Input id="exp-owner-mobile" value={form.lorryOwnerMobile} onChange={set('lorryOwnerMobile')} inputMode="tel" maxLength={15} />
-      </Field>
-      <Field id="exp-start" label={t('startTime')}>
-        <Input id="exp-start" type="datetime-local" value={form.startAt} onChange={set('startAt')} />
-      </Field>
-      <Field id="exp-end" label={t('endTime')}>
-        <Input id="exp-end" type="datetime-local" value={form.endAt} onChange={set('endAt')} min={form.startAt || undefined} />
-      </Field>
-      <Field id="exp-notes" label={t('notes')} className="sm:col-span-full">
-        <Input id="exp-notes" value={form.notes} onChange={set('notes')} maxLength={1000} />
-      </Field>
-    </FormGrid>
+          </datalist>
+        </Field>
+        <Field id="exp-load" label={t('defaultLoad')} hint={t('defaultLoadHint')} className="sm:col-span-2">
+          <Select value={form.importLoadId || ALL} onValueChange={(v) => onChange({ ...form, importLoadId: v === ALL ? '' : v })}>
+            <SelectTrigger id="exp-load" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{t('notSet')}</SelectItem>
+              {[...loads].map(([id, code]) => (
+                <SelectItem key={id} value={id}>
+                  {code}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+      </FormSection>
+
+      <FormSection step={2} title={t('secLorry')} description={t('secExportLorrySub')}>
+        <Field id="exp-lorry" label={t('lorryNumber')} required hint={t('lorryNumberHint')} className="sm:col-span-2">
+          <Input
+            id="exp-lorry"
+            value={form.lorryNumber}
+            onChange={set('lorryNumber')}
+            required
+            minLength={4}
+            maxLength={20}
+            autoCapitalize="characters"
+            placeholder="TN 45 AB 1234"
+          />
+        </Field>
+        <Field id="exp-driver" label={t('driverName')}>
+          <Input id="exp-driver" value={form.driverName} onChange={set('driverName')} maxLength={100} autoComplete="off" />
+        </Field>
+        <Field id="exp-driver-mobile" label={t('driverMobile')}>
+          <Input id="exp-driver-mobile" type="tel" value={form.driverMobile} onChange={set('driverMobile')} inputMode="tel" maxLength={15} autoComplete="off" />
+        </Field>
+        <Field id="exp-owner" label={t('lorryOwnerName')}>
+          <Input id="exp-owner" value={form.lorryOwnerName} onChange={set('lorryOwnerName')} maxLength={100} autoComplete="off" />
+        </Field>
+        <Field id="exp-owner-mobile" label={t('lorryOwnerMobile')}>
+          <Input id="exp-owner-mobile" type="tel" value={form.lorryOwnerMobile} onChange={set('lorryOwnerMobile')} inputMode="tel" maxLength={15} autoComplete="off" />
+        </Field>
+      </FormSection>
+
+      <FormSection step={3} title={t('secLoading')} description={t('secLoadingSub')}>
+        <Field id="exp-start" label={t('startTime')}>
+          <Input id="exp-start" type="datetime-local" value={form.startAt} onChange={set('startAt')} />
+        </Field>
+        <Field id="exp-end" label={t('endTime')}>
+          <Input id="exp-end" type="datetime-local" value={form.endAt} onChange={set('endAt')} min={form.startAt || undefined} />
+        </Field>
+      </FormSection>
+
+      <FormSection step={4} title={t('secAdditional')} description={t('secAdditionalSub')}>
+        <Field id="exp-notes" label={t('notes')} hint={t('notesHint')} className="sm:col-span-2">
+          <Textarea id="exp-notes" value={form.notes} onChange={set('notes')} maxLength={1000} rows={3} />
+        </Field>
+      </FormSection>
+    </>
   );
 }
 
@@ -255,20 +273,23 @@ export function NewExportPage() {
   }
 
   return (
-    <Page>
-      <PageHeader title={t('newExport')} back={{ to: '/exports', label: t('exports') }} />
+    <Page className="max-w-5xl">
+      <PageHeader title={t('newExport')} subtitle={t('requiredNote')} back={{ to: '/exports', label: t('exports') }} />
       <LoadState loading={stock.loading && !stock.data} error={stock.error} onRetry={stock.reload} />
-      <FormCard onSubmit={submit}>
+      <FormCard onSubmit={submit} className="py-7 [&_form]:gap-7">
         <ExportFields form={form} onChange={setForm} finished={stock.data?.finished ?? []} />
         {error && <Notice tone="error">{error}</Notice>}
-        <FormActions>
-          <Button asChild variant="ghost">
-            <Link to="/exports">{t('cancel')}</Link>
-          </Button>
-          <Button type="submit" disabled={busy}>
-            {t('create')}
-          </Button>
-        </FormActions>
+        <div className="border-t border-border/70 pt-5">
+          <FormActions summary={t('exportDraftHint')}>
+            <Button asChild variant="ghost">
+              <Link to="/exports">{t('cancel')}</Link>
+            </Button>
+            {/* creating opens the new load, where its lines are measured */}
+            <Button type="submit" disabled={busy}>
+              <RulerIcon /> {t('saveAndMeasureLines')}
+            </Button>
+          </FormActions>
+        </div>
       </FormCard>
     </Page>
   );

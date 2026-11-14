@@ -1,7 +1,7 @@
 import { exportPieceCft, Permission, sizeLabel } from '@sawmill/shared';
-import { CheckIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react';
-import { FormEvent, useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { AlertTriangleIcon, CheckIcon, PackageIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { dateTime, money, num3, useLoad } from '../components/common';
-import { ALL, EntryField, EntryRow, Field, FigureStrip, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, TableCard, useClientPaging } from '../components/page';
+import { ALL, EntryField, Field, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
 import { WorkflowBar } from '../components/workflow';
 import { useConfirmDelete } from '../components/confirm';
@@ -105,13 +105,12 @@ export function ExportDetailPage() {
           {!exp.editable && exp.status !== 'SUBMITTED' && <Notice>{t('lockedRecord')}</Notice>}
           {exp.rejectionReason && <Notice tone="error">{exp.rejectionReason}</Notice>}
 
-          <FigureStrip
-            className="lg:grid-cols-2"
-            items={[
-              { label: t('totalPieces'), value: exp.totalPieces },
-              { label: t('totalCft'), value: `${num3(exp.totalCft)} CFT` },
-            ]}
-          />
+          {/* the load as it stands: the total CFT leads, lines and pieces beside it */}
+          <StatGrid className="lg:grid-cols-4">
+            <Stat hero label={t('totalCft')} value={num3(exp.totalCft)} unit="CFT" hint={`${exp.woodType} · ${t('lorry')} ${exp.lorryNumber}`} />
+            <Stat label={t('totalPieces')} value={exp.totalPieces.toLocaleString('en-IN')} />
+            <Stat label={t('measuredLines')} value={exp.lines.length} />
+          </StatGrid>
 
           <WorkflowBar
             base={`/exports/${exp.id}`}
@@ -125,8 +124,9 @@ export function ExportDetailPage() {
           />
 
           <DetailsSection exp={exp} finished={stock.data?.finished ?? []} onSaved={refresh} />
-          {can(Permission.FINANCE_VIEW) && <SaleSection exp={exp} canPickClient={can(Permission.CLIENTS_MANAGE)} />}
           <LinesSection exp={exp} finished={stock.data?.finished ?? []} onChanged={refresh} />
+          {/* the sale comes last: its amount is worked out from the measured CFT above */}
+          {can(Permission.FINANCE_VIEW) && <SaleSection exp={exp} canPickClient={can(Permission.CLIENTS_MANAGE)} />}
         </>
       )}
     </Page>
@@ -170,16 +170,37 @@ function DetailsSection({ exp, finished, onSaved }: { exp: ExportDetail; finishe
     }
   }
 
-  const facts: [string, string | null][] = [
-    [t('driverName'), exp.driverName],
-    [t('driverMobile'), exp.driverMobile],
-    [t('lorryOwnerName'), exp.lorryOwnerName],
-    [t('lorryOwnerMobile'), exp.lorryOwnerMobile],
-    [t('startTime'), exp.startAt ? dateTime(exp.startAt) : null],
-    [t('endTime'), exp.endAt ? dateTime(exp.endAt) : null],
-    [t('defaultLoad'), exp.importCode],
-    [t('createdBy'), exp.createdByName],
-    [t('notes'), exp.notes],
+  const groups: { title: string; facts: [string, ReactNode][] }[] = [
+    {
+      title: t('lorryAndDriver'),
+      facts: [
+        [t('lorryNumber'), exp.lorryNumber],
+        [t('driverName'), exp.driverName],
+        [t('driverMobile'), exp.driverMobile],
+        [t('lorryOwnerName'), exp.lorryOwnerName],
+        [t('lorryOwnerMobile'), exp.lorryOwnerMobile],
+      ],
+    },
+    {
+      title: t('loadingDetails'),
+      facts: [
+        [t('exportDate'), dateOnly(exp.exportDate)],
+        [t('woodType'), exp.woodType],
+        [t('startTime'), exp.startAt ? dateTime(exp.startAt) : null],
+        [t('endTime'), exp.endAt ? dateTime(exp.endAt) : null],
+        [
+          t('defaultLoad'),
+          exp.importLoadId && exp.importCode ? (
+            <Link className="text-primary hover:underline" to={`/imports/${exp.importLoadId}`}>
+              {exp.importCode}
+            </Link>
+          ) : (
+            exp.importCode
+          ),
+        ],
+        [t('createdBy'), exp.createdByName],
+      ],
+    },
   ];
 
   return (
@@ -195,7 +216,7 @@ function DetailsSection({ exp, finished, onSaved }: { exp: ExportDetail; finishe
       }
     >
       {form ? (
-        <FormCard onSubmit={submit}>
+        <FormCard onSubmit={submit} className="[&_form]:gap-6">
           <ExportFields form={form} onChange={setForm} finished={finished} />
           {error && <Notice tone="error">{error}</Notice>}
           <FormActions>
@@ -208,16 +229,27 @@ function DetailsSection({ exp, finished, onSaved }: { exp: ExportDetail; finishe
           </FormActions>
         </FormCard>
       ) : (
-        <Card className="py-5">
-          <CardContent className="px-5">
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-4 md:grid-cols-4">
-              {facts.map(([label, value]) => (
-                <div key={label} className="min-w-0">
-                  <dt className="text-xs text-muted-foreground">{label}</dt>
-                  <dd className="font-medium break-words">{value || '—'}</dd>
-                </div>
-              ))}
-            </dl>
+        <Card className="gap-0 py-0">
+          <CardContent className="grid px-0 lg:grid-cols-2 lg:divide-x lg:divide-border/70">
+            {groups.map((g) => (
+              <div key={g.title} className="border-b border-border/70 px-5 py-5 lg:border-b-0">
+                <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{g.title}</h3>
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3">
+                  {g.facts.map(([label, value]) => (
+                    <div key={label} className="min-w-0">
+                      <dt className="text-xs text-muted-foreground">{label}</dt>
+                      <dd className="mt-0.5 font-medium break-words">{value || '—'}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            ))}
+            {exp.notes && (
+              <div className="border-t border-border/70 px-5 py-4 lg:col-span-2">
+                <div className="text-xs text-muted-foreground">{t('notes')}</div>
+                <p className="mt-0.5 font-medium break-words whitespace-pre-line">{exp.notes}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -238,8 +270,6 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const piecesRef = useRef<HTMLInputElement>(null);
-  // after picking from stock, focus goes to pieces (not back to the select trigger)
-  const focusPieces = useRef(false);
 
   // a newly chosen default load becomes the default for the next line
   useEffect(() => setEntry((e) => (e.importLoadId ? e : { ...e, importLoadId: exp.importLoadId ?? '' })), [exp.importLoadId]);
@@ -308,169 +338,230 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
   exp.lines.forEach((l) => wanted.set(positionKey(l), (wanted.get(positionKey(l)) ?? 0) + l.pieces));
   const short = (l: Line) => exp.status !== 'APPROVED' && (wanted.get(positionKey(l)) ?? 0) > l.availablePieces;
 
+  const pickStock = (f: FinishedStockRow) => {
+    setEntry({ ...entry, importLoadId: f.importLoadId, thickness: String(f.thicknessIn), width: String(f.widthIn), length: String(f.lengthFt) });
+    piecesRef.current?.focus();
+  };
+
   const lines = useClientPaging(exp.lines);
   return (
-    <Section title={t('exportMeasurement')}>
+    <Section
+      id="lines"
+      title={t('exportMeasurement')}
+      tools={
+        exp.lines.length > 0 && (
+          <span className="text-sm text-muted-foreground tabular-nums">
+            {t('linesCount', { n: exp.lines.length })} · {t('piecesCount', { n: exp.totalPieces })} · <span className="font-semibold text-foreground">{num3(exp.totalCft)} CFT</span>
+          </span>
+        )
+      }
+    >
       {exp.editable && (
-        <EntryRow
-          onSubmit={add}
-          result={liveCft != null ? num3(liveCft) : '0.000'}
-          resultLabel="CFT"
-          submitLabel={t('addLine')}
-          submitDisabled={busy || liveCft == null || !entry.importLoadId}
-        >
-          <div className="col-span-2 grid gap-3 sm:basis-full sm:grid-cols-[2fr_1fr]">
-            <Field id="line-stock" label={t('fromStock')}>
-              <Select
-                value={picked ? chosenKey : ALL}
-                onValueChange={(v) => {
-                  const f = sameWood.find((x) => stockKey(x) === v);
-                  if (f) setEntry({ ...entry, importLoadId: f.importLoadId, thickness: String(f.thicknessIn), width: String(f.widthIn), length: String(f.lengthFt) });
-                  focusPieces.current = true;
-                }}
-              >
-                <SelectTrigger id="line-stock" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent
-                  onCloseAutoFocus={(e) => {
-                    if (!focusPieces.current) return;
-                    focusPieces.current = false;
-                    e.preventDefault();
-                    piecesRef.current?.focus();
-                  }}
-                >
-                  <SelectItem value={ALL}>{sameWood.length ? t('pickStock') : t('noFinishedOfWood', { wood: exp.woodType })}</SelectItem>
-                  {sameWood.map((f) => (
-                    <SelectItem key={stockKey(f)} value={stockKey(f)}>
-                      {f.importCode} · {sizeLabel(f.thicknessIn, f.widthIn, f.lengthFt)} · {t('piecesCount', { n: f.pieces })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field id="line-load" label={`${t('importId')} *`}>
-              <Select value={entry.importLoadId} onValueChange={(v) => setEntry({ ...entry, importLoadId: v })} required>
-                <SelectTrigger id="line-load" className="w-full">
-                  <SelectValue placeholder={t('pickLoad')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {[...loads].map(([id, code]) => (
-                    <SelectItem key={id} value={id}>
-                      {code}
-                    </SelectItem>
-                  ))}
-                  {entry.importLoadId && !loads.has(entry.importLoadId) && <SelectItem value={entry.importLoadId}>{exp.importCode ?? '…'}</SelectItem>}
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
-          <EntryField label={t('thickness')} value={entry.thickness} onChange={set('thickness')} min={0.01} max={999} step="0.01" inputMode="decimal" required />
-          <EntryField label={t('width')} value={entry.width} onChange={set('width')} min={0.01} max={999} step="0.01" inputMode="decimal" required />
-          <EntryField label={t('lengthFt')} value={entry.length} onChange={set('length')} min={0.01} max={999} step="0.01" inputMode="decimal" required />
-          <EntryField
-            label={
-              <>
-                {t('pieces')}
-                {picked && <span className="text-muted-foreground/80"> / {picked.pieces}</span>}
-              </>
-            }
-            inputRef={piecesRef}
-            value={entry.pieces}
-            onChange={set('pieces')}
-            min={1}
-            max={picked?.pieces}
-            step="1"
-            inputMode="numeric"
-            required
-          />
-        </EntryRow>
+        <Card className="gap-0 py-0">
+          <CardContent className="px-0">
+            {/* 1 · what is in stock: one press fills the load and the size */}
+            <div className="border-b border-border/70 px-4 py-4 sm:px-5">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h3 className="text-sm font-semibold">{t('pickFromStock')}</h3>
+                <p className="text-xs text-muted-foreground">{t('pickFromStockHint')}</p>
+              </div>
+              {sameWood.length === 0 ? (
+                <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                  <PackageIcon className="size-4 shrink-0" aria-hidden />
+                  {t('noFinishedOfWood', { wood: exp.woodType })}
+                </p>
+              ) : (
+                <ul className="scroll-quiet mt-3 grid max-h-56 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label={t('fromStock')}>
+                  {sameWood.map((f) => {
+                    const on = picked === f;
+                    return (
+                      <li key={stockKey(f)}>
+                        <button
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => pickStock(f)}
+                          className={cn(
+                            'flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                            on ? 'border-primary bg-primary-soft' : 'bg-card hover:border-foreground/25 hover:bg-muted/50',
+                          )}
+                        >
+                          <span className="min-w-0">
+                            <span className="block font-semibold tabular-nums">{sizeLabel(f.thicknessIn, f.widthIn, f.lengthFt)}</span>
+                            <span className="block truncate text-xs text-muted-foreground">{f.importCode}</span>
+                          </span>
+                          <span className="shrink-0 text-right">
+                            <span className="block text-sm font-semibold tabular-nums">{f.pieces.toLocaleString('en-IN')}</span>
+                            <span className="block text-xs text-muted-foreground">{t('inStock')}</span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            {/* 2 · the line itself: source load, size, pieces — and its CFT as it is typed */}
+            <form onSubmit={add} className="grid gap-4 px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-stretch">
+              <div className="grid content-start gap-4">
+                <Field id="line-load" label={t('sourceLoadShort')} required className="sm:max-w-xs">
+                  <Select value={entry.importLoadId} onValueChange={(v) => setEntry({ ...entry, importLoadId: v })} required>
+                    <SelectTrigger id="line-load" className="w-full">
+                      <SelectValue placeholder={t('pickLoad')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[...loads].map(([id, code]) => (
+                        <SelectItem key={id} value={id}>
+                          {code}
+                        </SelectItem>
+                      ))}
+                      {entry.importLoadId && !loads.has(entry.importLoadId) && <SelectItem value={entry.importLoadId}>{exp.importCode ?? '…'}</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <EntryField label={t('thickness')} value={entry.thickness} onChange={set('thickness')} min={0.01} max={999} step="0.01" inputMode="decimal" required />
+                  <EntryField label={t('width')} value={entry.width} onChange={set('width')} min={0.01} max={999} step="0.01" inputMode="decimal" required />
+                  <EntryField label={t('lengthFt')} value={entry.length} onChange={set('length')} min={0.01} max={999} step="0.01" inputMode="decimal" required />
+                  <EntryField
+                    label={
+                      <>
+                        {t('pieces')}
+                        {picked && <span className="text-muted-foreground/80"> / {picked.pieces}</span>}
+                      </>
+                    }
+                    inputRef={piecesRef}
+                    value={entry.pieces}
+                    onChange={set('pieces')}
+                    min={1}
+                    max={picked?.pieces}
+                    step="1"
+                    inputMode="numeric"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col justify-between gap-3 rounded-lg bg-muted/60 p-4">
+                <div aria-live="polite">
+                  <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('lineCft')}</div>
+                  <div className={cn('mt-0.5 text-3xl leading-tight font-bold tracking-tight tabular-nums', liveCft == null && 'text-muted-foreground')}>
+                    {liveCft != null ? num3(liveCft) : '0.000'} <span className="text-sm font-medium tracking-normal text-muted-foreground">CFT</span>
+                  </div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    {t('loadTotal')}: <span className="font-semibold text-foreground tabular-nums">{num3(exp.totalCft)} CFT</span>
+                  </div>
+                </div>
+                <Button type="submit" size="lg" className="h-12 w-full" disabled={busy || liveCft == null || !entry.importLoadId}>
+                  <PlusIcon /> {t('addLine')}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       )}
       {error && <Notice tone="error">{error}</Notice>}
 
       <TableCard compactEmpty empty={exp.lines.length === 0} emptyText={t('noLines')} pager={lines.pager}>
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/50">
+            <TableRow>
               <TableHead className="w-12 pl-4">{t('lineNo')}</TableHead>
               <TableHead>{t('size')}</TableHead>
+              <TableHead className="max-sm:hidden">{t('sourceLoadShort')}</TableHead>
               <TableHead className={numCell}>{t('pieces')}</TableHead>
               <TableHead className={cn(numCell, !exp.editable && 'pr-4')}>CFT</TableHead>
-              {exp.editable && <TableHead className="pr-4" />}
+              {exp.editable && (
+                <TableHead className="pr-4">
+                  <span className="sr-only">{t('actions')}</span>
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {lines.rows.map((l) => (
-              <TableRow key={l.id}>
-                <TableCell className="pl-4 text-muted-foreground">{l.lineNumber}</TableCell>
-                <TableCell className="whitespace-normal">
-                  <div className="font-medium whitespace-nowrap">{sizeLabel(l.thicknessIn, l.widthIn, l.lengthFt)}</div>
-                  <div className="text-xs text-muted-foreground">{l.importCode}</div>
-                  {short(l) && (
-                    <div className="text-xs text-destructive">
-                      {t('moreThanStock')}: {l.availablePieces}
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell className={numCell}>
-                  {editing?.id === l.id ? (
-                    <form id={`edit-${l.id}`} onSubmit={(e) => saveEdit(e, l)} className="flex justify-end">
-                      <Input
-                        className="h-8 w-20 text-right"
-                        type="number"
-                        aria-label={t('pieces')}
-                        value={editing.pieces}
-                        onChange={(e) => setEditing({ ...editing, pieces: e.target.value })}
-                        min={1}
-                        step="1"
-                        required
-                        autoFocus
-                      />
-                    </form>
-                  ) : (
-                    l.pieces
-                  )}
-                </TableCell>
-                <TableCell className={cn(numCell, !exp.editable && 'pr-4')}>{num3(l.cft)}</TableCell>
-                {exp.editable && (
-                  <TableCell className="pr-4 text-right">
-                    <div className="flex justify-end gap-1">
-                      {editing?.id === l.id ? (
-                        <>
-                          <Button type="submit" form={`edit-${l.id}`} size="sm" disabled={busy} aria-label={t('save')}>
-                            <CheckIcon />
-                            <span className="max-md:sr-only">{t('save')}</span>
-                          </Button>
-                          <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(null)} aria-label={t('cancel')}>
-                            <XIcon />
-                            <span className="max-md:sr-only">{t('cancel')}</span>
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button type="button" variant="outline" size="sm" aria-label={t('edit')} onClick={() => setEditing({ id: l.id, pieces: String(l.pieces) })}>
-                            <PencilIcon />
-                            <span className="max-md:sr-only">{t('edit')}</span>
-                          </Button>
-                          <Button type="button" variant="ghost" size="sm" aria-label={t('delete')} onClick={() => remove(l)}>
-                            <Trash2Icon />
-                            <span className="max-md:sr-only">{t('delete')}</span>
-                          </Button>
-                        </>
-                      )}
-                    </div>
+            {lines.rows.map((l) => {
+              const source = l.importLoadId ? (
+                <Link className="text-primary hover:underline" to={`/imports/${l.importLoadId}`}>
+                  {l.importCode}
+                </Link>
+              ) : (
+                l.importCode
+              );
+              return (
+                <TableRow key={l.id}>
+                  <TableCell className="pl-4 text-muted-foreground tabular-nums">{l.lineNumber}</TableCell>
+                  <TableCell className="whitespace-normal">
+                    <div className="font-semibold whitespace-nowrap tabular-nums">{sizeLabel(l.thicknessIn, l.widthIn, l.lengthFt)}</div>
+                    {/* on phones the source load folds in under the size */}
+                    <div className="text-xs text-muted-foreground sm:hidden">{source}</div>
+                    {short(l) && (
+                      <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-destructive-soft px-1.5 py-0.5 text-xs font-medium text-destructive">
+                        <AlertTriangleIcon className="size-3 shrink-0" aria-hidden />
+                        {t('moreThanStock')}: {l.availablePieces}
+                      </div>
+                    )}
                   </TableCell>
-                )}
-              </TableRow>
-            ))}
+                  <TableCell className="font-medium max-sm:hidden">{source}</TableCell>
+                  <TableCell className={numCell}>
+                    {editing?.id === l.id ? (
+                      <form id={`edit-${l.id}`} onSubmit={(e) => saveEdit(e, l)} className="flex justify-end">
+                        <Input
+                          className="h-9 w-24 text-right tabular-nums"
+                          type="number"
+                          aria-label={t('pieces')}
+                          value={editing.pieces}
+                          onChange={(e) => setEditing({ ...editing, pieces: e.target.value })}
+                          min={1}
+                          step="1"
+                          required
+                          autoFocus
+                        />
+                      </form>
+                    ) : (
+                      l.pieces
+                    )}
+                  </TableCell>
+                  <TableCell className={cn(numCell, 'font-semibold', !exp.editable && 'pr-4')}>{num3(l.cft)}</TableCell>
+                  {exp.editable && (
+                    <TableCell className="w-px pr-4 text-right">
+                      <div className="flex justify-end gap-1">
+                        {editing?.id === l.id ? (
+                          <>
+                            <Button type="submit" form={`edit-${l.id}`} size="sm" disabled={busy} aria-label={t('save')}>
+                              <CheckIcon />
+                              <span className="max-md:sr-only">{t('save')}</span>
+                            </Button>
+                            <Button type="button" variant="ghost" size="icon-sm" onClick={() => setEditing(null)} aria-label={t('cancel')} title={t('cancel')}>
+                              <XIcon />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button type="button" variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label={`${t('edit')} ${t('lineNo')} ${l.lineNumber}`} title={t('edit')} onClick={() => setEditing({ id: l.id, pieces: String(l.pieces) })}>
+                              <PencilIcon />
+                            </Button>
+                            <Button type="button" variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive" aria-label={`${t('delete')} ${t('lineNo')} ${l.lineNumber}`} title={t('delete')} onClick={() => remove(l)}>
+                              <Trash2Icon />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
           </TableBody>
           <TableFooter>
-            <TableRow>
-              <TableCell colSpan={2} className="pl-4">
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={2} className="pl-4 font-semibold">
                 {t('total')}
               </TableCell>
-              <TableCell className={numCell}>{exp.totalPieces}</TableCell>
-              <TableCell className={cn(numCell, !exp.editable && 'pr-4')}>{num3(exp.totalCft)}</TableCell>
+              <TableCell className="max-sm:hidden" />
+              <TableCell className={cn(numCell, 'font-semibold')}>{exp.totalPieces}</TableCell>
+              <TableCell className={cn(numCell, 'text-base font-bold', !exp.editable && 'pr-4')}>
+                {num3(exp.totalCft)} <span className="text-xs font-medium text-muted-foreground">CFT</span>
+              </TableCell>
               {exp.editable && <TableCell className="pr-4" />}
             </TableRow>
           </TableFooter>
@@ -558,6 +649,33 @@ function SaleSection({ exp, canPickClient }: { exp: ExportDetail; canPickClient:
       }
     >
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
+      {data && (
+        // what is saved now: who bought it, what it sold for, and what is still due
+        <Card className="gap-0 py-0">
+          <CardContent className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-border/70 px-0 lg:grid-cols-4">
+            {(
+              [
+                [t('client'), clients.data?.find((c) => c.id === data.clientId)?.name ?? (data.clientId ? '…' : '—'), ''],
+                [t('saleAmount'), data.saleAmount != null ? money(data.saleAmount) : '—', ''],
+                [t('amountReceived'), money(data.amountReceived), ''],
+                [t('balance'), balance != null ? money(balance) : '—', balance != null && balance > 0 ? 'text-warning' : ''],
+              ] as const
+            ).map(([label, value, tone], i) => (
+              <div key={label} className="min-w-0 bg-card px-5 py-4">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {label}
+                  {i === 3 && (
+                    <Badge variant="secondary" className={cn('rounded-full border-transparent font-semibold', pay.className)}>
+                      {t(pay.key)}
+                    </Badge>
+                  )}
+                </div>
+                <div className={cn('mt-0.5 truncate text-lg leading-tight font-bold tabular-nums', tone)}>{value}</div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
       {form && (
         <FormCard onSubmit={submit}>
           <FormGrid>
@@ -594,21 +712,8 @@ function SaleSection({ exp, canPickClient }: { exp: ExportDetail; canPickClient:
             </Field>
           </FormGrid>
           {message && <Notice tone={message.kind}>{message.text}</Notice>}
-          <FormActions
-            summary={
-              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                {t('paymentStatus')}:
-                <Badge variant="secondary" className={cn('rounded-full border-transparent font-semibold', pay.className)}>
-                  {t(pay.key)}
-                </Badge>
-                {balance != null && (
-                  <span>
-                    · {t('balance')}: <strong className="text-foreground tabular-nums">{money(balance)}</strong>
-                  </span>
-                )}
-              </span>
-            }
-          >
+          {/* payment status and balance are in the summary above the form */}
+          <FormActions>
             <Button type="submit">{t('save')}</Button>
           </FormActions>
         </FormCard>

@@ -1,3 +1,4 @@
+import { AlertTriangleIcon, CircleCheckIcon } from 'lucide-react';
 import { createContext, ReactNode, useCallback, useContext, useRef, useState } from 'react';
 import {
   AlertDialog,
@@ -7,6 +8,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useI18n } from '../i18n';
@@ -55,6 +57,9 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       <AlertDialog open={!!opts} onOpenChange={(open) => !open && close(false)}>
         <AlertDialogContent>
           <AlertDialogHeader>
+            <AlertDialogMedia className={opts?.destructive ? 'bg-destructive-soft text-destructive' : 'bg-primary-soft text-primary'}>
+              {opts?.destructive ? <AlertTriangleIcon aria-hidden /> : <CircleCheckIcon aria-hidden />}
+            </AlertDialogMedia>
             <AlertDialogTitle>{opts?.title}</AlertDialogTitle>
             {opts?.description && <AlertDialogDescription>{opts.description}</AlertDialogDescription>}
           </AlertDialogHeader>

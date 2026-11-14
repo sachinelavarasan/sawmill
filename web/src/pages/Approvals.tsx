@@ -1,13 +1,19 @@
 import { sizeLabel } from '@sawmill/shared';
-import { CheckCheckIcon } from 'lucide-react';
+import { ArrowDownToLineIcon, ArrowUpFromLineIcon, CheckCheckIcon, ClockIcon, EyeIcon, FactoryIcon, LayersIcon, type LucideIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { dateTime, num3, useApi } from '../components/common';
 import { type Column, DataTable } from '../components/data-table';
-import { FilterChips, LoadState, Notice, Page, PageHeader } from '../components/page';
+import { LoadState, Notice, Page, PageHeader, Section } from '../components/page';
+import { Box, Boxes, QuickPanel, Tag } from '../components/quick-panel';
 import { ReviewActions } from '../components/review';
-import { TKey, useI18n } from '../i18n';
+import { StatusBadge } from '../components/status-badge';
+import { useToast } from '../components/toast';
+import { Lang, TKey, useI18n } from '../i18n';
 
 export type Kind = 'IMPORT' | 'PRODUCTION' | 'EXPORT' | 'ADJUSTMENT';
 interface Base {
@@ -61,13 +67,33 @@ const API_PATH: Record<Kind, (id: string) => string> = {
 };
 const signed = (n: number, fmt: (n: number) => string = String) => (n > 0 ? `+${fmt(n)}` : fmt(n));
 
+const KIND_ICON: Record<Kind, LucideIcon> = { IMPORT: ArrowDownToLineIcon, PRODUCTION: FactoryIcon, EXPORT: ArrowUpFromLineIcon, ADJUSTMENT: LayersIcon };
+const itemKey = (i: ApprovalItem) => `${i.type}-${i.id}`;
+
+/** "2 days ago", in the chosen language: how long a record has been waiting. */
+function ago(iso: string, lang: Lang) {
+  const minutes = Math.round((Date.parse(iso) - Date.now()) / 60_000);
+  const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
+  if (Math.abs(minutes) < 60) return rtf.format(minutes, 'minute');
+  if (Math.abs(minutes) < 60 * 24) return rtf.format(Math.round(minutes / 60), 'hour');
+  return rtf.format(Math.round(minutes / (60 * 24)), 'day');
+}
+
 /** The owner's queue: everything submitted, oldest first, approved or rejected from one place. */
 export function ApprovalsPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const toast = useToast();
   const [filter, setFilter] = useState<'ALL' | Kind>('ALL');
   const [error, setError] = useState<string | null>(null);
+  /** the record open in the side panel */
+  const [peekKey, setPeekKey] = useState<string | null>(null);
+  /** what was approved or rejected since the page opened, newest first */
+  const [reviewed, setReviewed] = useState<{ item: Item; outcome: 'approved' | 'rejected' }[]>([]);
   const { data, loading, error: loadError, reload } = useApi<Queue>('/approvals');
   const items = useMemo(() => data?.items.filter((i) => filter === 'ALL' || i.type === filter) ?? [], [data, filter]);
+  // found in the live queue, so the panel closes by itself once its record is decided
+  const peek = data?.items.find((i) => itemKey(i) === peekKey) ?? null;
+  const PeekIcon = peek && KIND_ICON[peek.type];
 
   /** What the row is, in a few words — and what approving it will do. */
   const describe = (i: Item): { what: string; figures: string; confirm: string } => {
@@ -104,44 +130,102 @@ export function ApprovalsPage() {
 
   const kindLabel = (k: Kind) => t(KINDS.find(([key]) => key === k)![1]);
 
+  /** Approve / Reject for one record: the same buttons in the row and in the panel. */
+  const review = (i: Item, size: 'sm' | 'default', compact?: boolean) => (
+    <ReviewActions
+      base={API_PATH[i.type](i.id)}
+      code={i.code}
+      confirmApprove={describe(i).confirm}
+      onDone={(outcome) => {
+        setReviewed((list) => [{ item: i, outcome }, ...list]);
+        toast(t(outcome === 'approved' ? 'approvedToast' : 'rejectedToast', { code: i.code }), outcome === 'approved' ? 'ok' : 'info');
+        reload();
+      }}
+      onError={setError}
+      size={size}
+      compact={compact}
+    />
+  );
+
   const columns: Column<Item>[] = [
     {
       id: 'record',
       header: t('record'),
       sort: (i) => Date.parse(i.submittedAt),
-      className: 'align-top',
       cell: (i) => {
         const d = describe(i);
+        const Icon = KIND_ICON[i.type];
         return (
-          <>
-            <Link className="font-semibold text-primary hover:underline" to={PAGE_PATH[i.type](i.id)}>
-              {i.code}
-            </Link>
-            <div className="text-xs text-muted-foreground">
-              {i.createdByName} · {dateTime(i.submittedAt)}
+          <div className="flex items-start gap-3">
+            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary max-sm:hidden" aria-hidden>
+              <Icon className="size-[1.125rem]" strokeWidth={1.75} />
+            </span>
+            <div className="min-w-0">
+              <Link className="font-semibold text-foreground hover:underline" to={PAGE_PATH[i.type](i.id)}>
+                {i.code}
+              </Link>
+              <div className="max-w-xs truncate text-xs text-muted-foreground max-md:hidden">{d.what}</div>
+              {/* on phones the other columns fold in here */}
+              <div className="mt-0.5 max-w-[16rem] text-xs whitespace-normal text-muted-foreground md:hidden">
+                <span className="font-medium text-foreground">{kindLabel(i.type)}</span> · {d.what}
+                <div className="font-semibold text-foreground tabular-nums">{d.figures}</div>
+                <div>
+                  {i.createdByName} · {ago(i.submittedAt, lang)}
+                </div>
+              </div>
             </div>
-            {/* on phones the other columns fold in here */}
-            <div className="mt-1 max-w-[16rem] text-xs whitespace-normal md:hidden">
-              <span className="font-medium">{kindLabel(i.type)}</span> · {d.what}
-              <div className="font-semibold tabular-nums">{d.figures}</div>
-            </div>
-          </>
+          </div>
         );
       },
     },
-    { id: 'type', header: t('type'), from: 'md', sort: (i) => i.type, className: 'align-top', cell: (i) => <Badge variant="secondary">{kindLabel(i.type)}</Badge> },
-    { id: 'what', from: 'md', headClassName: 'w-full', className: 'max-w-md align-top whitespace-normal', cell: (i) => describe(i).what },
-    { id: 'cft', header: 'CFT', from: 'md', numeric: true, className: 'align-top font-semibold', cell: (i) => describe(i).figures },
+    { id: 'type', header: t('type'), from: 'md', sort: (i) => i.type, cell: (i) => <Badge variant="secondary">{kindLabel(i.type)}</Badge> },
+    {
+      id: 'by',
+      header: t('submittedBy'),
+      from: 'md',
+      sort: (i) => i.createdByName.toLowerCase(),
+      cell: (i) => (
+        <div className="flex items-center gap-2">
+          <Avatar size="sm">
+            <AvatarFallback className="bg-muted text-xs font-semibold">{i.createdByName.charAt(0).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <span className="max-w-32 truncate">{i.createdByName}</span>
+        </div>
+      ),
+    },
+    {
+      id: 'submitted',
+      header: t('submittedOn'),
+      from: 'md',
+      cell: (i) => (
+        <>
+          <div>{dateTime(i.submittedAt)}</div>
+          <div className="text-xs text-muted-foreground">{ago(i.submittedAt, lang)}</div>
+        </>
+      ),
+    },
+    { id: 'cft', header: 'CFT', from: 'md', numeric: true, className: 'font-semibold', cell: (i) => describe(i).figures },
+    { id: 'status', header: t('status'), from: 'md', cell: () => <StatusBadge status="SUBMITTED" /> },
     {
       id: 'review',
-      className: 'align-top',
+      header: <span className="sr-only">{t('actions')}</span>,
+      className: 'w-px',
       cell: (i) => (
-        <div className="flex justify-end gap-1.5">
-          <ReviewActions base={API_PATH[i.type](i.id)} code={i.code} confirmApprove={describe(i).confirm} onDone={reload} onError={setError} size="sm" compact />
+        // the reject dialog is a React child of this cell: without this, a click inside it would count as a click on the row
+        <div className="flex justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label={`${t('viewDetails')} ${i.code}`} title={t('viewDetails')} onClick={() => setPeekKey(itemKey(i))}>
+            <EyeIcon />
+          </Button>
+          {review(i, 'sm', true)}
         </div>
       ),
     },
   ];
+
+  // summary and filter in one: how many wait in all, and of each kind
+  const cards: { value: 'ALL' | Kind; label: string; icon: LucideIcon; count: number }[] = data
+    ? [{ value: 'ALL', label: t('allPending'), icon: ClockIcon, count: data.counts.total }, ...KINDS.map(([k, label]) => ({ value: k, label: t(label), icon: KIND_ICON[k], count: data.counts[k] }))]
+    : [];
 
   return (
     <Page>
@@ -152,24 +236,122 @@ export function ApprovalsPage() {
 
       {data && (
         <>
-          <FilterChips
-            label={t('type')}
-            value={filter}
-            onChange={setFilter}
-            options={[{ value: 'ALL' as const, label: t('all'), count: data.counts.total }, ...KINDS.map(([k, label]) => ({ value: k, label: t(label), count: data.counts[k] }))]}
-          />
+          <div role="group" aria-label={t('type')} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {cards.map((c) => {
+              const on = filter === c.value;
+              return (
+                <button
+                  key={c.value}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setFilter(c.value)}
+                  className={cn(
+                    'flex items-center gap-3 rounded-xl bg-card px-4 py-3.5 text-left shadow-card transition-shadow duration-200 outline-none hover:shadow-lift focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                    c.value === 'ALL' && 'max-sm:col-span-2',
+                    on && 'ring-2 ring-primary/40',
+                  )}
+                >
+                  {/* amber only where something is waiting: the eye goes to what needs a decision */}
+                  <span className={cn('grid size-10 shrink-0 place-items-center rounded-lg [&_svg]:size-[1.125rem]', c.count ? 'bg-warning-soft text-warning' : 'bg-muted text-muted-foreground')}>
+                    <c.icon aria-hidden strokeWidth={1.75} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-2xl leading-tight font-bold tabular-nums">{c.count}</span>
+                    <span className="block truncate text-sm text-muted-foreground">{c.label}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
           {/* keyed by the filter: a new filter starts at page 1 */}
           <DataTable
             key={filter}
             data={items}
             columns={columns}
-            rowKey={(i) => `${i.type}-${i.id}`}
+            rowKey={itemKey}
+            onRowClick={(i) => setPeekKey(itemKey(i))}
+            selectedKey={peek ? itemKey(peek) : null}
             empty={t('noPendingApprovals')}
             emptyIcon={<CheckCheckIcon className="text-success" />}
             busy={loading}
           />
+
+          {reviewed.length > 0 && (
+            <Section title={t('reviewedNow')}>
+              <div className="overflow-hidden rounded-xl bg-card shadow-card">
+                <p className="border-b border-border/70 px-4 py-2.5 text-xs text-muted-foreground">{t('reviewedNowSub')}</p>
+                <ul className="divide-y divide-border/70">
+                  {reviewed.map(({ item: i, outcome }) => (
+                    <li key={itemKey(i)} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm">
+                      <Link className="font-semibold hover:underline" to={PAGE_PATH[i.type](i.id)}>
+                        {i.code}
+                      </Link>
+                      <span className="text-muted-foreground">
+                        {kindLabel(i.type)} · {i.createdByName}
+                      </span>
+                      <StatusBadge status={outcome === 'approved' ? 'APPROVED' : 'REJECTED'} className="ml-auto" />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Section>
+          )}
         </>
       )}
+
+      <QuickPanel
+        open={!!peek}
+        onClose={() => setPeekKey(null)}
+        title={t('approvalDetails')}
+        icon={PeekIcon && <PeekIcon aria-hidden />}
+        code={peek?.code}
+        sub={peek && kindLabel(peek.type)}
+        fullTo={peek ? PAGE_PATH[peek.type](peek.id) : undefined}
+        tags={
+          peek && (
+            <>
+              <StatusBadge status="SUBMITTED" />
+              <Tag>{describe(peek).figures}</Tag>
+            </>
+          )
+        }
+        actions={peek && review(peek, 'default')}
+      >
+        {peek && (
+          <Boxes>
+            <Box label={t('submittedBy')}>{peek.createdByName}</Box>
+            <Box label={t('submittedOn')}>
+              {dateTime(peek.submittedAt)} · {ago(peek.submittedAt, lang)}
+            </Box>
+            <Box label={t('woodType')}>{peek.woodType}</Box>
+            {(peek.type === 'IMPORT' || peek.type === 'EXPORT') && <Box label={t('lorry')}>{peek.lorryNumber}</Box>}
+            {(peek.type === 'PRODUCTION' || peek.type === 'ADJUSTMENT') && <Box label={t('importId')}>{peek.importCode}</Box>}
+            {peek.type === 'IMPORT' && <Box label={t('logs')}>{peek.totalLogs}</Box>}
+            {peek.type === 'EXPORT' && <Box label={t('pieces')}>{peek.totalPieces}</Box>}
+            {(peek.type === 'IMPORT' || peek.type === 'EXPORT') && <Box label={t('totalCft')}>{num3(peek.totalCft)} CFT</Box>}
+            {peek.type === 'PRODUCTION' && (
+              <>
+                <Box label={t('inputCft')}>{peek.inputCft != null ? num3(peek.inputCft) : null}</Box>
+                <Box label={t('outputCft')}>{num3(peek.outputCft)}</Box>
+                <Box label={t('wasteCft')}>{peek.wasteCft != null ? num3(peek.wasteCft) : null}</Box>
+              </>
+            )}
+            {peek.type === 'ADJUSTMENT' && (
+              <>
+                <Box label={t('stock')}>{t(peek.kind === 'RAW' ? 'raw' : 'finished')}</Box>
+                {peek.thicknessIn != null && peek.widthIn != null && peek.lengthFt != null && <Box label={t('size')}>{sizeLabel(peek.thicknessIn, peek.widthIn, peek.lengthFt)}</Box>}
+                <Box label={t('change')}>{describe(peek).figures}</Box>
+                <Box label={t('reason')} wide>
+                  {peek.reason}
+                </Box>
+              </>
+            )}
+            {/* what pressing Approve will do, in the words of the confirmation */}
+            <div className="col-span-2 rounded-lg bg-warning-soft px-3.5 py-3 text-sm text-warning">{describe(peek).confirm}</div>
+          </Boxes>
+        )}
+      </QuickPanel>
     </Page>
   );
 }

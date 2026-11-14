@@ -2,8 +2,8 @@ import { CheckIcon, XIcon } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { api } from '../api';
 import { useI18n } from '../i18n';
 import { useConfirm } from './confirm';
@@ -28,7 +28,8 @@ export function ReviewActions({
   /** shown in the dialog titles, e.g. IMP-2026-0012 */
   code?: string;
   confirmApprove: string;
-  onDone: () => void;
+  /** called after the record was approved or rejected, saying which */
+  onDone: (outcome: 'approved' | 'rejected') => void;
   onError?: (message: string | null) => void;
   size?: 'sm' | 'lg' | 'default';
   /** icon-only buttons on phones */
@@ -48,7 +49,7 @@ export function ReviewActions({
     onError?.(null);
     try {
       await api(`${base}/approve`, { method: 'POST' });
-      onDone();
+      onDone('approved');
     } catch (err) {
       onError?.((err as Error).message);
     } finally {
@@ -64,7 +65,7 @@ export function ReviewActions({
       await api(`${base}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
       setRejecting(false);
       setReason('');
-      onDone();
+      onDone('rejected');
     } catch (err) {
       setRejectError((err as Error).message);
     } finally {
@@ -91,8 +92,16 @@ export function ReviewActions({
               <DialogDescription>{t('rejectReasonHint')}</DialogDescription>
             </DialogHeader>
             <div className="grid gap-2">
-              <Label htmlFor={`reject-${base}`}>{t('rejectReason')} *</Label>
-              <Input id={`reject-${base}`} value={reason} onChange={(e) => setReason(e.target.value)} required minLength={3} maxLength={500} autoFocus />
+              <Label htmlFor={`reject-${base}`} className="gap-1">
+                {t('rejectReason')}
+                <span className="text-destructive" aria-hidden>
+                  *
+                </span>
+              </Label>
+              <Textarea id={`reject-${base}`} value={reason} onChange={(e) => setReason(e.target.value)} required minLength={3} maxLength={500} rows={3} autoFocus className="bg-card" />
+              <div className="text-right text-xs text-muted-foreground tabular-nums" aria-hidden>
+                {reason.length} / 500
+              </div>
             </div>
             {rejectError && <Notice tone="error">{rejectError}</Notice>}
             <DialogFooter>

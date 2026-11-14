@@ -1,17 +1,21 @@
-import { ArrowDownLeftIcon, ArrowUpRightIcon, PencilIcon, PlusIcon, ReceiptIndianRupeeIcon, Trash2Icon, TrendingUpIcon, WalletIcon } from 'lucide-react';
+import { ArrowDownLeftIcon, ArrowUpRightIcon, PencilIcon, PlusIcon, Trash2Icon, TrendingUpIcon, WalletIcon } from 'lucide-react';
 import { FormEvent, ReactNode, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { api } from '../api';
+import { ChartCard, StackedBars } from '../components/charts';
 import { money, money2, useLoad } from '../components/common';
 import { useConfirmDelete } from '../components/confirm';
 import { ALL, Field, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, PagerProps, Section, Stat, StatGrid, TableCard, useClientPaging, usePaging, wide } from '../components/page';
 import { PeriodPicker, periodQuery, PeriodValue, presets } from '../components/period';
+import { useToast } from '../components/toast';
 import { useI18n } from '../i18n';
 import { dateOnly } from './Production';
 
@@ -57,14 +61,18 @@ interface ExpenseList {
 
 const SUGGESTED = ['Labour', 'Electricity', 'Diesel', 'Maintenance', 'Transport', 'Rent', 'Salary'];
 
+const shortDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
 /** [OWNER-ONLY] Profit & loss for a period, other expenses, and what is still owed. */
 export function AccountsPage() {
   const { t } = useI18n();
   const [period, setPeriod] = useState<PeriodValue>(() => presets().thisMonth);
+  const [category, setCategory] = useState('');
   const pq = periodQuery(period);
   const summary = useLoad(() => api<Summary>(`/accounts/summary?${pq}`), [pq]);
   const paging = usePaging();
-  const expenses = useLoad(() => api<ExpenseList>(`/expenses?${pq}&take=${paging.take}&skip=${paging.skip}`), [pq, paging.take, paging.skip]);
+  const cq = category ? `&category=${encodeURIComponent(category)}` : '';
+  const expenses = useLoad(() => api<ExpenseList>(`/expenses?${pq}${cq}&take=${paging.take}&skip=${paging.skip}`), [pq, cq, paging.take, paging.skip]);
   const reloadAll = () => {
     summary.reload();
     expenses.reload();
@@ -74,62 +82,133 @@ export function AccountsPage() {
   const toReceive = s?.receivables.reduce((a, r) => a + r.balance, 0) ?? 0;
   const toPay = s?.payables.reduce((a, r) => a + r.balance, 0) ?? 0;
 
+  // every cost of the period as one list, largest first, for the breakdown chart
+  const costs = s
+    ? [
+        { label: t('purchases'), amount: s.pnl.purchases },
+        { label: t('transport'), amount: s.pnl.transport },
+        { label: t('unloadingCharges'), amount: s.pnl.unloading },
+        ...s.pnl.otherExpenses.map((e) => ({ label: e.category, amount: e.amount })),
+      ]
+        .filter((c) => c.amount > 0)
+        .sort((x, y) => y.amount - x.amount)
+    : [];
+  const COST = { key: 'amount', label: t('totalExpenses'), color: 'var(--chart-2)' };
+
   return (
     <Page>
-      <PageHeader title={t('accounts')} badge={<OwnerOnly />} />
-      <PeriodPicker
-        value={period}
-        onChange={(p) => {
-          setPeriod(p);
-          paging.reset();
-        }}
-      />
+      <PageHeader title={t('accounts')} badge={<OwnerOnly />} subtitle={t('accountsSub')} />
+
+      {/* the period everything below (except the balances) is worked out for */}
+      <Card className="gap-3 py-4">
+        <CardContent className="flex flex-col gap-3 px-4">
+          <PeriodPicker
+            className="w-full"
+            value={period}
+            onChange={(p) => {
+              setPeriod(p);
+              setCategory('');
+              paging.reset();
+            }}
+          />
+          <p className="text-sm text-muted-foreground">
+            {t('period')}:{' '}
+            <span className="font-semibold text-foreground tabular-nums">
+              {shortDate(period.from)} – {shortDate(period.to)}
+            </span>
+          </p>
+        </CardContent>
+      </Card>
 
       <LoadState loading={summary.loading && !s} error={summary.error} onRetry={summary.reload} />
 
       {s && (
         <>
+          {/* income − expenses = profit, read left to right */}
           <StatGrid>
+            <Stat icon={<ArrowDownLeftIcon />} label={t('sales')} value={money(s.pnl.sales)} hint={t('income')} />
+            <Stat icon={<WalletIcon />} label={t('totalExpenses')} value={money(s.pnl.totalExpenses)} hint={t('expensesHead')} />
             <Stat
               hero
               icon={<TrendingUpIcon />}
               tone={s.pnl.profit < 0 ? 'bad' : undefined}
-              label={t('profitLoss')}
+              label={t(s.pnl.profit < 0 ? 'netLoss' : 'netProfit')}
               value={money(s.pnl.profit)}
               hint={`${t('sales')} ${money(s.pnl.sales)} − ${t('totalExpenses')} ${money(s.pnl.totalExpenses)}`}
             />
-            <Stat icon={<ReceiptIndianRupeeIcon />} label={t('sales')} value={money(s.pnl.sales)} />
-            <Stat icon={<WalletIcon />} label={t('totalExpenses')} value={money(s.pnl.totalExpenses)} />
-            <Stat icon={<ArrowDownLeftIcon />} label={t('pendingReceivables')} value={money(toReceive)} tone={toReceive > 0 ? 'warn' : undefined} />
-            <Stat icon={<ArrowUpRightIcon />} label={t('pendingPayables')} value={money(toPay)} tone={toPay > 0 ? 'warn' : undefined} />
           </StatGrid>
 
-          <Section title={t('reportPnl')}>
-            <Card className="gap-0 py-0">
-              <CardContent className="divide-y px-0">
-                <PnlLine label={t('sales')} amount={s.pnl.sales} />
-                <PnlLine label={t('purchases')} amount={-s.pnl.purchases} />
-                <PnlLine label={t('transport')} amount={-s.pnl.transport} />
-                <PnlLine label={t('unloadingCharges')} amount={-s.pnl.unloading} />
-                {s.pnl.otherExpenses.map((e) => (
-                  <PnlLine key={e.category} label={e.category} amount={-e.amount} indent />
-                ))}
-                <PnlLine label={t('totalExpenses')} amount={-s.pnl.totalExpenses} strong />
-                <PnlLine label={t('profitLoss')} amount={s.pnl.profit} strong highlight />
-              </CardContent>
-            </Card>
-          </Section>
+          <div className="grid items-start gap-4 lg:grid-cols-5">
+            <Section title={t('reportPnl')} className="lg:col-span-3">
+              <Card className="gap-0 overflow-hidden py-0">
+                <CardContent className="px-0">
+                  <PnlGroup title={t('income')} />
+                  <PnlLine label={t('sales')} amount={s.pnl.sales} />
+                  <PnlGroup title={t('expensesHead')} />
+                  <PnlLine label={t('purchases')} amount={-s.pnl.purchases} />
+                  <PnlLine label={t('transport')} amount={-s.pnl.transport} />
+                  <PnlLine label={t('unloadingCharges')} amount={-s.pnl.unloading} />
+                  <PnlLine label={t('otherExpenses')} amount={-s.pnl.totalOtherExpenses} />
+                  {s.pnl.otherExpenses.map((e) => (
+                    <PnlLine key={e.category} label={e.category} amount={-e.amount} indent />
+                  ))}
+                  <PnlLine label={t('totalExpenses')} amount={-s.pnl.totalExpenses} strong />
+                  <PnlLine label={t(s.pnl.profit < 0 ? 'netLoss' : 'netProfit')} amount={s.pnl.profit} strong highlight />
+                </CardContent>
+              </Card>
+            </Section>
+            <Section title={t('expenseBreakdown')} className="lg:col-span-2">
+              <ChartCard
+                title={t('totalExpenses')}
+                subtitle={t('expenseBreakdownSub')}
+                empty={costs.length === 0}
+                table={{ columns: [t('category'), t('amount')], rows: costs.map((c) => [c.label, money2(c.amount)]) }}
+              >
+                <StackedBars rows={costs.map((c) => ({ label: c.label, values: { amount: c.amount } }))} series={[COST]} formatValue={money} ariaLabel={t('expenseBreakdown')} />
+              </ChartCard>
+            </Section>
+          </div>
         </>
       )}
 
-      <ExpensesSection data={expenses.data} pager={expenses.data ? paging.pager(expenses.data.total) : undefined} loading={expenses.loading} error={expenses.error} onRetry={expenses.reload} onChanged={reloadAll} />
+      <ExpensesSection
+        data={expenses.data}
+        pager={expenses.data ? paging.pager(expenses.data.total) : undefined}
+        loading={expenses.loading}
+        error={expenses.error}
+        onRetry={expenses.reload}
+        onChanged={reloadAll}
+        category={category}
+        onCategory={(c) => {
+          setCategory(c);
+          paging.reset();
+        }}
+      />
 
       {s && (
-        <Section title={t('balance')}>
+        <Section title={t('outstandingBalances')}>
           <p className="-mt-2 text-sm text-muted-foreground">{t('outstandingNote')}</p>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <BalanceTable title={t('pendingReceivables')} rows={s.receivables} partyLabel={t('client')} paidLabel={t('amountReceived')} paidKey="received" noName={t('noClientName')} />
-            <BalanceTable title={t('pendingPayables')} rows={s.payables} partyLabel={t('supplier')} paidLabel={t('amountPaid')} paidKey="paid" noName={t('noSupplierName')} />
+          <div className="grid items-start gap-4 lg:grid-cols-2">
+            <BalanceTable
+              title={t('pendingReceivables')}
+              icon={<ArrowDownLeftIcon />}
+              total={toReceive}
+              rows={s.receivables}
+              partyLabel={t('client')}
+              paidLabel={t('amountReceived')}
+              paidKey="received"
+              noName={t('noClientName')}
+            />
+            <BalanceTable
+              title={t('pendingPayables')}
+              icon={<ArrowUpRightIcon />}
+              total={toPay}
+              rows={s.payables}
+              partyLabel={t('supplier')}
+              paidLabel={t('amountPaid')}
+              paidKey="paid"
+              noName={t('noSupplierName')}
+            />
           </div>
         </Section>
       )}
@@ -137,17 +216,31 @@ export function AccountsPage() {
   );
 }
 
+/** A heading row inside the statement: Income, Expenses. */
+function PnlGroup({ title }: { title: string }) {
+  return <div className="border-b border-border/70 bg-muted/40 px-4 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase not-first:border-t">{title}</div>;
+}
+
 function PnlLine({ label, amount, strong, highlight, indent }: { label: ReactNode; amount: number; strong?: boolean; highlight?: boolean; indent?: boolean }) {
   return (
-    <div className={cn('flex items-center justify-between gap-4 px-4 py-2.5 text-sm', strong && 'font-semibold', highlight && 'bg-muted/60 text-base')}>
-      <span className={cn(indent && 'pl-4 text-muted-foreground')}>{label}</span>
-      <span className={cn('tabular-nums', highlight && (amount < 0 ? 'text-destructive' : 'text-success'))}>{money2(amount)}</span>
+    <div
+      className={cn(
+        'flex items-center justify-between gap-4 px-4 py-2.5 text-sm not-last:border-b not-last:border-border/70',
+        strong && 'font-semibold',
+        indent && 'py-1.5 text-[0.8125rem]',
+        highlight && 'bg-muted/60 py-3.5 text-base',
+      )}
+    >
+      <span className={cn(indent && 'pl-5 text-muted-foreground')}>{label}</span>
+      <span className={cn('tabular-nums', indent && 'text-muted-foreground', highlight && 'text-lg font-bold', highlight && (amount < 0 ? 'text-destructive' : 'text-success'))}>{money2(amount)}</span>
     </div>
   );
 }
 
 function BalanceTable({
   title,
+  icon,
+  total,
   rows,
   partyLabel,
   paidLabel,
@@ -155,6 +248,9 @@ function BalanceTable({
   noName,
 }: {
   title: string;
+  icon: ReactNode;
+  /** the sum of every row's balance, not just this page */
+  total: number;
   rows: Balance[];
   partyLabel: string;
   paidLabel: string;
@@ -162,45 +258,50 @@ function BalanceTable({
   noName: string;
 }) {
   const { t } = useI18n();
-  const total = rows.reduce((a, r) => a + r.balance, 0); // over every row, not just this page
   const paged = useClientPaging(rows, 10);
   return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <h3 className="text-sm font-semibold text-muted-foreground">{title}</h3>
-      <TableCard empty={rows.length === 0} emptyText={t('noOutstanding')} pager={paged.pager}>
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead className="pl-4">{partyLabel}</TableHead>
-              <TableHead className={cn(numCell, wide)}>{t('amount')}</TableHead>
-              <TableHead className={cn(numCell, wide)}>{paidLabel}</TableHead>
-              <TableHead className={cn(numCell, 'pr-4')}>{t('balance')}</TableHead>
+    <TableCard
+      empty={rows.length === 0}
+      emptyText={t('noOutstanding')}
+      compactEmpty
+      pager={paged.pager}
+      toolbar={
+        <div className="flex items-center gap-3">
+          <span className={cn('grid size-10 shrink-0 place-items-center rounded-lg [&_svg]:size-[1.125rem]', total > 0 ? 'bg-warning-soft text-warning' : 'bg-muted text-muted-foreground')} aria-hidden>
+            {icon}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-sm font-semibold">{title}</h3>
+            <div className="text-xs text-muted-foreground">{t('totalDue')}</div>
+          </div>
+          <div className={cn('text-xl font-bold tabular-nums', total > 0 && 'text-warning')}>{money2(total)}</div>
+        </div>
+      }
+    >
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="pl-4">{partyLabel}</TableHead>
+            <TableHead className={cn(numCell, wide)}>{t('amount')}</TableHead>
+            <TableHead className={cn(numCell, wide)}>{paidLabel}</TableHead>
+            <TableHead className={cn(numCell, 'pr-4')}>{t('balance')}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {paged.rows.map((r) => (
+            <TableRow key={r.id ?? 'none'}>
+              <TableCell className="pl-4 font-medium whitespace-normal">
+                {r.name ?? <span className="text-muted-foreground">{noName}</span>}
+                <div className="text-xs font-normal text-muted-foreground">{t('loadsCount', { n: r.loads })}</div>
+              </TableCell>
+              <TableCell className={cn(numCell, wide)}>{money2(r.amount)}</TableCell>
+              <TableCell className={cn(numCell, wide, 'text-muted-foreground')}>{money2(r[paidKey] ?? 0)}</TableCell>
+              <TableCell className={cn(numCell, 'pr-4 font-semibold')}>{money2(r.balance)}</TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paged.rows.map((r) => (
-              <TableRow key={r.id ?? 'none'}>
-                <TableCell className="pl-4 font-medium whitespace-normal">
-                  {r.name ?? <span className="text-muted-foreground">{noName}</span>}
-                  <div className="text-xs font-normal text-muted-foreground">{t('loadsCount', { n: r.loads })}</div>
-                </TableCell>
-                <TableCell className={cn(numCell, wide)}>{money2(r.amount)}</TableCell>
-                <TableCell className={cn(numCell, wide)}>{money2(r[paidKey] ?? 0)}</TableCell>
-                <TableCell className={cn(numCell, 'pr-4 font-semibold')}>{money2(r.balance)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-          <TableFooter>
-            <TableRow>
-              <TableCell className="pl-4">{t('total')}</TableCell>
-              <TableCell className={wide} />
-              <TableCell className={wide} />
-              <TableCell className={cn(numCell, 'pr-4')}>{money2(total)}</TableCell>
-            </TableRow>
-          </TableFooter>
-        </Table>
-      </TableCard>
-    </div>
+          ))}
+        </TableBody>
+      </Table>
+    </TableCard>
   );
 }
 
@@ -222,6 +323,8 @@ function ExpensesSection({
   error,
   onRetry,
   onChanged,
+  category,
+  onCategory,
 }: {
   data: ExpenseList | null;
   pager?: PagerProps;
@@ -229,9 +332,14 @@ function ExpensesSection({
   error: string | null;
   onRetry: () => void;
   onChanged: () => void;
+  /** the category the list is filtered to ('' = all) */
+  category: string;
+  onCategory: (c: string) => void;
 }) {
   const { t } = useI18n();
+  const toast = useToast();
   const confirmDelete = useConfirmDelete();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [form, setForm] = useState<ExpenseForm | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -255,6 +363,7 @@ function ExpensesSection({
       const body = { date: form.date, category: form.category, amount: Number(form.amount), importLoadId: form.importLoadId || null, notes: form.notes };
       await api(form.id ? `/expenses/${form.id}` : '/expenses', { method: form.id ? 'PATCH' : 'POST', body: JSON.stringify(body) });
       setForm(null);
+      toast(t('saved'));
       onChanged();
     } catch (err) {
       setFormError((err as Error).message);
@@ -266,8 +375,14 @@ function ExpensesSection({
   const remove = (e: Expense) =>
     confirmDelete().then(async (ok) => {
       if (!ok) return;
-      await api(`/expenses/${e.id}`, { method: 'DELETE' });
-      onChanged();
+      setDeleteError(null);
+      try {
+        await api(`/expenses/${e.id}`, { method: 'DELETE' });
+        toast(t('expenseDeleted'), 'info');
+        onChanged();
+      } catch (err) {
+        setDeleteError((err as Error).message);
+      }
     });
 
   const categories = [...new Set([...(data?.categories ?? []), ...SUGGESTED])];
@@ -277,47 +392,72 @@ function ExpensesSection({
     <Section
       title={t('otherExpenses')}
       tools={
-        <Button size="sm" onClick={() => open()}>
-          <PlusIcon /> {t('addExpense')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={category || ALL} onValueChange={(v) => onCategory(v === ALL ? '' : v)}>
+            <SelectTrigger size="sm" className="w-44" aria-label={t('category')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{t('allCategories')}</SelectItem>
+              {/* the chosen one stays listed even if the answer for it comes back empty */}
+              {[...new Set([...(data?.categories ?? []), ...(category ? [category] : [])])].map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button size="sm" onClick={() => open()}>
+            <PlusIcon /> {t('addExpense')}
+          </Button>
+        </div>
       }
     >
       <LoadState loading={loading && !data} error={error} onRetry={onRetry} />
+      {deleteError && <Notice tone="error">{deleteError}</Notice>}
       {data && (
-        <TableCard empty={data.items.length === 0} emptyText={t('noExpenses')} pager={pager}>
+        <TableCard empty={data.items.length === 0} emptyText={t('noExpenses')} pager={pager} busy={loading}>
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/50">
+              <TableRow>
                 <TableHead className="pl-4">{t('date')}</TableHead>
                 <TableHead>{t('category')}</TableHead>
                 <TableHead className={wide}>{t('importId')}</TableHead>
                 <TableHead className={wide}>{t('notes')}</TableHead>
                 <TableHead className={numCell}>{t('amount')}</TableHead>
-                <TableHead className="pr-4" />
+                <TableHead className="pr-4">
+                  <span className="sr-only">{t('actions')}</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.items.map((e) => (
                 <TableRow key={e.id}>
-                  <TableCell className="pl-4 text-muted-foreground">{dateOnly(e.date)}</TableCell>
-                  <TableCell className="font-medium">
-                    {e.category}
+                  <TableCell className="pl-4 text-muted-foreground tabular-nums">{dateOnly(e.date)}</TableCell>
+                  <TableCell>
+                    <span className="inline-block max-w-40 truncate rounded-md bg-muted px-2 py-0.5 align-middle text-[0.8125rem] font-medium">{e.category}</span>
                     {e.notes && <div className="max-w-[12rem] truncate text-xs font-normal text-muted-foreground md:hidden">{e.notes}</div>}
                   </TableCell>
-                  <TableCell className={wide}>{e.importCode ?? '—'}</TableCell>
+                  <TableCell className={wide}>
+                    {e.importLoadId && e.importCode ? (
+                      <Link className="text-primary hover:underline" to={`/imports/${e.importLoadId}`}>
+                        {e.importCode}
+                      </Link>
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
                   <TableCell className={cn(wide, 'max-w-xs truncate text-muted-foreground')} title={e.notes ?? undefined}>
                     {e.notes ?? '—'}
                   </TableCell>
                   <TableCell className={cn(numCell, 'font-semibold')}>{money2(e.amount)}</TableCell>
-                  <TableCell className="pr-4">
+                  <TableCell className="w-px pr-4">
                     <div className="flex justify-end gap-1">
-                      <Button size="sm" variant="outline" onClick={() => open(e)} aria-label={t('edit')}>
+                      <Button size="icon-sm" variant="ghost" className="text-muted-foreground" onClick={() => open(e)} aria-label={`${t('edit')} ${e.category} ${dateOnly(e.date)}`} title={t('edit')}>
                         <PencilIcon />
-                        <span className="max-md:sr-only">{t('edit')}</span>
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => remove(e)} aria-label={t('delete')}>
+                      <Button size="icon-sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={() => remove(e)} aria-label={`${t('delete')} ${e.category} ${dateOnly(e.date)}`} title={t('delete')}>
                         <Trash2Icon />
-                        <span className="max-md:sr-only">{t('delete')}</span>
                       </Button>
                     </div>
                   </TableCell>
@@ -325,13 +465,14 @@ function ExpensesSection({
               ))}
             </TableBody>
             <TableFooter>
-              <TableRow>
-                <TableCell className="pl-4" colSpan={2}>
+              <TableRow className="hover:bg-transparent">
+                <TableCell className="pl-4 font-semibold" colSpan={2}>
                   {t('total')}
+                  {category && <span className="font-normal text-muted-foreground"> · {category}</span>}
                 </TableCell>
                 <TableCell className={wide} />
                 <TableCell className={wide} />
-                <TableCell className={numCell}>{money2(data.totalAmount)}</TableCell>
+                <TableCell className={cn(numCell, 'text-base font-bold')}>{money2(data.totalAmount)}</TableCell>
                 <TableCell />
               </TableRow>
             </TableFooter>
@@ -342,24 +483,42 @@ function ExpensesSection({
       <Dialog open={!!form} onOpenChange={(o) => !o && !busy && setForm(null)}>
         <DialogContent className="sm:max-w-lg">
           {form && (
-            <form onSubmit={save} className="grid gap-4">
+            <form onSubmit={save} className="grid gap-5">
               <DialogHeader>
                 <DialogTitle>{form.id ? t('editExpense') : t('addExpense')}</DialogTitle>
+                <DialogDescription>{t('requiredNote')}</DialogDescription>
               </DialogHeader>
               <FormGrid className="sm:grid-cols-2 lg:grid-cols-2">
-                <Field id="exp-date" label={`${t('date')} *`}>
+                <Field id="exp-date" label={t('date')} required>
                   <Input id="exp-date" type="date" value={form.date} onChange={set('date')} required />
                 </Field>
-                <Field id="exp-amount" label={`${t('amount')} *`}>
-                  <Input id="exp-amount" type="number" min={0.01} step="0.01" inputMode="decimal" value={form.amount} onChange={set('amount')} required />
+                <Field id="exp-amount" label={t('amount')} required>
+                  <Input id="exp-amount" type="number" min={0.01} step="0.01" inputMode="decimal" value={form.amount} onChange={set('amount')} required className="text-right font-semibold tabular-nums" />
                 </Field>
-                <Field id="exp-category" label={`${t('category')} *`} hint={t('categoryHint')} className="sm:col-span-2">
+                <Field id="exp-category" label={t('category')} required className="sm:col-span-2">
                   <Input id="exp-category" list="expense-categories" value={form.category} onChange={set('category')} required minLength={2} maxLength={60} />
                   <datalist id="expense-categories">
                     {categories.map((c) => (
                       <option key={c} value={c} />
                     ))}
                   </datalist>
+                  {/* one press instead of typing: the categories used before, then the usual ones */}
+                  <div role="group" aria-label={t('commonCategories')} className="flex flex-wrap gap-1.5 pt-0.5">
+                    {categories.slice(0, 8).map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        aria-pressed={form.category === c}
+                        onClick={() => setForm({ ...form, category: c })}
+                        className={cn(
+                          'rounded-md border px-2 py-1 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                          form.category === c ? 'border-transparent bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:border-foreground/25 hover:text-foreground',
+                        )}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
                 </Field>
                 <Field label={t('importId')} hint={t('expenseLoadHint')} className="sm:col-span-2">
                   <Select value={form.importLoadId || ALL} onValueChange={(v) => setForm({ ...form, importLoadId: v === ALL ? '' : v })}>
@@ -377,7 +536,7 @@ function ExpensesSection({
                   </Select>
                 </Field>
                 <Field id="exp-notes" label={t('notes')} className="sm:col-span-2">
-                  <Input id="exp-notes" value={form.notes} onChange={set('notes')} maxLength={1000} />
+                  <Textarea id="exp-notes" value={form.notes} onChange={set('notes')} maxLength={1000} rows={2} className="bg-card" />
                 </Field>
               </FormGrid>
               {formError && <Notice tone="error">{formError}</Notice>}
