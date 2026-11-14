@@ -6,13 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '../api';
 import { useAuth } from '../auth';
-import { num3, useApi, useLoad } from '../components/common';
-import { type Column, DataTable, IdCell } from '../components/data-table';
-import { ALL, Field, FormActions, FormCard, FormGrid, LoadState, Notice, Page, PageHeader, SearchBox, StatusFilter, Toolbar, usePaging } from '../components/page';
+import { num3, useLoad } from '../components/common';
+import { DataTable } from '../components/data-table';
+import { ListEmpty, ListToolbar, openColumn, PageSum, useRecordList, type ListColumn } from '../components/record-list';
+import { ALL, Field, FormActions, FormCard, FormGrid, LoadState, Notice, Page, PageHeader } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
 import { useI18n } from '../i18n';
 import { fromLocalInput } from './Imports';
 import { dateOnly, todayLocal } from './Production';
+import { ExportQuickView } from './QuickViews';
 
 export interface ExportSummary {
   id: string;
@@ -79,83 +81,79 @@ export function ExportsPage() {
   const { t } = useI18n();
   const { user } = useAuth();
   const isOwner = user?.role === 'OWNER';
-  const [status, setStatus] = useState('');
-  const [q, setQ] = useState('');
-  const paging = usePaging();
-  const query = `take=${paging.take}&skip=${paging.skip}${status ? `&status=${status}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}`;
-  const { data, loading, error, reload } = useApi<{ items: ExportSummary[]; total: number }>(`/exports?${query}`);
+  const list = useRecordList<ExportSummary>({ path: '/exports', name: 'exports' });
+  const { data, loading, error, reload } = list;
+  /** the export shown in the side panel, if any */
+  const [peek, setPeek] = useState<ExportSummary | null>(null);
 
-  const columns = useMemo(() => {
-    const cols: Column<ExportSummary>[] = [
+  const allColumns = useMemo(() => {
+    const cols: ListColumn<ExportSummary>[] = [
       {
         id: 'code',
         header: t('exportId'),
         cell: (e) => (
-          <IdCell sub={`${e.lorryNumber} · ${e.woodType}`}>
-            <Link className="text-primary hover:underline" to={`/exports/${e.id}`}>
+          <>
+            <Link className="font-medium text-foreground hover:underline" to={`/exports/${e.id}`}>
               {e.code}
             </Link>
-          </IdCell>
+            <div className="mt-0.5 text-xs text-muted-foreground md:hidden">
+              {e.lorryNumber} · {e.woodType} · {dateOnly(e.exportDate)}
+            </div>
+          </>
         ),
       },
-      { id: 'date', header: t('date'), from: 'md', className: 'text-muted-foreground', cell: (e) => dateOnly(e.exportDate) },
-      { id: 'lorry', header: t('lorry'), from: 'md', cell: (e) => e.lorryNumber },
-      { id: 'wood', header: t('woodType'), from: 'md', cell: (e) => e.woodType },
-      { id: 'pieces', header: t('pieces'), from: 'md', numeric: true, cell: (e) => e.totalPieces },
-      { id: 'cft', header: t('totalCft'), numeric: true, className: 'font-semibold', cell: (e) => num3(e.totalCft) },
+      { id: 'date', label: t('date'), header: t('date'), from: 'md', cell: (e) => dateOnly(e.exportDate) },
+      { id: 'lorry', label: t('lorry'), header: t('lorry'), from: 'md', cell: (e) => e.lorryNumber },
+      { id: 'wood', label: t('woodType'), header: t('woodType'), from: 'md', cell: (e) => e.woodType },
+      { id: 'pieces', label: t('pieces'), header: t('pieces'), from: 'md', numeric: true, cell: (e) => e.totalPieces },
+      { id: 'cft', header: t('totalCft'), numeric: true, cell: (e) => num3(e.totalCft) },
       { id: 'status', header: t('status'), cell: (e) => <StatusBadge status={e.status} /> },
     ];
-    if (isOwner) cols.push({ id: 'by', header: t('createdBy'), from: 'md', cell: (e) => e.createdByName });
+    if (isOwner) cols.push({ id: 'by', label: t('createdBy'), header: t('createdBy'), from: 'md', className: 'max-w-40 truncate', cell: (e) => e.createdByName });
+    cols.push(
+      openColumn<ExportSummary>(
+        (e) => `/exports/${e.id}`,
+        (e) => e.code,
+        t,
+      ),
+    );
     return cols;
   }, [t, isOwner]);
+  const columns = useMemo(() => allColumns.filter((c) => !list.hidden.includes(c.id)), [allColumns, list.hidden]);
 
   return (
     <Page>
       <PageHeader
         title={t('exports')}
+        subtitle={t('exportsSub')}
         actions={
-          <>
-            <Button asChild>
-              <Link to="/exports/new">
-                <PlusIcon /> {t('newExport')}
-              </Link>
-            </Button>
-          </>
+          <Button asChild>
+            <Link to="/exports/new">
+              <PlusIcon /> {t('newExport')}
+            </Link>
+          </Button>
         }
       />
-
-
-      <Toolbar>
-        <SearchBox
-          value={q}
-          onChange={(v) => {
-            setQ(v);
-            paging.reset();
-          }}
-          placeholder={t('searchRecords')}
-        />
-        <StatusFilter
-          value={status}
-          onChange={(v) => {
-            setStatus(v);
-            paging.reset();
-          }}
-        />
-      </Toolbar>
 
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
 
       {data && (
         <DataTable
+          grid
           data={data.items}
           columns={columns}
           rowKey={(e) => e.id}
-          rowTo={(e) => `/exports/${e.id}`}
-          empty={q ? t('noMatches', { q }) : t('noExports')}
-          pager={paging.pager(data.total)}
+          onRowClick={setPeek}
+          selectedKey={peek?.id}
+          empty={<ListEmpty list={list} none={t('noExports')} newTo="/exports/new" newLabel={t('newExport')} />}
+          pager={list.paging.pager(data.total)}
           busy={loading}
+          toolbar={<ListToolbar list={list} columns={allColumns} searchPlaceholder={t('searchRecords')} />}
+          footer={<PageSum cft={data.items.reduce((a, e) => a + e.totalCft, 0)} />}
         />
       )}
+
+      <ExportQuickView row={peek} onClose={() => setPeek(null)} onChanged={list.refresh} />
     </Page>
   );
 }

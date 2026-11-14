@@ -1,15 +1,21 @@
-import { ChevronRightIcon, PlusIcon, RulerIcon } from 'lucide-react';
-import { FormEvent, ReactNode, useId, useMemo, useState } from 'react';
+import { durationMinutes, formatDuration, Permission, unloadingCharges } from '@sawmill/shared';
+import { PlusIcon, RulerIcon, SaveIcon } from 'lucide-react';
+import { FormEvent, ReactNode, useId, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { api } from '../api';
 import { useAuth } from '../auth';
-import { num3, useApi } from '../components/common';
-import { type Column, DataTable } from '../components/data-table';
+import { money, num3, useLoad } from '../components/common';
+import { DataTable } from '../components/data-table';
+import { ListEmpty, ListToolbar, openColumn, PageSum, useRecordList, type ListColumn } from '../components/record-list';
 import { StatusBadge } from '../components/status-badge';
-import { Field, FormActions, FormCard, FormGrid, LoadState, Notice, Page, PageHeader, SearchBox, StatusFilter, Toolbar, usePaging } from '../components/page';
+import { useToast } from '../components/toast';
+import { Field, FormActions, FormCard, FormSection, LoadState, Notice, Page, PageHeader } from '../components/page';
 import { useI18n } from '../i18n';
+import { ImportQuickView } from './QuickViews';
 
 export interface ImportSummary {
   id: string;
@@ -66,108 +72,78 @@ export const emptyImportForm = (): ImportForm => ({
 export const importFormBody = (f: ImportForm) => JSON.stringify({ ...f, arrivalAt: fromLocalInput(f.arrivalAt) });
 
 
-const arrivalDay = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-const arrivalTime = (iso: string) => new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
-
-/** A table cell with a main line and a quieter line under it; every row keeps both lines, so rows are the same height. */
-function TwoLine({ children, sub }: { children: ReactNode; sub?: ReactNode }) {
-  return (
-    <>
-      <div className="truncate">{children}</div>
-      <div className="mt-0.5 truncate text-xs text-muted-foreground">{sub || '—'}</div>
-    </>
-  );
-}
-
-const STATUS_VALUES = ['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED'] as const;
+const arrivalAt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 /** `/imports` lists every load; `/measurement` (openOnly) lists the ones still being measured. */
 export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
   const { t } = useI18n();
   const { user } = useAuth();
   const isOwner = user?.role === 'OWNER';
-  const [status, setStatus] = useState('');
-  const [q, setQ] = useState('');
-  const paging = usePaging();
-  const search = q ? `&q=${encodeURIComponent(q)}` : '';
-  const query = `take=${paging.take}&skip=${paging.skip}${openOnly ? '&open=1' : status ? `&status=${status}` : ''}${search}`;
-  const { data, loading, error, reload } = useApi<{ items: ImportSummary[]; total: number }>(`/imports?${query}`);
+  const list = useRecordList<ImportSummary>({ path: '/imports', name: 'imports', hiddenByDefault: ['driver', 'origin'], fixedQuery: openOnly ? 'open=1' : undefined });
+  const { data, loading, error, reload } = list;
+  /** the load shown in the side panel, if any */
+  const [peek, setPeek] = useState<ImportSummary | null>(null);
 
-  // how many loads each status chip holds, for the current search (one tiny request each; the server scopes them like the list)
-  const countPath = (s: string) => (openOnly ? null : `/imports?take=1&skip=0${s ? `&status=${s}` : ''}${search}`);
-  const totals = [useApi<{ total: number }>(countPath('')), ...STATUS_VALUES.map((s) => useApi<{ total: number }>(countPath(s)))];
-  const counts: Record<string, number | undefined> = { '': totals[0].data?.total };
-  STATUS_VALUES.forEach((s, i) => (counts[s] = totals[i + 1].data?.total));
-
-  const filtered = !!q || !!status;
-  const clearFilters = () => {
-    setQ('');
-    setStatus('');
-    paging.reset();
-  };
-
-  const columns = useMemo(() => {
-    const cols: Column<ImportSummary>[] = [
+  const allColumns = useMemo(() => {
+    const cols: ListColumn<ImportSummary>[] = [
       {
         id: 'code',
         header: t('importId'),
         cell: (l) => (
           <>
-            <Link className="font-semibold text-primary hover:underline" to={`/imports/${l.id}`}>
+            <Link className="font-medium text-foreground hover:underline" to={`/imports/${l.id}`}>
               {l.code}
             </Link>
-            <div className="mt-0.5 text-xs text-muted-foreground">
-              <span className="md:hidden">
-                {l.lorryNumber} · {arrivalDay(l.arrivalAt)} ·{' '}
-              </span>
-              {l.woodType}
+            <div className="mt-0.5 text-xs text-muted-foreground md:hidden">
+              {l.lorryNumber} · {l.woodType} · {arrivalAt(l.arrivalAt)}
             </div>
           </>
         ),
       },
-      { id: 'arrival', header: t('arrival'), from: 'md', className: 'whitespace-nowrap', cell: (l) => <TwoLine sub={arrivalTime(l.arrivalAt)}>{arrivalDay(l.arrivalAt)}</TwoLine> },
-      { id: 'lorry', header: t('lorry'), from: 'md', className: 'max-w-44', cell: (l) => <TwoLine sub={l.driverName}>{l.lorryNumber}</TwoLine> },
+      { id: 'arrival', label: t('arrival'), header: t('arrival'), from: 'md', cell: (l) => arrivalAt(l.arrivalAt) },
+      { id: 'lorry', label: t('lorry'), header: t('lorry'), from: 'md', cell: (l) => l.lorryNumber },
+      { id: 'driver', label: t('driverName'), header: t('driverName'), from: 'md', className: 'max-w-40 truncate', cell: (l) => l.driverName ?? '—' },
     ];
     // the supplier belongs to the purchase record, which only the owner sees
-    if (isOwner) cols.push({ id: 'supplier', header: t('supplier'), from: 'md', className: 'max-w-48', cell: (l) => <TwoLine sub={l.originLocation}>{l.supplierName ?? '—'}</TwoLine> });
+    if (isOwner) cols.push({ id: 'supplier', label: t('supplier'), header: t('supplier'), from: 'md', className: 'max-w-40 truncate', cell: (l) => l.supplierName ?? '—' });
     cols.push(
-      { id: 'logs', header: t('logs'), from: 'md', numeric: true, cell: (l) => l.totalLogs },
-      { id: 'cft', header: t('totalCft'), numeric: true, className: 'font-semibold', cell: (l) => num3(l.totalCft) },
+      { id: 'origin', label: t('originLocation'), header: t('originLocation'), from: 'md', className: 'max-w-48 truncate', cell: (l) => l.originLocation ?? '—' },
+      { id: 'wood', label: t('woodType'), header: t('woodType'), from: 'md', cell: (l) => l.woodType },
+      { id: 'logs', label: t('logs'), header: t('logs'), from: 'md', numeric: true, cell: (l) => l.totalLogs },
+      { id: 'cft', header: t('totalCft'), numeric: true, cell: (l) => num3(l.totalCft) },
       { id: 'status', header: t('status'), cell: (l) => <StatusBadge status={l.status} /> },
     );
-    if (isOwner) cols.push({ id: 'by', header: t('createdBy'), from: 'md', className: 'max-w-40 truncate text-muted-foreground', cell: (l) => l.createdByName });
-    cols.push({
-      id: 'open',
-      header: <span className="sr-only">{t('actions')}</span>,
-      className: 'w-px text-right whitespace-nowrap',
-      cell: (l) =>
-        openOnly ? (
-          <Button asChild variant="outline" size="sm">
-            <Link to={`/imports/${l.id}#logs`} aria-label={t('measure')}>
-              <RulerIcon />
-              <span className="max-md:sr-only">{t('measure')}</span>
-            </Link>
-          </Button>
-        ) : (
-          <Button asChild variant="ghost" size="sm" className="text-muted-foreground max-md:hidden">
-            <Link to={`/imports/${l.id}`}>
-              {t('view')}
-              <ChevronRightIcon />
-            </Link>
-          </Button>
-        ),
-    });
+    if (isOwner) cols.push({ id: 'by', label: t('createdBy'), header: t('createdBy'), from: 'md', className: 'max-w-32 truncate', cell: (l) => l.createdByName });
+    cols.push(
+      openOnly
+        ? {
+            id: 'open',
+            header: <span className="sr-only">{t('actions')}</span>,
+            className: 'w-px text-right',
+            cell: (l) => (
+              <Button asChild variant="outline" size="sm">
+                <Link to={`/imports/${l.id}#logs`} aria-label={t('measure')}>
+                  <RulerIcon />
+                  <span className="max-md:sr-only">{t('measure')}</span>
+                </Link>
+              </Button>
+            ),
+          }
+        : openColumn<ImportSummary>(
+            (l) => `/imports/${l.id}`,
+            (l) => l.code,
+            t,
+          ),
+    );
     return cols;
   }, [t, isOwner, openOnly]);
-
-  const total = openOnly ? data?.total : counts[''];
+  const columns = useMemo(() => allColumns.filter((c) => !list.hidden.includes(c.id)), [allColumns, list.hidden]);
 
   return (
     <Page>
       <PageHeader
         title={t(openOnly ? 'measurement' : 'imports')}
         subtitle={t(openOnly ? 'measurementSub' : 'importsSub')}
-        badge={total != null && <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground tabular-nums">{t('loadsCount', { n: total })}</span>}
         actions={
           <Button asChild>
             <Link to="/imports/new">
@@ -177,118 +153,152 @@ export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
         }
       />
 
-      <Toolbar className="justify-between">
-        <SearchBox
-          className="sm:w-80"
-          value={q}
-          onChange={(v) => {
-            setQ(v);
-            paging.reset();
-          }}
-          placeholder={t('searchRecords')}
-        />
-        {!openOnly && (
-          <StatusFilter
-            value={status}
-            counts={counts}
-            onChange={(v) => {
-              setStatus(v);
-              paging.reset();
-            }}
-          />
-        )}
-      </Toolbar>
-
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
 
       {data && (
         <DataTable
+          grid
           data={data.items}
           columns={columns}
           rowKey={(l) => l.id}
-          rowTo={(l) => `/imports/${l.id}${openOnly ? '#logs' : ''}`}
-          empty={
-            <>
-              {q ? t('noMatches', { q }) : status ? t('noImportsForStatus') : t(openOnly ? 'noOpenLoads' : 'noImports')}
-              <span className="mt-4 flex justify-center">
-                {filtered ? (
-                  <Button variant="outline" size="sm" onClick={clearFilters}>
-                    {t('clearFilters')}
-                  </Button>
-                ) : (
-                  <Button asChild size="sm">
-                    <Link to="/imports/new">
-                      <PlusIcon /> {t('newImport')}
-                    </Link>
-                  </Button>
-                )}
-              </span>
-            </>
-          }
-          pager={paging.pager(data.total)}
+          // the measurement list goes straight to log entry; the full list opens a quick view first
+          rowTo={openOnly ? (l) => `/imports/${l.id}#logs` : undefined}
+          onRowClick={openOnly ? undefined : setPeek}
+          selectedKey={peek?.id}
+          empty={<ListEmpty list={list} none={t(openOnly ? 'noOpenLoads' : 'noImports')} newTo="/imports/new" newLabel={t('newImport')} />}
+          pager={list.paging.pager(data.total)}
           busy={loading}
+          toolbar={<ListToolbar list={list} columns={allColumns} searchPlaceholder={t('searchRecords')} />}
+          footer={<PageSum cft={data.items.reduce((a, l) => a + l.totalCft, 0)} />}
         />
       )}
+
+      <ImportQuickView row={peek} onClose={() => setPeek(null)} onChanged={list.refresh} />
     </Page>
   );
 }
 
-/** The import form fields, shared by "New Import" and the edit panel on the detail page. */
-export function ImportFields({ form, onChange }: { form: ImportForm; onChange: (f: ImportForm) => void }) {
+/**
+ * The import form, in numbered sections, shared by "New Import" and the edit panel on the
+ * detail page. `supplier` and `unloading` are extra parts only the new-import screen has
+ * (on an existing load they have their own sections on the page).
+ */
+export function ImportFields({ form, onChange, supplier, unloading }: { form: ImportForm; onChange: (f: ImportForm) => void; supplier?: ReactNode; unloading?: ReactNode }) {
   const { t } = useI18n();
   const uid = useId();
   const id = (k: keyof ImportForm) => `${uid}-${k}`;
   const set = (k: keyof ImportForm) => (e: { target: { value: string } }) => onChange({ ...form, [k]: e.target.value });
+  let step = 0;
   return (
-    <FormGrid>
-      <Field id={id('lorryNumber')} label={`${t('lorryNumber')} *`}>
-        <Input id={id('lorryNumber')} value={form.lorryNumber} onChange={set('lorryNumber')} required minLength={4} maxLength={20} autoCapitalize="characters" placeholder="TN 45 AB 1234" />
-      </Field>
-      <Field id={id('woodType')} label={`${t('woodType')} *`} hint={t('woodTypeHint')}>
-        <Input id={id('woodType')} value={form.woodType} onChange={set('woodType')} required minLength={2} maxLength={60} />
-      </Field>
-      <Field id={id('arrivalAt')} label={t('arrivalDateTime')}>
-        <Input id={id('arrivalAt')} type="datetime-local" value={form.arrivalAt} onChange={set('arrivalAt')} required />
-      </Field>
-      <Field id={id('woodCategory')} label={t('woodCategory')}>
-        <Input id={id('woodCategory')} value={form.woodCategory} onChange={set('woodCategory')} maxLength={60} />
-      </Field>
-      <Field id={id('driverName')} label={t('driverName')}>
-        <Input id={id('driverName')} value={form.driverName} onChange={set('driverName')} maxLength={100} />
-      </Field>
-      <Field id={id('driverMobile')} label={t('driverMobile')}>
-        <Input id={id('driverMobile')} value={form.driverMobile} onChange={set('driverMobile')} inputMode="tel" maxLength={15} />
-      </Field>
-      <Field id={id('lorryOwnerName')} label={t('lorryOwnerName')}>
-        <Input id={id('lorryOwnerName')} value={form.lorryOwnerName} onChange={set('lorryOwnerName')} maxLength={100} />
-      </Field>
-      <Field id={id('lorryOwnerMobile')} label={t('lorryOwnerMobile')}>
-        <Input id={id('lorryOwnerMobile')} value={form.lorryOwnerMobile} onChange={set('lorryOwnerMobile')} inputMode="tel" maxLength={15} />
-      </Field>
-      <Field id={id('originLocation')} label={t('originLocation')}>
-        <Input id={id('originLocation')} value={form.originLocation} onChange={set('originLocation')} maxLength={120} />
-      </Field>
-      <Field id={id('notes')} label={t('notes')} className="sm:col-span-full">
-        <Input id={id('notes')} value={form.notes} onChange={set('notes')} maxLength={1000} />
-      </Field>
-    </FormGrid>
+    <>
+      <FormSection step={++step} title={t('secImportInfo')} description={t('secImportInfoSub')}>
+        <Field id={id('arrivalAt')} label={t('arrivalDateTime')} required>
+          <Input id={id('arrivalAt')} type="datetime-local" value={form.arrivalAt} onChange={set('arrivalAt')} required />
+        </Field>
+        <Field id={id('woodType')} label={t('woodType')} required hint={t('woodTypeHint')}>
+          <Input id={id('woodType')} value={form.woodType} onChange={set('woodType')} required minLength={2} maxLength={60} />
+        </Field>
+        <Field id={id('woodCategory')} label={t('woodCategory')}>
+          <Input id={id('woodCategory')} value={form.woodCategory} onChange={set('woodCategory')} maxLength={60} />
+        </Field>
+        <Field id={id('originLocation')} label={t('originLocation')}>
+          <Input id={id('originLocation')} value={form.originLocation} onChange={set('originLocation')} maxLength={120} />
+        </Field>
+      </FormSection>
+
+      <FormSection step={++step} title={t(supplier ? 'secSupplierLorry' : 'secLorry')} description={t('secLorrySub')}>
+        {supplier}
+        <Field id={id('lorryNumber')} label={t('lorryNumber')} required hint={t('lorryNumberHint')} className={supplier ? undefined : 'sm:col-span-2'}>
+          <Input id={id('lorryNumber')} value={form.lorryNumber} onChange={set('lorryNumber')} required minLength={4} maxLength={20} autoCapitalize="characters" placeholder="TN 45 AB 1234" className="uppercase placeholder:normal-case" />
+        </Field>
+        <Field id={id('driverName')} label={t('driverName')}>
+          <Input id={id('driverName')} value={form.driverName} onChange={set('driverName')} maxLength={100} autoComplete="off" />
+        </Field>
+        <Field id={id('driverMobile')} label={t('driverMobile')} hint={t('mobileHint')}>
+          <Input id={id('driverMobile')} type="tel" value={form.driverMobile} onChange={set('driverMobile')} inputMode="tel" maxLength={15} pattern={MOBILE} autoComplete="off" />
+        </Field>
+        <Field id={id('lorryOwnerName')} label={t('lorryOwnerName')}>
+          <Input id={id('lorryOwnerName')} value={form.lorryOwnerName} onChange={set('lorryOwnerName')} maxLength={100} autoComplete="off" />
+        </Field>
+        <Field id={id('lorryOwnerMobile')} label={t('lorryOwnerMobile')} hint={t('mobileHint')}>
+          <Input id={id('lorryOwnerMobile')} type="tel" value={form.lorryOwnerMobile} onChange={set('lorryOwnerMobile')} inputMode="tel" maxLength={15} pattern={MOBILE} autoComplete="off" />
+        </Field>
+      </FormSection>
+
+      {unloading && (
+        <FormSection step={++step} title={t('secUnloading')} description={t('secUnloadingSub')}>
+          {unloading}
+        </FormSection>
+      )}
+
+      <FormSection step={++step} title={t('secAdditional')} description={t('secAdditionalSub')}>
+        <Field id={id('notes')} label={t('notes')} hint={t('notesHint')} className="sm:col-span-2">
+          <Textarea id={id('notes')} value={form.notes} onChange={set('notes')} maxLength={1000} rows={3} />
+        </Field>
+      </FormSection>
+    </>
   );
 }
+/** The same rule the server applies to mobile numbers (empty is allowed: the fields are optional). */
+const MOBILE = '[0-9+ ]{7,15}';
+
+/** Radix Select can't hold '', so "no supplier" is this sentinel in the picker. */
+const NO_SUPPLIER = 'none';
+const emptyUnloading = () => ({ vehicleNumber: '', startAt: '', endAt: '', ratePerHour: '' });
 
 export function NewImportPage() {
   const { t } = useI18n();
+  const { can } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const [form, setForm] = useState(emptyImportForm);
+  const [unl, setUnl] = useState(emptyUnloading);
+  const [supplierId, setSupplierId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** where the pressed button goes after saving: the record, or straight to log entry */
+  const next = useRef<'record' | 'logs'>('record');
+
+  // the supplier sits on the purchase record, which only the owner may see or set
+  const canSupplier = can(Permission.FINANCE_VIEW) && can(Permission.SUPPLIERS_MANAGE);
+  const suppliers = useLoad(() => (canSupplier ? api<{ id: string; name: string }[]>('/suppliers') : Promise.resolve([])), [canSupplier]);
+
+  const setU = (k: keyof ReturnType<typeof emptyUnloading>) => (e: { target: { value: string } }) => setUnl((u) => ({ ...u, [k]: e.target.value }));
+  const hasUnloading = unl.vehicleNumber.trim() !== '';
+  // the same formulas the server uses: whole minutes between the times, rate × minutes / 60
+  let minutes: number | null = null;
+  let charges: number | null = null;
+  try {
+    if (unl.startAt && unl.endAt) minutes = durationMinutes(new Date(unl.startAt), new Date(unl.endAt));
+    if (minutes != null && unl.ratePerHour.trim() !== '') charges = unloadingCharges(minutes, Number(unl.ratePerHour));
+  } catch {
+    minutes = charges = null; // end before start, or a bad rate: the inputs say so themselves
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    const goTo = next.current;
+    next.current = 'record';
     setBusy(true);
     setError(null);
     try {
       const created = await api<{ id: string }>('/imports', { method: 'POST', body: importFormBody(form) });
-      navigate(`/imports/${created.id}`, { replace: true });
+      // the load now exists; the optional parts are saved onto it, and a failure there must not lose it
+      const missed: string[] = [];
+      if (hasUnloading)
+        await api(`/imports/${created.id}/unloading`, {
+          method: 'POST',
+          body: JSON.stringify({
+            vehicleNumber: unl.vehicleNumber,
+            startAt: fromLocalInput(unl.startAt),
+            endAt: fromLocalInput(unl.endAt),
+            ratePerHour: unl.ratePerHour.trim() === '' ? undefined : Number(unl.ratePerHour),
+          }),
+        }).catch((err) => missed.push(`${t('secUnloading')} (${(err as Error).message})`));
+      if (supplierId)
+        await api(`/imports/${created.id}/financials`, { method: 'PUT', body: JSON.stringify({ supplierId }) }).catch((err) => missed.push(`${t('supplier')} (${(err as Error).message})`));
+      if (missed.length) toast(t('savedButNot', { what: missed.join(', ') }), 'warn');
+      navigate(`/imports/${created.id}${goTo === 'logs' ? '#logs' : ''}`, { replace: true });
     } catch (err) {
       setError((err as Error).message);
       setBusy(false);
@@ -296,19 +306,80 @@ export function NewImportPage() {
   }
 
   return (
-    <Page>
-      <PageHeader title={t('newImport')} back={{ to: '/imports', label: t('imports') }} />
-      <FormCard onSubmit={submit}>
-        <ImportFields form={form} onChange={setForm} />
+    <Page className="max-w-5xl">
+      <PageHeader title={t('newImport')} subtitle={t('requiredNote')} back={{ to: '/imports', label: t('imports') }} />
+      <FormCard onSubmit={submit} className="py-7 [&_form]:gap-7">
+        <ImportFields
+          form={form}
+          onChange={setForm}
+          supplier={
+            canSupplier && (
+              <Field id="imp-supplier" label={t('supplier')} hint={t('supplierHint')}>
+                <Select value={supplierId || NO_SUPPLIER} onValueChange={(v) => setSupplierId(v === NO_SUPPLIER ? '' : v)}>
+                  <SelectTrigger id="imp-supplier" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_SUPPLIER}>{t('noSupplier')}</SelectItem>
+                    {(suppliers.data ?? []).map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )
+          }
+          unloading={
+            <>
+              <Field id="imp-unl-vehicle" label={t('vehicleNumber')} hint={t('unloadingVehicleHint')}>
+                <Input
+                  id="imp-unl-vehicle"
+                  value={unl.vehicleNumber}
+                  onChange={setU('vehicleNumber')}
+                  // only needed once any other unloading detail is filled in
+                  required={!!(unl.startAt || unl.endAt || unl.ratePerHour)}
+                  minLength={2}
+                  maxLength={20}
+                  autoCapitalize="characters"
+                  className="uppercase"
+                />
+              </Field>
+              <Field id="imp-unl-rate" label={t('ratePerHour')} hint={t('unloadingRateHint')}>
+                <Input id="imp-unl-rate" type="number" value={unl.ratePerHour} onChange={setU('ratePerHour')} min={0} max={1000000} step="0.01" inputMode="decimal" className="tabular-nums" />
+              </Field>
+              <Field id="imp-unl-start" label={t('startTime')}>
+                <Input id="imp-unl-start" type="datetime-local" value={unl.startAt} onChange={setU('startAt')} />
+              </Field>
+              <Field id="imp-unl-end" label={t('endTime')}>
+                <Input id="imp-unl-end" type="datetime-local" value={unl.endAt} onChange={setU('endAt')} min={unl.startAt || undefined} />
+              </Field>
+              <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 rounded-lg bg-muted/60 px-4 py-3 text-sm sm:col-span-2" aria-live="polite">
+                <span className="text-muted-foreground">
+                  {t('duration')}: <span className="font-semibold text-foreground tabular-nums">{minutes != null ? formatDuration(minutes) : '—'}</span>
+                </span>
+                <span className="text-muted-foreground">
+                  {t('estimatedCharges')}: <span className="font-semibold text-foreground tabular-nums">{charges != null ? money(charges) : '—'}</span>
+                </span>
+              </div>
+            </>
+          }
+        />
         {error && <Notice tone="error">{error}</Notice>}
-        <FormActions>
-          <Button asChild variant="ghost">
-            <Link to="/imports">{t('cancel')}</Link>
-          </Button>
-          <Button type="submit" disabled={busy}>
-            {t('create')}
-          </Button>
-        </FormActions>
+        <div className="border-t border-border/70 pt-5">
+          <FormActions summary={t('draftHint')}>
+            <Button asChild variant="ghost">
+              <Link to="/imports">{t('cancel')}</Link>
+            </Button>
+            <Button type="submit" variant="outline" disabled={busy} onClick={() => (next.current = 'record')}>
+              <SaveIcon /> {t('saveDraft')}
+            </Button>
+            <Button type="submit" disabled={busy} onClick={() => (next.current = 'logs')}>
+              <RulerIcon /> {t('saveAndMeasure')}
+            </Button>
+          </FormActions>
+        </div>
       </FormCard>
     </Page>
   );

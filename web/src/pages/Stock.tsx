@@ -3,8 +3,8 @@
  * src/components/ui, src/components/page.tsx and Tailwind classes.
  */
 import { exportPieceCft, Permission, sizeLabel } from '@sawmill/shared';
-import { ChevronDownIcon, HistoryIcon, LayersIcon, PackageIcon, PlusIcon, ScissorsIcon } from 'lucide-react';
-import { FormEvent, Fragment, useMemo, useState } from 'react';
+import { ArrowDownLeftIcon, ArrowDownToLineIcon, ArrowUpFromLineIcon, ArrowUpRightIcon, BoxesIcon, ChevronDownIcon, HistoryIcon, LayersIcon, type LucideIcon, PackageIcon, PlusIcon, ScissorsIcon, SlidersHorizontalIcon, TruckIcon, XIcon } from 'lucide-react';
+import { FormEvent, Fragment, ReactNode, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,12 +12,15 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { dateTime, num3, useLoad } from '../components/common';
 import { StatusBadge } from '../components/status-badge';
-import { ALL, Field, LoadState, numCell, Page, PageHeader, useClientPaging, usePaging, Stat, StatGrid, TableCard, wide } from '../components/page';
+import { gridTable } from '../components/data-table';
+import { ALL, Field, FormSection, LoadState, Notice, numCell, Page, PageHeader, SearchBox, useClientPaging, usePaging, TableCard, wide } from '../components/page';
+import { quietSearch } from '../components/record-list';
 import { WorkflowBar } from '../components/workflow';
 import { TKey, useI18n } from '../i18n';
 import type { RawStockRow } from './Production';
@@ -103,6 +106,44 @@ const deltaClass = (n: number) => (n > 0 ? 'text-success font-semibold' : n < 0 
 const sizeOf = (r: { thicknessIn: number | null; widthIn: number | null; lengthFt: number | null }) =>
   r.thicknessIn != null && r.widthIn != null && r.lengthFt != null ? sizeLabel(r.thicknessIn, r.widthIn, r.lengthFt) : '—';
 
+/** What kind of movement a ledger line is: its label, its icon. Direction comes from the sign of the change. */
+const SOURCE_ICON: Record<Movement['source'], LucideIcon> = {
+  IMPORT: ArrowDownToLineIcon,
+  PRODUCTION_INPUT: ScissorsIcon,
+  PRODUCTION_OUTPUT: PackageIcon,
+  EXPORT: ArrowUpFromLineIcon,
+  ADJUSTMENT: SlidersHorizontalIcon,
+};
+
+/** In (green, arrow down-left) or Out (red, arrow up-right): the same mark wherever stock moves. */
+function Direction({ delta, className }: { delta: number; className?: string }) {
+  const { t } = useI18n();
+  const incoming = delta > 0;
+  const Icon = incoming ? ArrowDownLeftIcon : ArrowUpRightIcon;
+  return (
+    <span className={cn('inline-flex items-center gap-1 rounded-full py-0.5 pr-2 pl-1.5 text-xs font-semibold', incoming ? 'bg-success-soft text-success' : 'bg-destructive-soft text-destructive', className)}>
+      <Icon className="size-3.5" aria-hidden />
+      {t(incoming ? 'stockIn' : 'stockOut')}
+    </span>
+  );
+}
+
+/** A summary figure: tinted icon tile, large number, label. */
+function Tile({ icon, value, unit, label }: { icon: ReactNode; value: string; unit?: string; label: string }) {
+  return (
+    <div className="flex items-center gap-3.5 rounded-xl bg-card px-4 py-4 shadow-card">
+      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary [&_svg]:size-5">{icon}</span>
+      <div className="min-w-0">
+        <div className="text-2xl leading-tight font-bold tabular-nums">
+          {value}
+          {unit && <span className="ml-1.5 text-sm font-medium text-muted-foreground">{unit}</span>}
+        </div>
+        <div className="truncate text-sm text-muted-foreground">{label}</div>
+      </div>
+    </div>
+  );
+}
+
 export function StockPage() {
   const { t } = useI18n();
   const [params, setParams] = useSearchParams();
@@ -120,24 +161,54 @@ export function StockPage() {
     return [...m.values()].sort((a, b) => a.code.localeCompare(b.code));
   }, [data]);
 
+  // the four views, as tiles: what each holds, in a line
+  const sizeCount = data ? new Set(data.finished.map((f) => `${f.woodType}|${f.thicknessIn}|${f.widthIn}|${f.lengthFt}`)).size : 0;
+  const views: { key: Tab; icon: LucideIcon; title: string; sub: string }[] = [
+    { key: 'raw', icon: LayersIcon, title: t('rawByLoad'), sub: t('loadsCount', { n: data?.raw.length ?? 0 }) },
+    { key: 'finished', icon: PackageIcon, title: t('finishedBySize'), sub: t('sizesCount', { n: sizeCount }) },
+    { key: 'movements', icon: HistoryIcon, title: t('movementHistory'), sub: t('movementHistorySub') },
+    { key: 'adjustments', icon: SlidersHorizontalIcon, title: t('adjustments'), sub: t('adjustmentsSub') },
+  ];
+
   return (
     <Page>
-      <PageHeader title={t('stock')} />
+      <PageHeader
+        title={t('stock')}
+        subtitle={t('stockSub')}
+        actions={
+          <Button onClick={() => setParams({ tab: 'adjustments', new: '1' }, { replace: true })}>
+            <PlusIcon /> {t('newAdjustment')}
+          </Button>
+        }
+      />
 
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
 
       {data && (
         <>
-          <StatGrid className="lg:grid-cols-2">
-            <Stat icon={<LayersIcon />} label={t('rawStock')} value={num3(data.totals.rawCft)} unit="CFT" hint={t('loadsCount', { n: data.totals.rawLoads })} />
-            <Stat icon={<PackageIcon />} label={t('finishedStock')} value={num3(data.totals.finishedCft)} unit="CFT" hint={t('piecesCount', { n: data.totals.finishedPieces })} />
-          </StatGrid>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Tile icon={<LayersIcon />} value={num3(data.totals.rawCft)} unit="CFT" label={t('rawStock')} />
+            <Tile icon={<TruckIcon />} value={data.totals.rawLoads.toLocaleString('en-IN')} label={t('loadsWithRaw')} />
+            <Tile icon={<PackageIcon />} value={num3(data.totals.finishedCft)} unit="CFT" label={t('finishedStock')} />
+            <Tile icon={<BoxesIcon />} value={data.totals.finishedPieces.toLocaleString('en-IN')} label={t('finishedPieces')} />
+          </div>
 
           <Tabs value={tab} onValueChange={(v) => go(v as Tab)} className="gap-4">
-            <TabsList className="w-full justify-start overflow-x-auto sm:w-fit">
-              {TABS.map(([key, label]) => (
-                <TabsTrigger key={key} value={key} className="px-3">
-                  {t(label)}
+            {/* the views as tiles; the chosen one is outlined */}
+            <TabsList className="grid h-auto! w-full grid-cols-2 gap-3 bg-transparent p-0 lg:grid-cols-4">
+              {views.map((v) => (
+                <TabsTrigger
+                  key={v.key}
+                  value={v.key}
+                  className="h-auto! justify-start gap-3 rounded-xl border-2 border-transparent bg-card px-3.5 py-3 text-left whitespace-normal shadow-card data-[state=active]:border-primary data-[state=active]:bg-card data-[state=active]:shadow-card"
+                >
+                  <span className={cn('grid size-10 shrink-0 place-items-center rounded-lg [&_svg]:size-[1.125rem]', tab === v.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
+                    <v.icon aria-hidden />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm leading-snug font-semibold text-foreground">{v.title}</span>
+                    <span className="block truncate text-xs font-normal text-muted-foreground">{v.sub}</span>
+                  </span>
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -148,7 +219,7 @@ export function StockPage() {
               <FinishedTab rows={data.finished} />
             </TabsContent>
             <TabsContent value="adjustments">
-              <AdjustmentsTab loads={loads} finished={data.finished} onStockChanged={reload} />
+              <AdjustmentsTab loads={loads} finished={data.finished} onStockChanged={reload} startNew={params.get('new') === '1'} onStarted={() => go('adjustments')} />
             </TabsContent>
             <TabsContent value="movements">
               <MovementsTab loads={loads} load={loadFilter} onLoad={(id) => go('movements', id || undefined)} />
@@ -162,61 +233,94 @@ export function StockPage() {
 
 // ───────── tabs ─────────
 
+/** The heading and search inside a stock table's card. */
+function TableTop({ title, count, q, onQ, placeholder }: { title: string; count: number; q: string; onQ: (v: string) => void; placeholder: string }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <h2 className="flex items-center gap-2 pl-1 text-[0.9375rem] font-semibold">
+        {title}
+        <span className="min-w-6 rounded-full bg-muted px-2 text-center text-xs leading-6 font-bold text-muted-foreground tabular-nums">{count}</span>
+      </h2>
+      <SearchBox className={quietSearch} value={q} onChange={onQ} placeholder={placeholder} />
+    </div>
+  );
+}
+
 function RawTab({ rows, onHistory }: { rows: RawStockRow[]; onHistory: (loadId: string) => void }) {
   const { t } = useI18n();
   const { can } = useAuth();
   const canOpenAll = can(Permission.OPERATIONS_VIEW_ALL);
-  const paged = useClientPaging(rows);
+  const [q, setQ] = useState('');
+  const shown = useMemo(() => {
+    const k = q.toLowerCase();
+    return k ? rows.filter((r) => r.importCode.toLowerCase().includes(k) || r.woodType.toLowerCase().includes(k)) : rows;
+  }, [rows, q]);
+  const paged = useClientPaging(shown);
   return (
-    <TableCard empty={rows.length === 0} emptyText={t('noStock')} pager={paged.pager}>
-      <Table>
+    <TableCard
+      empty={shown.length === 0}
+      emptyText={q ? t('noMatches', { q }) : t('noStock')}
+      pager={paged.pager}
+      toolbar={<TableTop title={t('rawByLoad')} count={shown.length} q={q} onQ={setQ} placeholder={t('searchLoads')} />}
+    >
+      <Table className={gridTable}>
         <TableHeader>
-          <TableRow className="bg-muted/50">
+          <TableRow>
             <TableHead className="pl-4">{t('importId')}</TableHead>
             <TableHead className={wide}>{t('woodType')}</TableHead>
             <TableHead className={wide}>{t('arrival')}</TableHead>
-            <TableHead className={cn(numCell, wide)}>{t('received')}</TableHead>
-            <TableHead className={numCell}>{t('inStock')}</TableHead>
+            <TableHead>{t('inStockOfReceived')}</TableHead>
             <TableHead className={cn(numCell, wide)}>{t('logs')}</TableHead>
-            <TableHead />
+            <TableHead className="pr-4" />
           </TableRow>
         </TableHeader>
         <TableBody>
-          {paged.rows.map((r) => (
-            <TableRow key={r.importLoadId}>
-              <TableCell className="pl-4 font-medium">
-                {canOpenAll ? (
-                  <Link className="text-primary hover:underline" to={`/imports/${r.importLoadId}`}>
-                    {r.importCode}
-                  </Link>
-                ) : (
-                  r.importCode
-                )}
-                <div className="text-xs text-muted-foreground md:hidden">{r.woodType}</div>
-              </TableCell>
-              <TableCell className={wide}>{r.woodType}</TableCell>
-              <TableCell className={cn(wide, 'text-muted-foreground')}>{dateTime(r.arrivalAt)}</TableCell>
-              <TableCell className={cn(numCell, wide, 'text-muted-foreground')}>{num3(r.receivedCft)}</TableCell>
-              <TableCell className={cn(numCell, 'font-semibold')}>{num3(r.cft)}</TableCell>
-              <TableCell className={cn(numCell, wide)}>{r.logs}</TableCell>
-              <TableCell className="pr-4 text-right">
-                <div className="flex justify-end gap-1">
-                  {r.cft > 0 && (
-                    <Button asChild variant="outline" size="sm">
-                      <Link to={`/production/new?load=${r.importLoadId}`} aria-label={t('production')}>
-                        <ScissorsIcon />
-                        <span className="max-md:sr-only">{t('production')}</span>
-                      </Link>
-                    </Button>
+          {paged.rows.map((r) => {
+            // how much of what the load brought is still raw stock
+            const share = r.receivedCft > 0 ? Math.min(100, Math.max(0, (r.cft / r.receivedCft) * 100)) : 0;
+            return (
+              <TableRow key={r.importLoadId} className="hover:bg-muted">
+                <TableCell className="pl-4 font-medium">
+                  {canOpenAll ? (
+                    <Link className="text-primary hover:underline" to={`/imports/${r.importLoadId}`}>
+                      {r.importCode}
+                    </Link>
+                  ) : (
+                    r.importCode
                   )}
-                  <Button variant="ghost" size="sm" onClick={() => onHistory(r.importLoadId)} aria-label={t('movements')}>
-                    <HistoryIcon />
-                    <span className="max-md:sr-only">{t('movements')}</span>
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
+                  <div className="text-xs font-normal text-muted-foreground md:hidden">{r.woodType}</div>
+                </TableCell>
+                <TableCell className={wide}>{r.woodType}</TableCell>
+                <TableCell className={cn(wide, 'text-muted-foreground')}>{dateTime(r.arrivalAt)}</TableCell>
+                <TableCell className="min-w-40">
+                  <div className="tabular-nums">
+                    <span className="font-semibold">{num3(r.cft)}</span>
+                    <span className="text-muted-foreground"> / {num3(r.receivedCft)}</span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div className="h-full rounded-full bg-chart-1" style={{ width: `${share}%` }} />
+                  </div>
+                </TableCell>
+                <TableCell className={cn(numCell, wide)}>{r.logs}</TableCell>
+                <TableCell className="w-px pr-4 text-right">
+                  <div className="flex justify-end gap-1">
+                    {r.cft > 0 && (
+                      <Button asChild variant="outline" size="sm">
+                        <Link to={`/production/new?load=${r.importLoadId}`} aria-label={t('production')}>
+                          <ScissorsIcon />
+                          <span className="max-md:sr-only">{t('production')}</span>
+                        </Link>
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={() => onHistory(r.importLoadId)} aria-label={t('movements')}>
+                      <HistoryIcon />
+                      <span className="max-md:sr-only">{t('movements')}</span>
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </TableCard>
@@ -226,6 +330,7 @@ function RawTab({ rows, onHistory }: { rows: RawStockRow[]; onHistory: (loadId: 
 /** Finished stock grouped by wood type and size, with the import loads it came from. */
 function FinishedTab({ rows }: { rows: FinishedRow[] }) {
   const { t } = useI18n();
+  const [q, setQ] = useState('');
   const byWood = useMemo(() => {
     const groups = new Map<string, { woodType: string; size: string; pieces: number; cft: number; loads: string[] }>();
     for (const r of rows) {
@@ -242,17 +347,27 @@ function FinishedTab({ rows }: { rows: FinishedRow[] }) {
     return [...m.entries()];
   }, [rows]);
   // paged by size row; each page repeats the wood-type heading (with its full total) above its sizes
-  const flat = useMemo(() => byWood.flatMap(([wood, sizes]) => sizes.map((g) => ({ wood, sizes, g }))), [byWood]);
+  const flat = useMemo(() => {
+    const k = q.toLowerCase();
+    return byWood.flatMap(([wood, sizes]) => sizes.filter((g) => !k || wood.toLowerCase().includes(k) || g.size.toLowerCase().includes(k)).map((g) => ({ wood, sizes, g })));
+  }, [byWood, q]);
   const paged = useClientPaging(flat);
+  // the largest size in stock sets the full width of the bars
+  const maxCft = Math.max(1, ...flat.map((f) => f.g.cft));
 
   return (
-    <TableCard empty={byWood.length === 0} emptyText={t('noStock')} pager={paged.pager}>
-      <Table>
+    <TableCard
+      empty={flat.length === 0}
+      emptyText={q ? t('noMatches', { q }) : t('noStock')}
+      pager={paged.pager}
+      toolbar={<TableTop title={t('finishedBySize')} count={flat.length} q={q} onQ={setQ} placeholder={t('searchSizes')} />}
+    >
+      <Table className={gridTable}>
         <TableHeader>
-          <TableRow className="bg-muted/50">
+          <TableRow>
             <TableHead className="pl-4">{t('size')}</TableHead>
             <TableHead className={numCell}>{t('pieces')}</TableHead>
-            <TableHead className={numCell}>CFT</TableHead>
+            <TableHead>CFT</TableHead>
             <TableHead className={cn(wide, 'pr-4')}>{t('importId')}</TableHead>
           </TableRow>
         </TableHeader>
@@ -263,15 +378,24 @@ function FinishedTab({ rows }: { rows: FinishedRow[] }) {
                 <TableRow className="bg-secondary hover:bg-secondary">
                   <TableCell className="pl-4 font-semibold">{wood}</TableCell>
                   <TableCell className={cn(numCell, 'font-semibold')}>{sizes.reduce((s, x) => s + x.pieces, 0)}</TableCell>
-                  <TableCell className={cn(numCell, 'font-semibold')}>{num3(sizes.reduce((s, x) => s + x.cft, 0))}</TableCell>
+                  <TableCell className="font-semibold tabular-nums">{num3(sizes.reduce((s, x) => s + x.cft, 0))}</TableCell>
                   <TableCell className={wide} />
                 </TableRow>
               )}
-              <TableRow>
+              <TableRow className="hover:bg-muted">
                 <TableCell className="pl-8">{g.size}</TableCell>
                 <TableCell className={numCell}>{g.pieces}</TableCell>
-                <TableCell className={numCell}>{num3(g.cft)}</TableCell>
-                <TableCell className={cn(wide, 'pr-4 text-xs text-muted-foreground')}>{g.loads.join(', ')}</TableCell>
+                <TableCell className="min-w-44">
+                  <div className="flex items-center gap-3">
+                    <span className="w-20 shrink-0 tabular-nums">{num3(g.cft)}</span>
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted max-sm:hidden">
+                      <div className="h-full rounded-full bg-chart-1" style={{ width: `${Math.max(2, (g.cft / maxCft) * 100)}%` }} />
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell className={cn(wide, 'max-w-64 truncate pr-4 text-xs text-muted-foreground')} title={g.loads.join(', ')}>
+                  {g.loads.join(', ')}
+                </TableCell>
               </TableRow>
             </Fragment>
           ))}
@@ -281,110 +405,147 @@ function FinishedTab({ rows }: { rows: FinishedRow[] }) {
   );
 }
 
-
 function MovementsTab({ loads, load, onLoad }: { loads: { id: string; code: string }[]; load: string; onLoad: (id: string) => void }) {
   const { t } = useI18n();
   const { can } = useAuth();
   const canOpenAll = can(Permission.OPERATIONS_VIEW_ALL);
   const [kind, setKind] = useState(ALL);
+  const [direction, setDirection] = useState(ALL);
   const paging = usePaging();
-  const query = `take=${paging.take}&skip=${paging.skip}${load ? `&importLoadId=${load}` : ''}${kind !== ALL ? `&kind=${kind}` : ''}`;
+  const query = `take=${paging.take}&skip=${paging.skip}${load ? `&importLoadId=${load}` : ''}${kind !== ALL ? `&kind=${kind}` : ''}${direction !== ALL ? `&direction=${direction}` : ''}`;
   const { data, loading, error, reload } = useLoad(() => api<{ items: Movement[]; total: number }>(`/stock/movements?${query}`), [query]);
+  const filtered = !!load || kind !== ALL || direction !== ALL;
+  const pageIn = (data?.items ?? []).reduce((a, m) => a + Math.max(0, m.cftDelta), 0);
+  const pageOut = (data?.items ?? []).reduce((a, m) => a + Math.max(0, -m.cftDelta), 0);
+
+  const filter = (label: string, value: string, onChange: (v: string) => void, options: [string, string][]) => (
+    <label className="flex min-w-0 flex-col gap-1">
+      <span className="text-[0.6875rem] font-semibold tracking-wider text-muted-foreground uppercase">{label}</span>
+      <Select
+        value={value}
+        onValueChange={(v) => {
+          paging.reset();
+          onChange(v);
+        }}
+      >
+        <SelectTrigger className="w-full sm:w-48" aria-label={label}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map(([v, text]) => (
+            <SelectItem key={v} value={v}>
+              {text}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </label>
+  );
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-2">
-        <Select
-          value={load || ALL}
-          onValueChange={(v) => {
-            paging.reset();
-            onLoad(v === ALL ? '' : v);
-          }}
-        >
-          <SelectTrigger className="w-44 bg-card" aria-label={t('importId')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{t('allLoads')}</SelectItem>
-            {loads.map((l) => (
-              <SelectItem key={l.id} value={l.id}>
-                {l.code}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={kind}
-          onValueChange={(v) => {
-            paging.reset();
-            setKind(v);
-          }}
-        >
-          <SelectTrigger className="w-44 bg-card" aria-label={t('stockKind')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>
-              {t('raw')} + {t('finished')}
-            </SelectItem>
-            <SelectItem value="RAW">{t('raw')}</SelectItem>
-            <SelectItem value="FINISHED">{t('finished')}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
-      {data && (
-        <>
-          <TableCard empty={data.items.length === 0} emptyText={t('noMovements')} pager={paging.pager(data.total)}>
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className={cn(wide, 'pl-4')}>{t('time')}</TableHead>
-                  <TableHead className="max-md:pl-4">{t('source')}</TableHead>
-                  <TableHead className={wide}>{t('importId')}</TableHead>
-                  <TableHead className={wide}>{t('stockKind')}</TableHead>
-                  <TableHead className={wide}>{t('size')}</TableHead>
-                  <TableHead className={numCell}>{t('pieces')}</TableHead>
-                  <TableHead className={cn(numCell, 'max-md:pr-4')}>CFT</TableHead>
-                  <TableHead className={cn(wide, 'pr-4')}>{t('user')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.items.map((m) => {
-                  const path = SOURCE_PATH[m.source];
-                  return (
-                    <TableRow key={m.id}>
-                      <TableCell className={cn(wide, 'pl-4 text-muted-foreground')}>{dateTime(m.createdAt)}</TableCell>
-                      <TableCell className="max-md:pl-4">
-                        {t(SOURCE_LABEL[m.source])}{' '}
-                        {path && canOpenAll ? (
-                          <Link className="font-medium text-primary hover:underline" to={`${path}${m.sourceId}`}>
-                            {m.sourceCode}
-                          </Link>
-                        ) : (
-                          <span className="text-muted-foreground">{m.sourceCode}</span>
-                        )}
-                        <div className="text-xs text-muted-foreground md:hidden">
-                          {m.importCode} · {m.woodType}
+      <TableCard
+        empty={!!data && data.items.length === 0}
+        emptyText={t('noMovements')}
+        pager={data ? paging.pager(data.total) : undefined}
+        busy={loading && !!data}
+        toolbar={
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-2.5 py-1.5">
+            {filter(t('importId'), load || ALL, (v) => onLoad(v === ALL ? '' : v), [[ALL, t('allLoads')], ...loads.map((l): [string, string] => [l.id, l.code])])}
+            {filter(t('stockKind'), kind, setKind, [
+              [ALL, `${t('raw')} + ${t('finished')}`],
+              ['RAW', t('raw')],
+              ['FINISHED', t('finished')],
+            ])}
+            {filter(t('direction'), direction, setDirection, [
+              [ALL, t('allDirections')],
+              ['in', t('stockIn')],
+              ['out', t('stockOut')],
+            ])}
+            {filtered && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 text-muted-foreground"
+                onClick={() => {
+                  paging.reset();
+                  setKind(ALL);
+                  setDirection(ALL);
+                  onLoad('');
+                }}
+              >
+                <XIcon /> {t('clearFilters')}
+              </Button>
+            )}
+            {data && <span className="ml-auto self-center text-sm text-muted-foreground tabular-nums">{t('rangeOf', { from: data.total ? paging.skip + 1 : 0, to: Math.min(paging.skip + paging.take, data.total), total: data.total })}</span>}
+          </div>
+        }
+      >
+        <Table className={gridTable}>
+          <TableHeader>
+            <TableRow>
+              <TableHead className={cn(wide, 'pl-4')}>{t('time')}</TableHead>
+              <TableHead className="max-md:pl-4">{t('source')}</TableHead>
+              <TableHead className={wide}>{t('importId')}</TableHead>
+              <TableHead className={wide}>{t('stockKind')}</TableHead>
+              <TableHead className={wide}>{t('size')}</TableHead>
+              <TableHead>{t('direction')}</TableHead>
+              <TableHead className={cn(numCell, wide)}>{t('pieces')}</TableHead>
+              <TableHead className={cn(numCell, 'max-md:pr-4')}>CFT</TableHead>
+              <TableHead className={cn(wide, 'pr-4')}>{t('user')}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {(data?.items ?? []).map((m) => {
+              const path = SOURCE_PATH[m.source];
+              const Icon = SOURCE_ICON[m.source];
+              return (
+                <TableRow key={m.id} className="hover:bg-muted">
+                  <TableCell className={cn(wide, 'pl-4 text-muted-foreground')}>{dateTime(m.createdAt)}</TableCell>
+                  <TableCell className="max-md:pl-4">
+                    <div className="flex items-center gap-2.5">
+                      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground [&_svg]:size-4">
+                        <Icon aria-hidden />
+                      </span>
+                      <div className="min-w-0">
+                        <div className="font-medium">{t(SOURCE_LABEL[m.source])}</div>
+                        <div className="text-xs">
+                          {path && canOpenAll ? (
+                            <Link className="text-primary hover:underline" to={`${path}${m.sourceId}`}>
+                              {m.sourceCode}
+                            </Link>
+                          ) : (
+                            <span className="text-muted-foreground">{m.sourceCode}</span>
+                          )}
+                          <span className="text-muted-foreground md:hidden">
+                            {' '}
+                            · {m.importCode} · {m.woodType}
+                          </span>
                         </div>
-                      </TableCell>
-                      <TableCell className={wide}>{m.importCode}</TableCell>
-                      <TableCell className={wide}>
-                        {t(m.kind === 'RAW' ? 'raw' : 'finished')} · {m.woodType}
-                      </TableCell>
-                      <TableCell className={wide}>{sizeOf(m)}</TableCell>
-                      <TableCell className={cn(numCell, deltaClass(m.piecesDelta))}>{m.piecesDelta ? signed(m.piecesDelta) : '—'}</TableCell>
-                      <TableCell className={cn(numCell, 'max-md:pr-4', deltaClass(m.cftDelta))}>{signed(m.cftDelta, num3)}</TableCell>
-                      <TableCell className={cn(wide, 'pr-4')}>{m.postedByName}</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableCard>
-        </>
-      )}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className={wide}>{m.importCode}</TableCell>
+                  <TableCell className={wide}>
+                    {t(m.kind === 'RAW' ? 'raw' : 'finished')} · {m.woodType}
+                  </TableCell>
+                  <TableCell className={wide}>{sizeOf(m)}</TableCell>
+                  <TableCell>
+                    <Direction delta={m.cftDelta} />
+                  </TableCell>
+                  <TableCell className={cn(numCell, wide, deltaClass(m.piecesDelta))}>{m.piecesDelta ? signed(m.piecesDelta) : '—'}</TableCell>
+                  <TableCell className={cn(numCell, 'max-md:pr-4', deltaClass(m.cftDelta))}>{signed(m.cftDelta, num3)}</TableCell>
+                  <TableCell className={cn(wide, 'max-w-36 truncate pr-4')}>{m.postedByName}</TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+        {data && data.items.length > 0 && (
+          <div className="border-t border-border/70 bg-muted/40 px-4 py-2.5 text-right text-sm text-muted-foreground tabular-nums">{t('pageInOut', { in: num3(pageIn), out: num3(pageOut) })}</div>
+        )}
+      </TableCard>
     </div>
   );
 }
@@ -438,10 +599,15 @@ function AdjustmentsTab({
   loads,
   finished,
   onStockChanged,
+  startNew,
+  onStarted,
 }: {
   loads: { id: string; code: string; woodType: string }[];
   finished: FinishedRow[];
   onStockChanged: () => void;
+  /** open the form straight away (the page's "New Adjustment" button) */
+  startNew?: boolean;
+  onStarted?: () => void;
 }) {
   const { t } = useI18n();
   const { user } = useAuth();
@@ -455,6 +621,12 @@ function AdjustmentsTab({
   const [open, setOpen] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!startNew) return;
+    setForm((f) => f ?? emptyAdj());
+    onStarted?.(); // drop the flag from the address so a refresh doesn't reopen the form
+  }, [startNew, onStarted]);
 
   const preview = form && adjPreview(form);
   const set = (k: keyof AdjForm) => (e: { target: { value: string } }) => setForm((f) => (f ? { ...f, [k]: e.target.value } : f));
@@ -484,39 +656,75 @@ function AdjustmentsTab({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">{t('adjustHint')}</p>
-        {!form && (
-          <Button onClick={() => setForm(emptyAdj())}>
-            <PlusIcon /> {t('newAdjustment')}
-          </Button>
-        )}
-      </div>
+      {/* what an adjustment is and when it takes effect: stock moves only on approval */}
+      <Card className="gap-3 py-5">
+        <CardContent className="px-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-[0.9375rem] font-semibold">{t('adjHowTitle')}</h2>
+            {!form && (
+              <Button size="sm" onClick={() => setForm(emptyAdj())}>
+                <PlusIcon /> {t('newAdjustment')}
+              </Button>
+            )}
+          </div>
+          <ol className="mt-4 grid gap-4 sm:grid-cols-3">
+            {(
+              [
+                ['adjStep1', 'adjStep1Sub'],
+                ['adjStep2', 'adjStep2Sub'],
+                ['adjStep3', 'adjStep3Sub'],
+              ] as const
+            ).map(([title, sub], n) => (
+              <li key={title} className="flex gap-3">
+                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary-soft text-xs font-bold text-primary tabular-nums">{n + 1}</span>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold">{t(title)}</div>
+                  <p className="mt-0.5 text-sm text-pretty text-muted-foreground">{t(sub)}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </CardContent>
+      </Card>
 
       {form && (
-        <Card className="py-5">
-          <CardHeader className="px-5">
+        <Card className="py-6">
+          <CardHeader className="px-5 sm:px-6">
             <CardTitle>{t('newAdjustment')}</CardTitle>
           </CardHeader>
-          <CardContent className="px-5">
-            <form onSubmit={create} className="grid gap-4">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <Field label={`${t('stockKind')} *`}>
-                  <Select value={form.kind} onValueChange={(v) => setForm({ ...form, kind: v as AdjForm['kind'] })}>
-                    <SelectTrigger className="w-full" aria-label={t('stockKind')}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="FINISHED">{t('finished')}</SelectItem>
-                      <SelectItem value="RAW">{t('raw')}</SelectItem>
-                    </SelectContent>
-                  </Select>
+          <CardContent className="px-5 sm:px-6">
+            <form onSubmit={create} className="grid gap-6">
+              <FormSection step={1} title={t('adjWhich')} description={t('adjWhichSub')}>
+                <Field label={t('stockKind')} required className="sm:col-span-2">
+                  {/* two tiles rather than a dropdown: the choice changes the rest of the form */}
+                  <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={t('stockKind')}>
+                    {(
+                      [
+                        ['FINISHED', t('finished'), PackageIcon],
+                        ['RAW', t('raw'), LayersIcon],
+                      ] as const
+                    ).map(([k, label, Icon]) => (
+                      <button
+                        key={k}
+                        type="button"
+                        role="radio"
+                        aria-checked={form.kind === k}
+                        onClick={() => setForm({ ...form, kind: k })}
+                        className={cn(
+                          'flex items-center gap-3 rounded-lg border-2 bg-card px-3.5 py-3 text-left text-sm font-semibold transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                          form.kind === k ? 'border-primary' : 'border-border hover:border-foreground/25',
+                        )}
+                      >
+                        <span className={cn('grid size-9 shrink-0 place-items-center rounded-lg [&_svg]:size-[1.125rem]', form.kind === k ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
+                          <Icon aria-hidden />
+                        </span>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </Field>
-                <Field label={`${t('importId')} *`}>
-                  <Select
-                    value={form.importLoadId}
-                    onValueChange={(v) => setForm({ ...form, importLoadId: v, woodType: loads.find((x) => x.id === v)?.woodType ?? '' })}
-                  >
+                <Field label={t('importId')} required className={form.kind === 'RAW' ? 'sm:col-span-2' : undefined}>
+                  <Select value={form.importLoadId} onValueChange={(v) => setForm({ ...form, importLoadId: v, woodType: loads.find((x) => x.id === v)?.woodType ?? '' })}>
                     <SelectTrigger className="w-full" aria-label={t('importId')}>
                       <SelectValue placeholder={t('pickLoad')} />
                     </SelectTrigger>
@@ -529,23 +737,27 @@ function AdjustmentsTab({
                     </SelectContent>
                   </Select>
                 </Field>
+                {form.kind === 'FINISHED' && (
+                  <Field id="adj-wood" label={t('woodType')}>
+                    <Input id="adj-wood" value={form.woodType} onChange={set('woodType')} minLength={2} maxLength={60} />
+                  </Field>
+                )}
+              </FormSection>
 
+              <FormSection step={2} title={t('adjChange')} description={t('adjChangeSub')}>
                 {form.kind === 'RAW' ? (
                   <>
-                    <Field id="adj-cft" label={`${t('cftChange')} *`}>
-                      <Input id="adj-cft" type="number" value={form.cft} onChange={set('cft')} step="0.001" inputMode="decimal" required />
+                    <Field id="adj-cft" label={t('cftChange')} required>
+                      <Input id="adj-cft" type="number" value={form.cft} onChange={set('cft')} step="0.001" inputMode="decimal" required className="tabular-nums" />
                     </Field>
                     <Field id="adj-logs" label={t('logsChange')}>
-                      <Input id="adj-logs" type="number" value={form.pieces} onChange={set('pieces')} step="1" inputMode="numeric" />
+                      <Input id="adj-logs" type="number" value={form.pieces} onChange={set('pieces')} step="1" inputMode="numeric" className="tabular-nums" />
                     </Field>
                   </>
                 ) : (
                   <>
-                    <Field id="adj-wood" label={t('woodType')}>
-                      <Input id="adj-wood" value={form.woodType} onChange={set('woodType')} minLength={2} maxLength={60} />
-                    </Field>
                     {sizes.length > 0 && (
-                      <Field label={t('size')} className="sm:col-span-2 lg:col-span-3">
+                      <Field label={t('size')} className="sm:col-span-2">
                         <div className="flex flex-wrap gap-1.5">
                           {sizes.map((s) => {
                             const on = form.thickness === String(s.thicknessIn) && form.width === String(s.widthIn) && form.length === String(s.lengthFt);
@@ -555,9 +767,7 @@ function AdjustmentsTab({
                                 key={`${s.woodType}|${s.thicknessIn}|${s.widthIn}|${s.lengthFt}`}
                                 variant={on ? 'default' : 'outline'}
                                 size="sm"
-                                onClick={() =>
-                                  setForm({ ...form, woodType: s.woodType, thickness: String(s.thicknessIn), width: String(s.widthIn), length: String(s.lengthFt) })
-                                }
+                                onClick={() => setForm({ ...form, woodType: s.woodType, thickness: String(s.thicknessIn), width: String(s.widthIn), length: String(s.lengthFt) })}
                               >
                                 {sizeLabel(s.thicknessIn, s.widthIn, s.lengthFt)}
                                 <span className={cn('text-xs', on ? 'opacity-80' : 'text-muted-foreground')}>{s.pieces}</span>
@@ -567,39 +777,47 @@ function AdjustmentsTab({
                         </div>
                       </Field>
                     )}
-                    <Field id="adj-t" label={`${t('thickness')} *`}>
-                      <Input id="adj-t" type="number" value={form.thickness} onChange={set('thickness')} min={0.01} step="0.01" inputMode="decimal" required />
-                    </Field>
-                    <Field id="adj-w" label={`${t('width')} *`}>
-                      <Input id="adj-w" type="number" value={form.width} onChange={set('width')} min={0.01} step="0.01" inputMode="decimal" required />
-                    </Field>
-                    <Field id="adj-l" label={`${t('lengthFt')} *`}>
-                      <Input id="adj-l" type="number" value={form.length} onChange={set('length')} min={0.01} step="0.01" inputMode="decimal" required />
-                    </Field>
-                    <Field id="adj-pcs" label={`${t('piecesChange')} *`}>
-                      <Input id="adj-pcs" type="number" value={form.pieces} onChange={set('pieces')} step="1" inputMode="numeric" required />
+                    <div className="grid grid-cols-3 gap-3 sm:col-span-2">
+                      <Field id="adj-t" label={t('thickness')} required>
+                        <Input id="adj-t" type="number" value={form.thickness} onChange={set('thickness')} min={0.01} step="0.01" inputMode="decimal" required className="tabular-nums" />
+                      </Field>
+                      <Field id="adj-w" label={t('width')} required>
+                        <Input id="adj-w" type="number" value={form.width} onChange={set('width')} min={0.01} step="0.01" inputMode="decimal" required className="tabular-nums" />
+                      </Field>
+                      <Field id="adj-l" label={t('lengthFt')} required>
+                        <Input id="adj-l" type="number" value={form.length} onChange={set('length')} min={0.01} step="0.01" inputMode="decimal" required className="tabular-nums" />
+                      </Field>
+                    </div>
+                    <Field id="adj-pcs" label={t('piecesChange')} required>
+                      <Input id="adj-pcs" type="number" value={form.pieces} onChange={set('pieces')} step="1" inputMode="numeric" required className="tabular-nums" />
                     </Field>
                   </>
                 )}
-                <Field id="adj-reason" label={`${t('reason')} *`} className="sm:col-span-2 lg:col-span-3">
-                  <Input id="adj-reason" value={form.reason} onChange={set('reason')} required minLength={3} maxLength={500} />
-                </Field>
-              </div>
-
-              {formError && <div className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive">{formError}</div>}
-
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
-                <div className="text-sm text-muted-foreground sm:mr-auto">
-                  {t('change')}:{' '}
-                  <span className={cn('tabular-nums', preview ? deltaClass(preview.cft) : 'text-foreground')}>
-                    {preview ? `${signed(preview.cft, num3)} CFT` : '—'}
+                {/* what this will do to stock once approved */}
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg bg-muted/60 px-4 py-3 text-sm sm:col-span-2" aria-live="polite">
+                  <span className="text-muted-foreground">{t('change')}</span>
+                  <span className="flex items-center gap-2.5">
+                    {preview && <Direction delta={preview.cft} />}
+                    <span className={cn('text-lg tabular-nums', preview ? deltaClass(preview.cft) : 'font-semibold text-muted-foreground')}>{preview ? `${signed(preview.cft, num3)} CFT` : '—'}</span>
                   </span>
                 </div>
+              </FormSection>
+
+              <FormSection step={3} title={t('adjWhy')} description={t('adjWhySub')}>
+                <Field id="adj-reason" label={t('reason')} required hint={t('adjReasonHint')} className="sm:col-span-2">
+                  <Textarea id="adj-reason" value={form.reason} onChange={set('reason')} required minLength={3} maxLength={500} rows={2} />
+                </Field>
+              </FormSection>
+
+              {formError && <Notice tone="error">{formError}</Notice>}
+
+              <div className="flex flex-col-reverse gap-2 border-t border-border/70 pt-5 sm:flex-row sm:items-center">
+                <p className="text-sm text-muted-foreground sm:mr-auto">{t('adjustHint')}</p>
                 <Button type="button" variant="ghost" onClick={() => setForm(null)}>
                   {t('cancel')}
                 </Button>
                 <Button type="submit" disabled={busy || !preview}>
-                  {t('save')}
+                  {t('adjSaveDraft')}
                 </Button>
               </div>
             </form>
@@ -610,9 +828,9 @@ function AdjustmentsTab({
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
       {data && (
         <TableCard empty={data.items.length === 0} emptyText={t('noAdjustments')} pager={paging.pager(data.total)}>
-          <Table>
+          <Table className={gridTable}>
             <TableHeader>
-              <TableRow className="bg-muted/50">
+              <TableRow>
                 <TableHead className="pl-4">ID</TableHead>
                 <TableHead className={wide}>{t('importId')}</TableHead>
                 <TableHead className={wide}>{t('size')}</TableHead>
@@ -640,7 +858,12 @@ function AdjustmentsTab({
                       </TableCell>
                       <TableCell className={wide}>{a.importCode}</TableCell>
                       <TableCell className={wide}>{sizeOf(a)}</TableCell>
-                      <TableCell className={cn(numCell, 'max-sm:pr-4', deltaClass(a.cftDelta))}>{changeText(a)}</TableCell>
+                      <TableCell className={cn(numCell, 'max-sm:pr-4')}>
+                        <div className="flex items-center justify-end gap-2">
+                          <Direction delta={a.cftDelta} className="max-md:hidden" />
+                          <span className={deltaClass(a.cftDelta)}>{changeText(a)}</span>
+                        </div>
+                      </TableCell>
                       <TableCell className={cn(wide, 'max-w-56 truncate')} title={a.reason}>
                         {a.reason}
                       </TableCell>

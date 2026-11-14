@@ -22,7 +22,7 @@ import { ExportFields, ExportForm, exportBody, FinishedStockRow } from './Export
 import { toLocalInput } from './Imports';
 import { dateOnly } from './Production';
 
-interface Line {
+export interface Line {
   id: string;
   lineNumber: number;
   importLoadId: string | null;
@@ -34,7 +34,7 @@ interface Line {
   cft: number;
   availablePieces: number;
 }
-interface ExportDetail {
+export interface ExportDetail {
   id: string;
   code: string;
   exportDate: string;

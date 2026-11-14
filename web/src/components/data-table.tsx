@@ -35,17 +35,27 @@ const features = tableFeatures({
 
 const FROM = { sm: 'hidden sm:table-cell', md: 'hidden md:table-cell' } as const;
 const EMPTY: never[] = [];
+/** Spreadsheet look for a Table: sentence-case headers and a hairline between columns. */
+export const gridTable =
+  '[&_td]:border-r [&_td]:border-border/70 [&_td]:py-3 [&_td:last-child]:border-r-0 [&_th]:h-11 [&_th]:border-r [&_th]:border-border/70 [&_th]:text-[0.8125rem] [&_th]:font-medium [&_th]:tracking-normal [&_th]:text-foreground [&_th]:normal-case [&_th:last-child]:border-r-0';
+/** The open row: an opaque tint so it can sit above a panel's backdrop (z-50) without the dimming showing through, and a bar on its left edge. */
+const SELECTED = 'relative z-[55] bg-primary-soft hover:bg-primary-soft data-[state=selected]:bg-primary-soft [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-primary)]';
 
 export function DataTable<T extends RowData>({
   data,
   columns,
   rowKey,
   rowTo,
+  onRowClick,
+  selectedKey,
   empty,
   emptyIcon,
   pager,
   pageSize,
   busy,
+  toolbar,
+  footer,
+  grid,
   className,
 }: {
   data: readonly T[] | null | undefined;
@@ -53,6 +63,10 @@ export function DataTable<T extends RowData>({
   rowKey: (row: T) => string;
   /** Makes the whole row open this path. */
   rowTo?: (row: T) => string;
+  /** Does something else when a row is clicked (e.g. opens a side panel). Links and buttons in the row keep their own behaviour. */
+  onRowClick?: (row: T) => void;
+  /** The row (by `rowKey`) that is open elsewhere, e.g. in a side panel: it is tinted, marked on its left edge and lifted above the panel's backdrop. */
+  selectedKey?: string | null;
   /** Message when there are no rows. */
   empty: ReactNode;
   emptyIcon?: ReactNode;
@@ -62,6 +76,12 @@ export function DataTable<T extends RowData>({
   pageSize?: number;
   /** A refresh is in flight: rows dim and a progress line runs along the top. */
   busy?: boolean;
+  /** Heading, search and filters, shown inside the card above the table. */
+  toolbar?: ReactNode;
+  /** A closing line under the rows, e.g. a sum. */
+  footer?: ReactNode;
+  /** Spreadsheet look for long lists: sentence-case headers and a hairline between columns. */
+  grid?: boolean;
   className?: string;
 }) {
   const rowsIn = (data ?? EMPTY) as T[];
@@ -91,8 +111,13 @@ export function DataTable<T extends RowData>({
   const headers = table.getHeaderGroups()[0]?.headers ?? [];
 
   return (
-    <TableCard empty={rowsIn.length === 0} emptyText={empty} emptyIcon={emptyIcon} pager={pager ?? local.pager} busy={busy} className={className}>
-      <Table className="[&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]:pl-4 [&_th:last-child]:pr-4">
+    <TableCard empty={rowsIn.length === 0} emptyText={empty} emptyIcon={emptyIcon} pager={pager ?? local.pager} busy={busy} toolbar={toolbar} className={className}>
+      <Table
+        className={cn(
+          '[&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]:pl-4 [&_th:last-child]:pr-4',
+          grid && gridTable,
+        )}
+      >
         <TableHeader>
           <TableRow>
             {headers.map((h) => {
@@ -134,15 +159,30 @@ export function DataTable<T extends RowData>({
               </TableCell>
             ));
             return rowTo ? (
-              <LinkRow key={r.id} to={rowTo(r.original)}>
+              <LinkRow key={r.id} to={rowTo(r.original)} className="hover:bg-muted">
                 {cells}
               </LinkRow>
+            ) : onRowClick ? (
+              <TableRow
+                key={r.id}
+                data-state={r.id === selectedKey ? 'selected' : undefined}
+                aria-selected={r.id === selectedKey || undefined}
+                className={cn('cursor-pointer hover:bg-muted', r.id === selectedKey && SELECTED)}
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest('a, button, input, select, textarea, label, [role="combobox"]')) return;
+                  if (window.getSelection()?.toString()) return;
+                  onRowClick(r.original);
+                }}
+              >
+                {cells}
+              </TableRow>
             ) : (
               <TableRow key={r.id}>{cells}</TableRow>
             );
           })}
         </TableBody>
       </Table>
+      {footer && <div className="border-t border-border/70 bg-muted/40 px-4 py-2.5 text-right text-sm">{footer}</div>}
     </TableCard>
   );
 }

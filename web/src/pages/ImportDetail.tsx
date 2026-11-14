@@ -1,5 +1,5 @@
-import { formatDuration, importLogCft, Permission } from '@sawmill/shared';
-import { CheckIcon, ClockIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { formatDuration, importLogCft, Permission, totalCft } from '@sawmill/shared';
+import { CheckCircle2Icon, CheckIcon, ClockIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
@@ -13,14 +13,14 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { dateTime, money, num3, useLoad } from '../components/common';
 import { useConfirmDelete } from '../components/confirm';
-import { EntryField, EntryFigure, EntryRow, Field, FigureStrip, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, TableCard, useClientPaging, wide } from '../components/page';
+import { Field, FigureStrip, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, TableCard, useClientPaging, wide } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
 import { WorkflowBar } from '../components/workflow';
 import { useToast } from '../components/toast';
-import { useI18n } from '../i18n';
+import { type TKey, useI18n } from '../i18n';
 import { fromLocalInput, ImportFields, ImportForm, importFormBody, ImportSummary, toLocalInput } from './Imports';
 
-interface Unloading {
+export interface Unloading {
   id: string;
   vehicleNumber: string;
   driverName: string | null;
@@ -30,14 +30,14 @@ interface Unloading {
   ratePerHour: number | null;
   totalCharges: number | null;
 }
-interface Log {
+export interface Log {
   id: string;
   logNumber: number;
   girthIn: number;
   lengthFt: number;
   cft: number;
 }
-interface ImportDetail extends ImportSummary {
+export interface ImportDetail extends ImportSummary {
   woodCategory: string | null;
   driverName: string | null;
   driverMobile: string | null;
@@ -59,6 +59,18 @@ const positive = (v: string) => {
   return v.trim() !== '' && Number.isFinite(n) && n > 0 ? n : null;
 };
 const errorText = (e: unknown) => (e as Error).message;
+/**
+ * What is wrong with a typed girth / length, in words — the same limits the inputs and the
+ * server enforce (greater than 0, at most 999, at most 2 decimals). Null while empty or fine.
+ */
+const measureProblem = (v: string): TKey | null => {
+  const s = v.trim();
+  if (s === '') return null;
+  if (positive(s) == null) return 'errPositive';
+  if (Number(s) > 999) return 'errMax999';
+  if (!/^\d*(\.\d{0,2})?$/.test(s)) return 'errTwoDecimals';
+  return null;
+};
 
 export function ImportDetailPage() {
   const { id } = useParams();
@@ -189,7 +201,7 @@ function DetailsSection({ load, onSaved }: { load: ImportDetail; onSaved: () => 
       }
     >
       {form ? (
-        <FormCard onSubmit={submit}>
+        <FormCard onSubmit={submit} className="[&_form]:gap-6">
           <ImportFields form={form} onChange={setForm} />
           {error && <Notice tone="error">{error}</Notice>}
           <FormActions>
@@ -537,7 +549,14 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
 
   const g = positive(girth);
   const l = positive(length);
+  const girthProblem = measureProblem(girth);
+  const lengthProblem = measureProblem(length);
   const liveCft = g != null && l != null ? importLogCft(g, l) : null;
+  const canSave = liveCft != null && !girthProblem && !lengthProblem;
+  /** the figure shown while typing: only for a measurement that could actually be saved */
+  const previewCft = canSave ? liveCft : null;
+  /** the log just saved, confirmed under the form until the next one is typed */
+  const [saved, setSaved] = useState<{ n: number; cft: number } | null>(null);
   const nextNo = (load.logs[load.logs.length - 1]?.logNumber ?? 0) + 1;
 
   async function run(action: () => Promise<unknown>) {
@@ -555,9 +574,11 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
 
   function add(e: FormEvent) {
     e.preventDefault();
-    if (g == null || l == null) return;
+    if (g == null || l == null || !canSave) return;
+    const done = { n: nextNo, cft: importLogCft(g, l) };
     run(async () => {
       await api(`/imports/${load.id}/logs`, { method: 'POST', body: JSON.stringify({ girthIn: g, lengthFt: l }) });
+      setSaved(done);
       setGirth('');
       setLength('');
       logs.reset(); // the new log is the first row of page 1
@@ -589,40 +610,134 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
 
   return (
     <Section id="logs" title={t('measurement')}>
-      {load.editable && (
-        <EntryRow
-          onSubmit={add}
-          result={liveCft != null ? num3(liveCft) : '0.000'}
-          resultLabel="CFT"
-          submitLabel={t('saveLog', { n: nextNo })}
-          submitDisabled={busy || liveCft == null}
-        >
-          <EntryFigure label={t('logNo')}>{nextNo}</EntryFigure>
-          <EntryField
-            label={t('girth')}
-            inputRef={girthRef}
-            value={girth}
-            onChange={(e) => setGirth(e.target.value)}
-            min={0.01}
-            max={999}
-            step="0.01"
-            inputMode="decimal"
-            required
-          />
-          <EntryField
-            label={t('lengthFt')}
-            value={length}
-            onChange={(e) => setLength(e.target.value)}
-            min={0.01}
-            max={999}
-            step="0.01"
-            inputMode="decimal"
-            required
-          />
-        </EntryRow>
-      )}
-      {error && <Notice tone="error">{error}</Notice>}
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
+        {/* the running total: beside the form on a wide screen, above it on a tablet or phone */}
+        <Card className="gap-0 bg-primary py-5 text-primary-foreground lg:sticky lg:top-20 lg:order-last dark:bg-primary-soft dark:text-foreground">
+          <CardContent className="px-5">
+            <div className="text-sm font-medium opacity-80">{t('totalCft')}</div>
+            <div className="mt-1 text-5xl leading-none font-bold tracking-[-0.03em] tabular-nums" aria-live="polite">
+              {num3(load.totalCft)}
+              <span className="ml-2 text-base font-medium tracking-normal opacity-75">CFT</span>
+            </div>
+            <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-current/15 pt-4">
+              <div>
+                <dt className="text-xs opacity-75">{t('logsMeasured')}</dt>
+                <dd className="mt-0.5 text-2xl leading-tight font-bold tabular-nums">{load.totalLogs}</dd>
+              </div>
+              {load.editable && (
+                <div>
+                  <dt className="text-xs opacity-75">{t('nextLog')}</dt>
+                  <dd className="mt-0.5 text-2xl leading-tight font-bold tabular-nums">#{nextNo}</dd>
+                </div>
+              )}
+            </dl>
+            <div className="mt-4 truncate text-xs opacity-75">
+              {load.code} · {load.lorryNumber} · {load.woodType}
+            </div>
+          </CardContent>
+        </Card>
 
+        <div className="flex min-w-0 flex-col gap-3">
+          {load.editable && (
+            <Card className="py-5">
+              <CardContent className="px-5">
+                <form onSubmit={add} className="grid gap-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="flex items-center gap-2.5 text-base font-semibold">
+                      <span className="rounded-lg bg-primary-soft px-2.5 py-1 text-sm font-bold text-primary tabular-nums">
+                        {t('logNo')} {nextNo}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-muted-foreground">{t('measureHint')}</p>
+                  </div>
+
+                  {/* the two measurements, side by side at every width */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {(
+                      [
+                        { key: 'girth', label: t('girth'), value: girth, set: setGirth, problem: girthProblem, ref: girthRef },
+                        { key: 'length', label: t('lengthFt'), value: length, set: setLength, problem: lengthProblem, ref: undefined },
+                      ] as const
+                    ).map((f) => (
+                      <label key={f.key} className="flex min-w-0 flex-col gap-1.5">
+                        <span className="text-sm font-medium">{f.label}</span>
+                        <Input
+                          ref={f.ref}
+                          type="number"
+                          value={f.value}
+                          onChange={(e) => {
+                            f.set(e.target.value);
+                            setSaved(null);
+                          }}
+                          min={0.01}
+                          max={999}
+                          step="0.01"
+                          inputMode="decimal"
+                          required
+                          aria-invalid={!!f.problem || undefined}
+                          aria-describedby={f.problem ? `log-${f.key}-error` : undefined}
+                          className="h-16 px-4 text-3xl font-bold tabular-nums md:text-3xl"
+                        />
+                        <span id={`log-${f.key}-error`} className="min-h-4 text-xs font-medium text-destructive" role={f.problem ? 'alert' : undefined}>
+                          {f.problem && t(f.problem)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {/* what this log comes to, and what it makes the load */}
+                  <div className="grid grid-cols-2 gap-3 rounded-lg bg-muted/60 px-4 py-3">
+                    <div>
+                      <div className="text-xs text-muted-foreground">{t('thisLog')}</div>
+                      <div className={cn('mt-0.5 text-2xl leading-tight font-bold tabular-nums', previewCft == null && 'text-muted-foreground')}>
+                        {previewCft != null ? num3(previewCft) : '0.000'} <span className="text-sm font-medium text-muted-foreground">CFT</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">{t('totalAfterLog')}</div>
+                      <div className={cn('mt-0.5 text-2xl leading-tight font-bold tabular-nums', previewCft == null && 'text-muted-foreground')}>
+                        {num3(previewCft != null ? totalCft([load.totalCft, previewCft]) : load.totalCft)} <span className="text-sm font-medium text-muted-foreground">CFT</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+                    <div className="flex min-h-5 flex-1 items-center gap-1.5 text-sm font-medium text-success" aria-live="polite">
+                      {saved && (
+                        <>
+                          <CheckCircle2Icon className="size-4 shrink-0" aria-hidden />
+                          {t('logSavedLine', { n: saved.n, cft: num3(saved.cft) })}
+                        </>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="lg"
+                      className="h-12"
+                      disabled={busy || (!girth && !length)}
+                      onClick={() => {
+                        setGirth('');
+                        setLength('');
+                        girthRef.current?.focus();
+                      }}
+                    >
+                      {t('clear')}
+                    </Button>
+                    <Button type="submit" size="lg" className="h-12 sm:min-w-52" disabled={busy || !canSave}>
+                      <PlusIcon /> {t('saveLog', { n: nextNo })}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+          {error && <Notice tone="error">{error}</Notice>}
+
+          <h3 className="mt-2 flex items-center gap-2 text-[0.9375rem] font-semibold">
+            {t('measurementHistory')}
+            <span className="min-w-6 rounded-full bg-muted px-2 text-center text-xs leading-6 font-bold text-muted-foreground tabular-nums">{load.totalLogs}</span>
+          </h3>
       <TableCard compactEmpty empty={load.logs.length === 0} emptyText={t('noLogs')} pager={logs.pager}>
         <form onSubmit={saveEdit}>
           <Table>
@@ -729,6 +844,8 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
           </Table>
         </form>
       </TableCard>
+        </div>
+      </div>
     </Section>
   );
 }

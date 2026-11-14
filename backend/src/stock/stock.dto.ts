@@ -11,6 +11,8 @@ export class MovementsQuery {
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) skip = 0;
   @IsOptional() @IsUUID() importLoadId?: string;
   @IsOptional() @IsIn(KINDS) kind?: StockKind;
+  /** `in` = movements that added stock, `out` = movements that took stock away */
+  @IsOptional() @IsIn(['in', 'out']) direction?: 'in' | 'out';
 }
 
 export class ListAdjustmentsQuery {

@@ -257,6 +257,7 @@ export function TableCard({
   className,
   pager,
   busy,
+  toolbar,
 }: {
   empty?: boolean;
   emptyText?: ReactNode;
@@ -270,6 +271,8 @@ export function TableCard({
   pager?: PagerProps;
   /** a refresh is in flight: a progress line runs along the top and the rows dim */
   busy?: boolean;
+  /** heading, search and filters shown inside the card, above the table (and above the empty message) */
+  toolbar?: ReactNode;
 }) {
   return (
     <Card className={cn('relative gap-0 overflow-hidden py-0', className)} aria-busy={busy || undefined}>
@@ -278,6 +281,7 @@ export function TableCard({
           <div className="h-full w-full origin-left animate-progress bg-primary" />
         </div>
       )}
+      {toolbar && <div className="border-b border-border/70 px-3 py-2.5 sm:px-4 print:hidden">{toolbar}</div>}
       {empty && compactEmpty ? (
         <div className="flex items-center gap-2.5 px-4 py-4 text-sm text-muted-foreground [&_svg]:size-4 [&_svg]:shrink-0">
           {emptyIcon ?? <InboxIcon />}
@@ -527,15 +531,40 @@ export function StatusFilter({ value, onChange, counts }: { value: string; onCha
 // ───────── forms ─────────
 
 /** Label + control (+ hint), stacked. */
-export function Field({ id, label, hint, className, children }: { id?: string; label: ReactNode; hint?: ReactNode; className?: string; children: ReactNode }) {
+export function Field({ id, label, hint, required, className, children }: { id?: string; label: ReactNode; hint?: ReactNode; /** marks the label with a red asterisk */ required?: boolean; className?: string; children: ReactNode }) {
   return (
     <div className={cn('grid min-w-0 content-start gap-1.5', className)}>
-      <Label htmlFor={id} className="text-[0.8125rem] text-muted-foreground">
+      <Label htmlFor={id} className="gap-1 text-[0.8125rem] text-muted-foreground">
         {label}
+        {required && (
+          <span className="text-destructive" aria-hidden>
+            *
+          </span>
+        )}
       </Label>
       {children}
       {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
     </div>
+  );
+}
+
+/**
+ * One numbered part of a longer form: its heading and a line of help on the left (above, on
+ * narrow screens), its Fields in two balanced columns on the right. Use `sm:col-span-2` on a
+ * Field that needs the full width.
+ */
+export function FormSection({ step, title, description, children }: { step?: number; title: ReactNode; description?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="grid gap-x-10 gap-y-4 border-t border-border/70 pt-6 first:border-0 first:pt-0 lg:grid-cols-[15rem_minmax(0,1fr)]">
+      <div>
+        <h3 className="flex items-center gap-2.5 text-[0.9375rem] font-semibold">
+          {step != null && <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary-soft text-xs font-bold text-primary tabular-nums">{step}</span>}
+          {title}
+        </h3>
+        {description && <p className="mt-1.5 text-sm text-pretty text-muted-foreground">{description}</p>}
+      </div>
+      <div className="grid content-start gap-x-4 gap-y-5 sm:grid-cols-2">{children}</div>
+    </section>
   );
 }
 

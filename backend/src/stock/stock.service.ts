@@ -127,6 +127,8 @@ export class StockService {
     const conditions: SQL[] = [eq(stockMovements.millId, actor.millId)];
     if (q.importLoadId) conditions.push(eq(stockMovements.importLoadId, q.importLoadId));
     if (q.kind) conditions.push(eq(stockMovements.kind, q.kind));
+    if (q.direction === 'in') conditions.push(sql`${stockMovements.cftDelta} > 0`);
+    if (q.direction === 'out') conditions.push(sql`${stockMovements.cftDelta} < 0`);
     const where = and(...conditions);
 
     const [rows, [{ total }]] = await Promise.all([

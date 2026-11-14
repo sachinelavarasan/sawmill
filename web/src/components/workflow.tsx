@@ -20,14 +20,17 @@ interface Props {
   /** Shown once approved. */
   approvedNote?: ReactNode;
   onDone: () => void;
+  /** Message above the buttons at every width — for a narrow container such as a side panel. */
+  stacked?: boolean;
 }
 
 /** A full-width strip: message on the left, actions on the right (stacked on phones). */
-function Strip({ tone = 'neutral', icon, children, actions }: { tone?: 'neutral' | 'ok' | 'warn'; icon?: ReactNode; children: ReactNode; actions?: ReactNode }) {
+function Strip({ tone = 'neutral', icon, children, actions, stacked }: { tone?: 'neutral' | 'ok' | 'warn'; icon?: ReactNode; children: ReactNode; actions?: ReactNode; stacked?: boolean }) {
   return (
     <div
       className={cn(
-        'flex flex-col gap-3 rounded-lg border px-4 py-3 sm:flex-row sm:items-center',
+        'flex flex-col gap-3 rounded-lg border px-4 py-3',
+        !stacked && 'sm:flex-row sm:items-center',
         tone === 'neutral' && 'bg-card',
         tone === 'ok' && 'border-transparent bg-success-soft text-success',
         tone === 'warn' && 'border-transparent bg-warning-soft text-warning',
@@ -37,7 +40,7 @@ function Strip({ tone = 'neutral', icon, children, actions }: { tone?: 'neutral'
         {icon && <span className="mt-0.5 shrink-0 [&_svg]:size-4">{icon}</span>}
         <div className={cn(tone === 'neutral' && 'text-muted-foreground')}>{children}</div>
       </div>
-      {actions && <div className="flex gap-2 max-sm:[&>*]:flex-1">{actions}</div>}
+      {actions && <div className={cn('flex gap-2', stacked ? '[&>*]:flex-1' : 'max-sm:[&>*]:flex-1')}>{actions}</div>}
     </div>
   );
 }
@@ -47,7 +50,7 @@ function Strip({ tone = 'neutral', icon, children, actions }: { tone?: 'neutral'
  * Approve / Reject with a reason (owner on a submitted record), or a status note.
  * The API re-checks everything; this only decides what to offer.
  */
-export function WorkflowBar({ base, status, canSubmit, canReview, confirmApprove, submitBlocked, approvedNote, onDone }: Props) {
+export function WorkflowBar({ base, status, canSubmit, canReview, confirmApprove, submitBlocked, approvedNote, onDone, stacked }: Props) {
   const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +73,7 @@ export function WorkflowBar({ base, status, canSubmit, canReview, confirmApprove
   if (canReview) {
     return (
       <div className="flex flex-col gap-2">
-        <Strip tone="warn" icon={<ClockIcon />} actions={<ReviewActions base={base} confirmApprove={confirmApprove} onDone={onDone} onError={setError} />}>
+        <Strip stacked={stacked} tone="warn" icon={<ClockIcon />} actions={<ReviewActions base={base} confirmApprove={confirmApprove} onDone={onDone} onError={setError} />}>
           {t('ownerReviewing')}
         </Strip>
         {errorBox}
@@ -82,6 +85,7 @@ export function WorkflowBar({ base, status, canSubmit, canReview, confirmApprove
     return (
       <div className="flex flex-col gap-2">
         <Strip
+          stacked={stacked}
           actions={
             <Button size="lg" disabled={busy || !!submitBlocked} onClick={submit}>
               <SendIcon /> {t('submitForApproval')}
@@ -95,10 +99,14 @@ export function WorkflowBar({ base, status, canSubmit, canReview, confirmApprove
     );
   }
 
-  if (status === 'SUBMITTED') return <Strip icon={<ClockIcon />}>{t('waitingApproval')}</Strip>;
+  if (status === 'SUBMITTED') return (
+      <Strip stacked={stacked} icon={<ClockIcon />}>
+        {t('waitingApproval')}
+      </Strip>
+    );
   if (status === 'APPROVED' && approvedNote)
     return (
-      <Strip tone="ok" icon={<CheckIcon />}>
+      <Strip stacked={stacked} tone="ok" icon={<CheckIcon />}>
         {approvedNote}
       </Strip>
     );

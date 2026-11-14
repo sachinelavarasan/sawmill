@@ -1,3 +1,4 @@
+import { recoveryPercent } from '@sawmill/shared';
 import { PlusIcon } from 'lucide-react';
 import { FormEvent, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -7,12 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
-import { num3, useApi, useLoad } from '../components/common';
-import { type Column, DataTable, IdCell } from '../components/data-table';
+import { num3, useLoad } from '../components/common';
+import { DataTable } from '../components/data-table';
+import { ListEmpty, ListToolbar, openColumn, PageSum, StatusCards, useRecordList, type ListColumn } from '../components/record-list';
 import { StatusBadge } from '../components/status-badge';
-import { Field, FormActions, FormCard, FormGrid, LoadState, Notice, Page, PageHeader, SearchBox, StatusFilter, Toolbar, usePaging } from '../components/page';
+import { Field, FormActions, FormCard, FormGrid, LoadState, Notice, Page, PageHeader } from '../components/page';
 import { useI18n } from '../i18n';
 import { fromLocalInput, toLocalInput } from './Imports';
+import { ProductionQuickView } from './QuickViews';
 
 export interface ProductionSummary {
   id: string;
@@ -72,32 +75,66 @@ export function ProductionPage() {
   const { t } = useI18n();
   const { user } = useAuth();
   const isOwner = user?.role === 'OWNER';
-  const [status, setStatus] = useState('');
-  const [q, setQ] = useState('');
-  const paging = usePaging();
-  const query = `take=${paging.take}&skip=${paging.skip}${status ? `&status=${status}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}`;
-  const { data, loading, error, reload } = useApi<{ items: ProductionSummary[]; total: number }>(`/production?${query}`);
+  const list = useRecordList<ProductionSummary>({ path: '/production', name: 'production' });
+  const { data, loading, error, reload } = list;
+  /** the run shown in the side panel, if any */
+  const [peek, setPeek] = useState<ProductionSummary | null>(null);
 
-  const columns = useMemo(() => {
-    const cols: Column<ProductionSummary>[] = [
+  const allColumns = useMemo(() => {
+    const cols: ListColumn<ProductionSummary>[] = [
       {
         id: 'code',
         header: t('productionId'),
         cell: (r) => (
-          <IdCell sub={`${r.importCode} · ${r.woodType}`}>
-            <Link className="text-primary hover:underline" to={`/production/${r.id}`}>
+          <>
+            <Link className="font-medium text-foreground hover:underline" to={`/production/${r.id}`}>
               {r.code}
             </Link>
-          </IdCell>
+            <div className="mt-0.5 text-xs text-muted-foreground md:hidden">
+              {r.importCode} · {r.woodType} · {dateOnly(r.productionDate)}
+            </div>
+          </>
         ),
       },
-      { id: 'date', header: t('date'), from: 'md', className: 'text-muted-foreground', cell: (r) => dateOnly(r.productionDate) },
-      { id: 'import', header: t('importId'), from: 'md', cell: (r) => r.importCode },
-      { id: 'wood', header: t('woodType'), from: 'md', cell: (r) => r.woodType },
-      { id: 'input', header: t('inputCft'), from: 'md', numeric: true, cell: (r) => (r.inputCft != null ? num3(r.inputCft) : '—') },
-      { id: 'output', header: t('outputCft'), numeric: true, className: 'font-semibold', cell: (r) => num3(r.outputCft) },
+      { id: 'date', label: t('date'), header: t('date'), from: 'md', cell: (r) => dateOnly(r.productionDate) },
+      {
+        id: 'import',
+        label: t('sourceLoad'),
+        header: t('sourceLoad'),
+        from: 'md',
+        cell: (r) => (
+          <Link className="text-primary hover:underline" to={`/imports/${r.importLoadId}`}>
+            {r.importCode}
+          </Link>
+        ),
+      },
+      { id: 'wood', label: t('woodType'), header: t('woodType'), from: 'md', cell: (r) => r.woodType },
+      {
+        id: 'output',
+        header: t('finishedOfRaw'),
+        className: 'min-w-44',
+        // finished against raw used, with the recovery share as a bar (the same formula the server reports)
+        cell: (r) => {
+          const pct = recoveryPercent(r.inputCft, r.outputCft);
+          return (
+            <>
+              <div className="tabular-nums">
+                <span className="font-semibold">{num3(r.outputCft)}</span>
+                <span className="text-muted-foreground"> / {r.inputCft != null ? num3(r.inputCft) : '—'}</span>
+              </div>
+              <div className="mt-1.5 flex items-center gap-2 max-md:hidden">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                  <div className={cn('h-full rounded-full', pct != null && pct > 100 ? 'bg-destructive' : 'bg-chart-1')} style={{ width: `${Math.min(100, Math.max(0, pct ?? 0))}%` }} />
+                </div>
+                <span className="w-11 text-right text-xs text-muted-foreground tabular-nums">{pct != null ? `${pct}%` : '—'}</span>
+              </div>
+            </>
+          );
+        },
+      },
       {
         id: 'waste',
+        label: t('wasteCft'),
         header: t('wasteCft'),
         from: 'md',
         numeric: true,
@@ -105,57 +142,53 @@ export function ProductionPage() {
       },
       { id: 'status', header: t('status'), cell: (r) => <StatusBadge status={r.status} /> },
     ];
-    if (isOwner) cols.push({ id: 'by', header: t('createdBy'), from: 'md', cell: (r) => r.createdByName });
+    if (isOwner) cols.push({ id: 'by', label: t('createdBy'), header: t('createdBy'), from: 'md', className: 'max-w-36 truncate', cell: (r) => r.createdByName });
+    cols.push(
+      openColumn<ProductionSummary>(
+        (r) => `/production/${r.id}`,
+        (r) => r.code,
+        t,
+      ),
+    );
     return cols;
   }, [t, isOwner]);
+  const columns = useMemo(() => allColumns.filter((c) => !list.hidden.includes(c.id)), [allColumns, list.hidden]);
 
   return (
     <Page>
       <PageHeader
         title={t('production')}
+        subtitle={t('productionSub')}
         actions={
-          <>
-            <Button asChild>
-              <Link to="/production/new">
-                <PlusIcon /> {t('newProduction')}
-              </Link>
-            </Button>
-          </>
+          <Button asChild>
+            <Link to="/production/new">
+              <PlusIcon /> {t('newProduction')}
+            </Link>
+          </Button>
         }
       />
 
-
-      <Toolbar>
-        <SearchBox
-          value={q}
-          onChange={(v) => {
-            setQ(v);
-            paging.reset();
-          }}
-          placeholder={t('searchProduction')}
-        />
-        <StatusFilter
-          value={status}
-          onChange={(v) => {
-            setStatus(v);
-            paging.reset();
-          }}
-        />
-      </Toolbar>
+      <StatusCards list={list} totalLabel={t('totalRuns')} />
 
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
 
       {data && (
         <DataTable
+          grid
           data={data.items}
           columns={columns}
           rowKey={(r) => r.id}
-          rowTo={(r) => `/production/${r.id}`}
-          empty={q ? t('noMatches', { q }) : t('noProduction')}
-          pager={paging.pager(data.total)}
+          onRowClick={setPeek}
+          selectedKey={peek?.id}
+          empty={<ListEmpty list={list} none={t('noProduction')} newTo="/production/new" newLabel={t('newProduction')} />}
+          pager={list.paging.pager(data.total)}
           busy={loading}
+          toolbar={<ListToolbar list={list} columns={allColumns} searchPlaceholder={t('searchProduction')} />}
+          footer={<PageSum cft={data.items.reduce((a, r) => a + r.outputCft, 0)} />}
         />
       )}
+
+      <ProductionQuickView row={peek} onClose={() => setPeek(null)} onChanged={list.refresh} />
     </Page>
   );
 }

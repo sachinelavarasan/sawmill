@@ -10,12 +10,6 @@ export interface Profile {
   permissions: Permission[];
 }
 
-interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: Profile;
-}
-
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -26,46 +20,38 @@ export class ApiError extends Error {
 }
 
 const BASE = import.meta.env.VITE_API_URL ?? '/api';
-const REFRESH_KEY = 'sawmill.refresh';
+/**
+ * The session lives in httpOnly cookies the server sets: page scripts (and so anything
+ * injected into the page) can never read the tokens. This header tells the API we are the
+ * web app — it answers login / refresh with cookies, and it is the CSRF check on every request.
+ */
+const CLIENT = { 'X-Sawmill-Client': 'web' };
+/** Where older versions kept the refresh token; moved into a cookie the first time it is seen. */
+const LEGACY_REFRESH_KEY = 'sawmill.refresh';
 
-// Access token lives only in memory; the refresh token survives a page reload.
-let accessToken: string | null = null;
 let refreshInFlight: Promise<boolean> | null = null;
 let onSessionLost: () => void = () => {};
-
-const store = {
-  get: () => {
-    try {
-      return localStorage.getItem(REFRESH_KEY);
-    } catch {
-      return null;
-    }
-  },
-  set: (v: string | null) => {
-    try {
-      if (v) localStorage.setItem(REFRESH_KEY, v);
-      else localStorage.removeItem(REFRESH_KEY);
-    } catch {
-      /* storage unavailable */
-    }
-  },
-};
 
 export function setSessionLostHandler(fn: () => void) {
   onSessionLost = fn;
 }
 
-function applyAuth(res: AuthResponse): Profile {
-  accessToken = res.accessToken;
-  store.set(res.refreshToken);
-  return res.user;
+/** The refresh token an older version left in localStorage, removed as it is read. */
+function takeLegacyToken(): string | null {
+  try {
+    const v = localStorage.getItem(LEGACY_REFRESH_KEY);
+    if (v) localStorage.removeItem(LEGACY_REFRESH_KEY);
+    return v;
+  } catch {
+    return null;
+  }
 }
 
 async function raw<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body) headers.set('Content-Type', 'application/json');
-  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
-  const res = await fetch(`${BASE}${path}`, { ...init, headers });
+  headers.set('X-Sawmill-Client', CLIENT['X-Sawmill-Client']);
+  const res = await fetch(`${BASE}${path}`, { ...init, headers, credentials: 'include' });
   if (!res.ok) {
     let message = res.statusText;
     try {
@@ -79,23 +65,12 @@ async function raw<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.status === 204 ? (undefined as T) : res.json();
 }
 
-/** Exchange the stored refresh token for a new pair. Concurrent callers share one request. */
+/** Ask the server for a fresh session (it reads the refresh cookie and sets new ones). Concurrent callers share one request. */
 async function tryRefresh(): Promise<boolean> {
-  const token = store.get();
-  if (!token) return false;
-  refreshInFlight ??= raw<AuthResponse>('/auth/refresh', {
-    method: 'POST',
-    body: JSON.stringify({ refreshToken: token }),
-  })
-    .then((r) => {
-      applyAuth(r);
-      return true;
-    })
-    .catch(() => {
-      accessToken = null;
-      store.set(null);
-      return false;
-    })
+  const legacy = takeLegacyToken();
+  refreshInFlight ??= raw('/auth/refresh', { method: 'POST', body: legacy ? JSON.stringify({ refreshToken: legacy }) : undefined })
+    .then(() => true)
+    .catch(() => false)
     .finally(() => {
       refreshInFlight = null;
     });
@@ -119,7 +94,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
  * server's filename. Uses the same login/refresh as api().
  */
 export async function download(path: string): Promise<void> {
-  const get = () => fetch(`${BASE}${path}`, { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {} });
+  const get = () => fetch(`${BASE}${path}`, { headers: CLIENT, credentials: 'include' });
   let res = await get();
   if (res.status === 401 && (await tryRefresh())) res = await get();
   if (!res.ok) {
@@ -146,22 +121,20 @@ export async function download(path: string): Promise<void> {
 
 export const auth = {
   async login(username: string, password: string): Promise<Profile> {
-    return applyAuth(
-      await raw<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
-    );
+    return (await raw<{ user: Profile }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) })).user;
   },
-  /** Restore a session after page reload. */
+  /** Restore a session after page reload: the cookies are still there if the person was signed in. */
   async restore(): Promise<Profile | null> {
-    if (!(await tryRefresh())) return null;
-    return raw<Profile>('/auth/me');
+    try {
+      return await raw<Profile>('/auth/me');
+    } catch (err) {
+      // the access cookie has run out (or this browser still holds an old-style token): refresh once
+      if (err instanceof ApiError && err.status === 401 && (await tryRefresh())) return raw<Profile>('/auth/me');
+      return null;
+    }
   },
   async logout() {
-    const refreshToken = store.get() ?? undefined;
-    try {
-      if (accessToken) await raw('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) });
-    } finally {
-      accessToken = null;
-      store.set(null);
-    }
+    // the server revokes the refresh token and clears both cookies
+    await api('/auth/logout', { method: 'POST' }).catch(() => undefined);
   },
 };
