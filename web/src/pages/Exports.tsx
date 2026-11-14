@@ -94,23 +94,23 @@ export function ExportsPage() {
         header: t('exportId'),
         cell: (e) => (
           <>
-            <Link className="font-medium text-foreground hover:underline" to={`/exports/${e.id}`}>
+            <Link className="font-semibold text-primary hover:underline" to={`/exports/${e.id}`}>
               {e.code}
             </Link>
-            <div className="mt-0.5 text-xs text-muted-foreground md:hidden">
+            <div className="mt-0.5 text-xs whitespace-normal text-muted-foreground md:hidden">
               {e.lorryNumber} · {e.woodType} · {dateOnly(e.exportDate)}
             </div>
           </>
         ),
       },
       { id: 'date', label: t('date'), header: t('date'), from: 'md', cell: (e) => dateOnly(e.exportDate) },
-      { id: 'lorry', label: t('lorry'), header: t('lorry'), from: 'md', cell: (e) => e.lorryNumber },
-      { id: 'wood', label: t('woodType'), header: t('woodType'), from: 'md', cell: (e) => e.woodType },
-      { id: 'pieces', label: t('pieces'), header: t('pieces'), from: 'md', numeric: true, cell: (e) => e.totalPieces },
-      { id: 'cft', header: t('totalCft'), numeric: true, cell: (e) => num3(e.totalCft) },
+      { id: 'lorry', label: t('lorry'), header: t('lorry'), from: 'md', className: 'font-medium', cell: (e) => e.lorryNumber },
+      { id: 'wood', label: t('woodType'), header: t('woodType'), from: 'lg', cell: (e) => e.woodType },
+      { id: 'pieces', label: t('pieces'), header: t('pieces'), from: 'lg', numeric: true, cell: (e) => e.totalPieces },
+      { id: 'cft', header: t('totalCft'), numeric: true, className: 'font-semibold', cell: (e) => num3(e.totalCft) },
       { id: 'status', header: t('status'), cell: (e) => <StatusBadge status={e.status} /> },
     ];
-    if (isOwner) cols.push({ id: 'by', label: t('createdBy'), header: t('createdBy'), from: 'md', className: 'max-w-40 truncate', cell: (e) => e.createdByName });
+    if (isOwner) cols.push({ id: 'by', label: t('createdBy'), header: t('createdBy'), from: 'xl', className: 'max-w-40 truncate', cell: (e) => e.createdByName });
     cols.push(
       openColumn<ExportSummary>(
         (e) => `/exports/${e.id}`,

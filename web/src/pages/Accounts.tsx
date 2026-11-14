@@ -1,4 +1,4 @@
-import { ArrowDownLeftIcon, ArrowUpRightIcon, PencilIcon, PlusIcon, Trash2Icon, TrendingUpIcon, WalletIcon } from 'lucide-react';
+import { ArrowDownLeftIcon, ArrowUpRightIcon, PencilIcon, PlusIcon, Trash2Icon, TrendingDownIcon, TrendingUpIcon } from 'lucide-react';
 import { FormEvent, ReactNode, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -126,11 +126,11 @@ export function AccountsPage() {
         <>
           {/* income − expenses = profit, read left to right */}
           <StatGrid>
-            <Stat icon={<ArrowDownLeftIcon />} label={t('sales')} value={money(s.pnl.sales)} hint={t('income')} />
-            <Stat icon={<WalletIcon />} label={t('totalExpenses')} value={money(s.pnl.totalExpenses)} hint={t('expensesHead')} />
+            <Stat icon={<ArrowDownLeftIcon />} iconTone="good" label={t('sales')} value={money(s.pnl.sales)} hint={t('income')} />
+            <Stat icon={<ArrowUpRightIcon />} iconTone="bad" label={t('totalExpenses')} value={money(s.pnl.totalExpenses)} hint={t('expensesHead')} />
             <Stat
               hero
-              icon={<TrendingUpIcon />}
+              icon={s.pnl.profit < 0 ? <TrendingDownIcon /> : <TrendingUpIcon />}
               tone={s.pnl.profit < 0 ? 'bad' : undefined}
               label={t(s.pnl.profit < 0 ? 'netLoss' : 'netProfit')}
               value={money(s.pnl.profit)}
@@ -188,10 +188,12 @@ export function AccountsPage() {
       {s && (
         <Section title={t('outstandingBalances')}>
           <p className="-mt-2 text-sm text-muted-foreground">{t('outstandingNote')}</p>
-          <div className="grid items-start gap-4 lg:grid-cols-2">
+          {/* side by side only where both tables fit whole */}
+          <div className="grid grid-cols-1 items-start gap-4 min-[1400px]:grid-cols-2">
             <BalanceTable
               title={t('pendingReceivables')}
               icon={<ArrowDownLeftIcon />}
+              tone="in"
               total={toReceive}
               rows={s.receivables}
               partyLabel={t('client')}
@@ -202,6 +204,7 @@ export function AccountsPage() {
             <BalanceTable
               title={t('pendingPayables')}
               icon={<ArrowUpRightIcon />}
+              tone="out"
               total={toPay}
               rows={s.payables}
               partyLabel={t('supplier')}
@@ -240,6 +243,7 @@ function PnlLine({ label, amount, strong, highlight, indent }: { label: ReactNod
 function BalanceTable({
   title,
   icon,
+  tone,
   total,
   rows,
   partyLabel,
@@ -249,6 +253,8 @@ function BalanceTable({
 }: {
   title: string;
   icon: ReactNode;
+  /** money owed to the mill (green) or by it (amber) */
+  tone: 'in' | 'out';
   /** the sum of every row's balance, not just this page */
   total: number;
   rows: Balance[];
@@ -267,14 +273,14 @@ function BalanceTable({
       pager={paged.pager}
       toolbar={
         <div className="flex items-center gap-3">
-          <span className={cn('grid size-10 shrink-0 place-items-center rounded-lg [&_svg]:size-[1.125rem]', total > 0 ? 'bg-warning-soft text-warning' : 'bg-muted text-muted-foreground')} aria-hidden>
+          <span className={cn('grid size-10 shrink-0 place-items-center rounded-lg [&_svg]:size-[1.125rem]', total > 0 ? (tone === 'in' ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning') : 'bg-muted text-muted-foreground')} aria-hidden>
             {icon}
           </span>
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-sm font-semibold">{title}</h3>
+            <h3 className="text-sm leading-snug font-semibold">{title}</h3>
             <div className="text-xs text-muted-foreground">{t('totalDue')}</div>
           </div>
-          <div className={cn('text-xl font-bold tabular-nums', total > 0 && 'text-warning')}>{money2(total)}</div>
+          <div className={cn('text-xl font-bold tabular-nums', total > 0 && (tone === 'in' ? 'text-success' : 'text-warning'))}>{money2(total)}</div>
         </div>
       }
     >
@@ -394,7 +400,7 @@ function ExpensesSection({
       tools={
         <div className="flex flex-wrap items-center gap-2">
           <Select value={category || ALL} onValueChange={(v) => onCategory(v === ALL ? '' : v)}>
-            <SelectTrigger size="sm" className="w-44" aria-label={t('category')}>
+            <SelectTrigger size="sm" className="w-52 max-sm:w-44" aria-label={t('category')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -420,8 +426,8 @@ function ExpensesSection({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-4">{t('date')}</TableHead>
-                <TableHead>{t('category')}</TableHead>
+                <TableHead className={cn(wide, 'pl-4')}>{t('date')}</TableHead>
+                <TableHead className="max-md:pl-4">{t('category')}</TableHead>
                 <TableHead className={wide}>{t('importId')}</TableHead>
                 <TableHead className={wide}>{t('notes')}</TableHead>
                 <TableHead className={numCell}>{t('amount')}</TableHead>
@@ -433,14 +439,18 @@ function ExpensesSection({
             <TableBody>
               {data.items.map((e) => (
                 <TableRow key={e.id}>
-                  <TableCell className="pl-4 text-muted-foreground tabular-nums">{dateOnly(e.date)}</TableCell>
-                  <TableCell>
+                  <TableCell className={cn(wide, 'pl-4 text-muted-foreground tabular-nums')}>{dateOnly(e.date)}</TableCell>
+                  <TableCell className="max-md:pl-4">
                     <span className="inline-block max-w-40 truncate rounded-md bg-muted px-2 py-0.5 align-middle text-[0.8125rem] font-medium">{e.category}</span>
-                    {e.notes && <div className="max-w-[12rem] truncate text-xs font-normal text-muted-foreground md:hidden">{e.notes}</div>}
+                    {/* on phones the date and the note fold in here */}
+                    <div className="mt-0.5 max-w-[7.5rem] truncate text-xs font-normal text-muted-foreground md:hidden">
+                      {dateOnly(e.date)}
+                      {e.notes && ` · ${e.notes}`}
+                    </div>
                   </TableCell>
                   <TableCell className={wide}>
                     {e.importLoadId && e.importCode ? (
-                      <Link className="text-primary hover:underline" to={`/imports/${e.importLoadId}`}>
+                      <Link className="font-medium text-primary hover:underline" to={`/imports/${e.importLoadId}`}>
                         {e.importCode}
                       </Link>
                     ) : (
@@ -466,9 +476,15 @@ function ExpensesSection({
             </TableBody>
             <TableFooter>
               <TableRow className="hover:bg-transparent">
-                <TableCell className="pl-4 font-semibold" colSpan={2}>
-                  {t('total')}
-                  {category && <span className="font-normal text-muted-foreground"> · {category}</span>}
+                <TableCell className={cn(wide, 'pl-4 font-semibold')}>{t('total')}</TableCell>
+                <TableCell className="font-semibold max-md:pl-4">
+                  <span className="md:hidden">{t('total')}</span>
+                  {category && (
+                    <span className="font-normal text-muted-foreground">
+                      <span className="md:hidden"> · </span>
+                      {category}
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell className={wide} />
                 <TableCell className={wide} />

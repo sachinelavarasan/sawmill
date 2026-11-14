@@ -707,7 +707,7 @@ function SaleSection({ exp, canPickClient }: { exp: ExportDetail; canPickClient:
             <Field id="sale-received" label={t('amountReceived')}>
               <Input id="sale-received" type="number" value={form.received} onChange={set('received')} min={0} step="0.01" inputMode="decimal" />
             </Field>
-            <Field id="sale-notes" label={t('notes')} className="sm:col-span-full">
+            <Field id="sale-notes" label={t('notes')} className="sm:col-span-full lg:col-span-2">
               <Input id="sale-notes" value={form.notes} onChange={set('notes')} maxLength={1000} />
             </Field>
           </FormGrid>

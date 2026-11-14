@@ -25,7 +25,7 @@ interface AuditRow {
 }
 
 /** What happened, in words, and how loudly to show it. Actions not listed are shown as recorded. */
-const ACTIONS: Record<string, { label: TKey; tone: string }> = {
+export const ACTIONS: Record<string, { label: TKey; tone: string }> = {
   CREATE: { label: 'auditActCreate', tone: 'bg-info-soft text-info' },
   UPDATE: { label: 'auditActUpdate', tone: 'bg-muted text-foreground' },
   OWNER_EDIT: { label: 'auditActOwnerEdit', tone: 'bg-muted text-foreground' },
@@ -41,7 +41,7 @@ const ACTIONS: Record<string, { label: TKey; tone: string }> = {
   DOWNLOAD_REPORT: { label: 'auditActDownloadReport', tone: 'bg-muted text-muted-foreground' },
 };
 /** The kinds of record the log speaks of; `page` is where such a record opens, when it has a page of its own. */
-const ENTITIES: Record<string, { label: TKey; page?: (id: string) => string }> = {
+export const ENTITIES: Record<string, { label: TKey; page?: (id: string) => string }> = {
   ImportLoad: { label: 'auditEntImportLoad', page: (id) => `/imports/${id}` },
   LogMeasurement: { label: 'auditEntLogMeasurement' },
   UnloadingEntry: { label: 'auditEntUnloadingEntry' },
@@ -61,7 +61,7 @@ const ENTITIES: Record<string, { label: TKey; page?: (id: string) => string }> =
 };
 
 /** The record's own name where the event carries one (its code, a person's or party's name), so it can be recognised without its ID. */
-function recordName(r: AuditRow): string | null {
+export function recordName(r: { before: Json; after: Json }): string | null {
   for (const data of [r.after, r.before]) {
     if (!data) continue;
     for (const k of ['code', 'name', 'username', 'category', 'key']) {

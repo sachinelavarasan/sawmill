@@ -61,7 +61,7 @@ export function PageHeader({
         )}
         {eyebrow && <div className="mb-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">{eyebrow}</div>}
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl leading-tight font-bold tracking-tight text-balance">{title}</h1>
+          <h1 className="text-[1.375rem] leading-tight font-semibold tracking-tight text-balance sm:text-2xl">{title}</h1>
           {badge}
         </div>
         {subtitle && <p className="mt-1.5 text-sm text-muted-foreground">{subtitle}</p>}
@@ -99,9 +99,10 @@ export function OwnerOnly() {
 
 export type Tone = 'good' | 'warn' | 'bad';
 const toneText: Record<Tone, string> = { good: 'text-success', warn: 'text-warning', bad: 'text-destructive' };
+const toneTile: Record<Tone, string> = { good: 'bg-success-soft text-success', warn: 'bg-warning-soft text-warning', bad: 'bg-destructive-soft text-destructive' };
 
 export function StatGrid({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('grid grid-cols-2 gap-3 lg:grid-cols-4', className)}>{children}</div>;
+  return <div className={cn('grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4', className)}>{children}</div>;
 }
 
 /** A KPI card. `hero` = wide, filled card for the one number that matters most. */
@@ -112,6 +113,7 @@ export function Stat({
   hint,
   icon,
   tone,
+  iconTone,
   hero,
   to,
   className,
@@ -122,6 +124,8 @@ export function Stat({
   hint?: ReactNode;
   icon?: ReactNode;
   tone?: Tone;
+  /** tints the icon tile only (e.g. green for money in, red for money out); the number keeps its plain colour */
+  iconTone?: Tone;
   hero?: boolean;
   /** makes the whole card a link to the page behind the number */
   to?: string;
@@ -130,7 +134,7 @@ export function Stat({
   const card = (
     <Card
       className={cn(
-        'h-full gap-3 py-5',
+        'h-full gap-2.5 py-4',
         to && 'transition-shadow duration-200 group-hover/stat:shadow-lift',
         hero && 'col-span-2',
         // in dark mode --primary is a light grey, too bright for a large block: use the soft slate instead
@@ -138,21 +142,21 @@ export function Stat({
         className,
       )}
     >
-      <CardHeader className="flex flex-row items-center gap-3 px-5">
+      <CardHeader className="flex flex-row items-center gap-3 px-4">
         {icon && (
           <span
             className={cn(
-              'grid size-9 shrink-0 place-items-center rounded-xl [&_svg]:size-[1.125rem]',
-              hero ? 'bg-current/15' : 'bg-primary-soft text-primary',
+              'grid size-9 shrink-0 place-items-center rounded-lg [&_svg]:size-[1.125rem]',
+              hero ? 'bg-current/15' : iconTone ? toneTile[iconTone] : 'bg-primary-soft text-primary',
             )}
           >
             {icon}
           </span>
         )}
-        <CardDescription className={cn('min-w-0 flex-1 font-medium', hero && 'text-current opacity-85')}>{label}</CardDescription>
+        <CardDescription className={cn('min-w-0 flex-1 text-[0.8125rem] font-medium', hero && 'text-current opacity-85')}>{label}</CardDescription>
         {tone && !hero && <span className={cn('size-2 shrink-0 rounded-full bg-current', toneText[tone])} />}
       </CardHeader>
-      <CardContent className="px-5">
+      <CardContent className="px-4">
         <div className={cn('leading-tight font-bold tracking-[-0.02em] tabular-nums', hero ? 'text-3xl sm:text-4xl' : 'text-2xl sm:text-[1.7rem]', tone && !hero && toneText[tone])}>
           {value}
           {unit && <span className={cn('ml-1.5 text-sm font-medium tracking-normal', hero ? 'opacity-80' : 'text-muted-foreground')}>{unit}</span>}
@@ -174,8 +178,8 @@ export function FigureStrip({ items, className }: { items: { label: ReactNode; v
   return (
     <Card className={cn('grid grid-cols-2 gap-px overflow-hidden bg-border py-0 lg:grid-cols-4', className)}>
       {items.map((it, i) => (
-        <div key={i} className="bg-card px-5 py-4 transition-colors duration-200 hover:bg-muted/40">
-          <div className="text-sm text-muted-foreground">{it.label}</div>
+        <div key={i} className="bg-card px-4 py-3.5 transition-colors duration-200 hover:bg-muted/40">
+          <div className="text-[0.8125rem] text-muted-foreground">{it.label}</div>
           <div className={cn('mt-0.5 text-xl leading-tight font-bold tracking-tight tabular-nums', it.tone && toneText[it.tone])}>{it.value}</div>
         </div>
       ))}
@@ -225,7 +229,7 @@ export function LoadState({ loading, error, onRetry }: { loading: boolean; error
   if (loading)
     return (
       <div className="flex flex-col gap-4" role="status" aria-label={t('loading')}>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-28" />
           ))}
@@ -233,7 +237,7 @@ export function LoadState({ loading, error, onRetry }: { loading: boolean; error
         <div className="overflow-hidden rounded-xl bg-card shadow-card">
           <Skeleton className="h-10 rounded-none" />
           {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex items-center gap-4 border-t border-border/70 px-4 py-4">
+            <div key={i} className="flex h-11 items-center gap-4 border-t border-border/70 px-4">
               <Skeleton className="h-4 w-24 rounded-md" />
               <Skeleton className="h-4 flex-1 rounded-md" style={{ maxWidth: `${14 - i * 1.5}rem` }} />
               <Skeleton className="ml-auto h-4 w-16 rounded-md" />
@@ -497,8 +501,8 @@ export function FilterChips<V extends string>({
             aria-pressed={on}
             onClick={() => onChange(o.value)}
             className={cn(
-              'inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border px-3 text-sm font-medium whitespace-nowrap transition-colors duration-150 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
-              on ? 'border-transparent bg-primary text-primary-foreground' : 'bg-card text-muted-foreground shadow-xs hover:border-foreground/20 hover:text-foreground',
+              'inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border px-3 text-[0.8125rem] font-medium whitespace-nowrap transition-colors duration-150 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+              on ? 'border-transparent bg-primary text-primary-foreground' : 'border-input bg-card text-muted-foreground hover:border-foreground/25 hover:text-foreground',
             )}
           >
             {o.dot && <span className={cn('size-2 rounded-full', o.dot, on && 'ring-2 ring-primary-foreground/40')} />}

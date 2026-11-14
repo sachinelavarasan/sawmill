@@ -3,7 +3,6 @@ import { ArrowDownToLineIcon, ArrowUpFromLineIcon, CheckCheckIcon, ClockIcon, Ey
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { dateTime, num3, useApi } from '../components/common';
@@ -131,7 +130,7 @@ export function ApprovalsPage() {
   const kindLabel = (k: Kind) => t(KINDS.find(([key]) => key === k)![1]);
 
   /** Approve / Reject for one record: the same buttons in the row and in the panel. */
-  const review = (i: Item, size: 'sm' | 'default', compact?: boolean) => (
+  const review = (i: Item, size: 'sm' | 'default', inRow?: boolean) => (
     <ReviewActions
       base={API_PATH[i.type](i.id)}
       code={i.code}
@@ -143,7 +142,8 @@ export function ApprovalsPage() {
       }}
       onError={setError}
       size={size}
-      compact={compact}
+      compact={inRow}
+      iconReject={inRow}
     />
   );
 
@@ -161,10 +161,12 @@ export function ApprovalsPage() {
               <Icon className="size-[1.125rem]" strokeWidth={1.75} />
             </span>
             <div className="min-w-0">
-              <Link className="font-semibold text-foreground hover:underline" to={PAGE_PATH[i.type](i.id)}>
+              <Link className="font-semibold text-primary hover:underline" to={PAGE_PATH[i.type](i.id)}>
                 {i.code}
               </Link>
-              <div className="max-w-xs truncate text-xs text-muted-foreground max-md:hidden">{d.what}</div>
+              <div className="max-w-48 truncate text-xs text-muted-foreground max-md:hidden xl:max-w-56" title={d.what}>
+                <span className="font-medium text-foreground">{kindLabel(i.type)}</span> · {d.what}
+              </div>
               {/* on phones the other columns fold in here */}
               <div className="mt-0.5 max-w-[16rem] text-xs whitespace-normal text-muted-foreground md:hidden">
                 <span className="font-medium text-foreground">{kindLabel(i.type)}</span> · {d.what}
@@ -178,34 +180,29 @@ export function ApprovalsPage() {
         );
       },
     },
-    { id: 'type', header: t('type'), from: 'md', sort: (i) => i.type, cell: (i) => <Badge variant="secondary">{kindLabel(i.type)}</Badge> },
     {
+      // who sent it and when, in one column: the name, then the date and how long it has waited
       id: 'by',
       header: t('submittedBy'),
       from: 'md',
       sort: (i) => i.createdByName.toLowerCase(),
       cell: (i) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <Avatar size="sm">
             <AvatarFallback className="bg-muted text-xs font-semibold">{i.createdByName.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
-          <span className="max-w-32 truncate">{i.createdByName}</span>
+          <div className="min-w-0">
+            <div className="max-w-40 truncate font-medium">{i.createdByName}</div>
+            <div className="text-xs text-muted-foreground">
+              {dateTime(i.submittedAt)} · {ago(i.submittedAt, lang)}
+            </div>
+          </div>
         </div>
       ),
     },
-    {
-      id: 'submitted',
-      header: t('submittedOn'),
-      from: 'md',
-      cell: (i) => (
-        <>
-          <div>{dateTime(i.submittedAt)}</div>
-          <div className="text-xs text-muted-foreground">{ago(i.submittedAt, lang)}</div>
-        </>
-      ),
-    },
-    { id: 'cft', header: 'CFT', from: 'md', numeric: true, className: 'font-semibold', cell: (i) => describe(i).figures },
-    { id: 'status', header: t('status'), from: 'md', cell: () => <StatusBadge status="SUBMITTED" /> },
+    { id: 'cft', header: 'CFT', from: 'lg', numeric: true, className: 'font-semibold', cell: (i) => describe(i).figures },
+    // every row here is pending, so the status pill is the first thing to go when the table is short of room
+    { id: 'status', header: t('status'), className: 'hidden 2xl:table-cell', headClassName: 'hidden 2xl:table-cell', cell: () => <StatusBadge status="SUBMITTED" /> },
     {
       id: 'review',
       header: <span className="sr-only">{t('actions')}</span>,
@@ -236,7 +233,7 @@ export function ApprovalsPage() {
 
       {data && (
         <>
-          <div role="group" aria-label={t('type')} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div role="group" aria-label={t('type')} className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
             {cards.map((c) => {
               const on = filter === c.value;
               return (
@@ -248,7 +245,7 @@ export function ApprovalsPage() {
                   className={cn(
                     'flex items-center gap-3 rounded-xl bg-card px-4 py-3.5 text-left shadow-card transition-shadow duration-200 outline-none hover:shadow-lift focus-visible:ring-[3px] focus-visible:ring-ring/50',
                     c.value === 'ALL' && 'max-sm:col-span-2',
-                    on && 'ring-2 ring-primary/40',
+                    on && 'ring-2 ring-brand',
                   )}
                 >
                   {/* amber only where something is waiting: the eye goes to what needs a decision */}
@@ -256,8 +253,8 @@ export function ApprovalsPage() {
                     <c.icon aria-hidden strokeWidth={1.75} />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-2xl leading-tight font-bold tabular-nums">{c.count}</span>
-                    <span className="block truncate text-sm text-muted-foreground">{c.label}</span>
+                    <span className="block text-2xl leading-tight font-bold tracking-[-0.02em] tabular-nums">{c.count}</span>
+                    <span className="line-clamp-2 text-[0.8125rem] leading-snug font-medium text-muted-foreground">{c.label}</span>
                   </span>
                 </button>
               );
@@ -284,7 +281,7 @@ export function ApprovalsPage() {
                 <ul className="divide-y divide-border/70">
                   {reviewed.map(({ item: i, outcome }) => (
                     <li key={itemKey(i)} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm">
-                      <Link className="font-semibold hover:underline" to={PAGE_PATH[i.type](i.id)}>
+                      <Link className="font-semibold text-primary hover:underline" to={PAGE_PATH[i.type](i.id)}>
                         {i.code}
                       </Link>
                       <span className="text-muted-foreground">

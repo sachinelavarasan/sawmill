@@ -22,6 +22,7 @@ export function ReviewActions({
   onError,
   size = 'lg',
   compact,
+  iconReject,
 }: {
   /** e.g. `/imports/<id>` */
   base: string;
@@ -34,6 +35,8 @@ export function ReviewActions({
   size?: 'sm' | 'lg' | 'default';
   /** icon-only buttons on phones */
   compact?: boolean;
+  /** Reject as an icon at every width (its name stays as the tooltip): for a table row short of room */
+  iconReject?: boolean;
 }) {
   const { t } = useI18n();
   const confirm = useConfirm();
@@ -77,8 +80,8 @@ export function ReviewActions({
 
   return (
     <>
-      <Button variant="outline" size={size} disabled={busy} onClick={() => setRejecting(true)} aria-label={t('reject')}>
-        <XIcon /> {label(t('reject'))}
+      <Button variant="outline" size={size} className="text-destructive hover:border-destructive/40 hover:bg-destructive-soft hover:text-destructive" disabled={busy} onClick={() => setRejecting(true)} aria-label={t('reject')} title={t('reject')}>
+        <XIcon /> {iconReject ? <span className="sr-only">{t('reject')}</span> : label(t('reject'))}
       </Button>
       <Button size={size} disabled={busy} onClick={approve} aria-label={t('approve')}>
         <CheckIcon /> {label(t('approve'))}

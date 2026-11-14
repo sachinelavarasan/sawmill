@@ -19,8 +19,7 @@ import { useAuth } from '../auth';
 import { dateTime, num3, useLoad } from '../components/common';
 import { StatusBadge } from '../components/status-badge';
 import { gridTable } from '../components/data-table';
-import { ALL, Field, FormSection, LoadState, Notice, numCell, Page, PageHeader, SearchBox, useClientPaging, usePaging, TableCard, wide } from '../components/page';
-import { quietSearch } from '../components/record-list';
+import { ALL, Field, FilterChips, FormSection, LoadState, Notice, numCell, Page, PageHeader, SearchBox, useClientPaging, usePaging, TableCard, wide } from '../components/page';
 import { WorkflowBar } from '../components/workflow';
 import { TKey, useI18n } from '../i18n';
 import type { RawStockRow } from './Production';
@@ -128,19 +127,36 @@ function Direction({ delta, className }: { delta: number; className?: string }) 
   );
 }
 
-/** A summary figure: tinted icon tile, large number, label. */
-function Tile({ icon, value, unit, label }: { icon: ReactNode; value: string; unit?: string; label: string }) {
+/**
+ * One kind of stock at a glance: its total in CFT and the count that goes with it.
+ * Raw and finished each keep one colour here and in the charts, so they are never confused.
+ */
+function StockSummary({ icon, label, cft, color, figures }: { icon: ReactNode; label: string; cft: number; color: string; figures: { icon: ReactNode; label: string; value: string }[] }) {
   return (
-    <div className="flex items-center gap-3.5 rounded-xl bg-card px-4 py-4 shadow-card">
-      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary [&_svg]:size-5">{icon}</span>
-      <div className="min-w-0">
-        <div className="text-2xl leading-tight font-bold tabular-nums">
-          {value}
-          {unit && <span className="ml-1.5 text-sm font-medium text-muted-foreground">{unit}</span>}
+    <Card className="relative gap-0 overflow-hidden py-4">
+      <span className="absolute inset-y-0 left-0 w-1" style={{ background: color }} aria-hidden />
+      <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-3 px-5">
+        <div className="flex min-w-0 flex-1 items-center gap-3.5">
+          <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary [&_svg]:size-5">{icon}</span>
+          <div className="min-w-0">
+            <div className="text-[0.8125rem] font-medium text-muted-foreground">{label}</div>
+            <div className="text-[1.7rem] leading-tight font-bold tracking-[-0.02em] whitespace-nowrap tabular-nums">
+              {num3(cft)}
+              <span className="ml-1.5 text-sm font-medium tracking-normal text-muted-foreground">CFT</span>
+            </div>
+          </div>
         </div>
-        <div className="truncate text-sm text-muted-foreground">{label}</div>
-      </div>
-    </div>
+        {figures.map((f) => (
+          <div key={f.label} className="flex items-center gap-2.5 border-l pl-5 max-sm:basis-full max-sm:border-t max-sm:border-l-0 max-sm:pt-3 max-sm:pl-0">
+            <span className="text-muted-foreground [&_svg]:size-4">{f.icon}</span>
+            <div>
+              <div className="text-lg leading-tight font-bold tabular-nums">{f.value}</div>
+              <div className="text-xs text-muted-foreground">{f.label}</div>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -161,13 +177,13 @@ export function StockPage() {
     return [...m.values()].sort((a, b) => a.code.localeCompare(b.code));
   }, [data]);
 
-  // the four views, as tiles: what each holds, in a line
+  // the four views, and how much the two stock lists hold
   const sizeCount = data ? new Set(data.finished.map((f) => `${f.woodType}|${f.thicknessIn}|${f.widthIn}|${f.lengthFt}`)).size : 0;
-  const views: { key: Tab; icon: LucideIcon; title: string; sub: string }[] = [
-    { key: 'raw', icon: LayersIcon, title: t('rawByLoad'), sub: t('loadsCount', { n: data?.raw.length ?? 0 }) },
-    { key: 'finished', icon: PackageIcon, title: t('finishedBySize'), sub: t('sizesCount', { n: sizeCount }) },
-    { key: 'movements', icon: HistoryIcon, title: t('movementHistory'), sub: t('movementHistorySub') },
-    { key: 'adjustments', icon: SlidersHorizontalIcon, title: t('adjustments'), sub: t('adjustmentsSub') },
+  const views: { key: Tab; icon: LucideIcon; title: string; count?: number }[] = [
+    { key: 'raw', icon: LayersIcon, title: t('rawByLoad'), count: data?.totals.rawLoads },
+    { key: 'finished', icon: PackageIcon, title: t('finishedBySize'), count: sizeCount },
+    { key: 'movements', icon: HistoryIcon, title: t('movementHistory') },
+    { key: 'adjustments', icon: SlidersHorizontalIcon, title: t('adjustments') },
   ];
 
   return (
@@ -186,29 +202,31 @@ export function StockPage() {
 
       {data && (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Tile icon={<LayersIcon />} value={num3(data.totals.rawCft)} unit="CFT" label={t('rawStock')} />
-            <Tile icon={<TruckIcon />} value={data.totals.rawLoads.toLocaleString('en-IN')} label={t('loadsWithRaw')} />
-            <Tile icon={<PackageIcon />} value={num3(data.totals.finishedCft)} unit="CFT" label={t('finishedStock')} />
-            <Tile icon={<BoxesIcon />} value={data.totals.finishedPieces.toLocaleString('en-IN')} label={t('finishedPieces')} />
+          <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+            <StockSummary
+              icon={<LayersIcon />}
+              label={t('rawStock')}
+              cft={data.totals.rawCft}
+              color="var(--chart-1)"
+              figures={[{ icon: <TruckIcon />, label: t('loadsWithRaw'), value: data.totals.rawLoads.toLocaleString('en-IN') }]}
+            />
+            <StockSummary
+              icon={<PackageIcon />}
+              label={t('finishedStock')}
+              cft={data.totals.finishedCft}
+              color="var(--chart-2)"
+              figures={[{ icon: <BoxesIcon />, label: t('finishedPieces'), value: data.totals.finishedPieces.toLocaleString('en-IN') }]}
+            />
           </div>
 
           <Tabs value={tab} onValueChange={(v) => go(v as Tab)} className="gap-4">
-            {/* the views as tiles; the chosen one is outlined */}
-            <TabsList className="grid h-auto! w-full grid-cols-2 gap-3 bg-transparent p-0 lg:grid-cols-4">
+            {/* the four views as one tab strip (scrolls sideways on a phone) */}
+            <TabsList variant="line" className="scroll-quiet h-auto! w-full justify-start gap-1 overflow-x-auto overflow-y-hidden border-b p-0">
               {views.map((v) => (
-                <TabsTrigger
-                  key={v.key}
-                  value={v.key}
-                  className="h-auto! justify-start gap-3 rounded-xl border-2 border-transparent bg-card px-3.5 py-3 text-left whitespace-normal shadow-card data-[state=active]:border-primary data-[state=active]:bg-card data-[state=active]:shadow-card"
-                >
-                  <span className={cn('grid size-10 shrink-0 place-items-center rounded-lg [&_svg]:size-[1.125rem]', tab === v.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
-                    <v.icon aria-hidden />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm leading-snug font-semibold text-foreground">{v.title}</span>
-                    <span className="block truncate text-xs font-normal text-muted-foreground">{v.sub}</span>
-                  </span>
+                <TabsTrigger key={v.key} value={v.key} className="h-10 flex-none gap-2 rounded-none px-3 after:bottom-0! data-[state=active]:text-foreground">
+                  <v.icon aria-hidden className={cn(tab === v.key ? 'text-foreground' : 'text-muted-foreground')} />
+                  {v.title}
+                  {v.count != null && <span className="min-w-5 rounded-full bg-muted px-1.5 text-center text-xs leading-5 font-semibold text-muted-foreground tabular-nums">{v.count}</span>}
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -234,14 +252,17 @@ export function StockPage() {
 // ───────── tabs ─────────
 
 /** The heading and search inside a stock table's card. */
-function TableTop({ title, count, q, onQ, placeholder }: { title: string; count: number; q: string; onQ: (v: string) => void; placeholder: string }) {
+function TableTop({ title, count, q, onQ, placeholder, filter }: { title: string; count: number; q: string; onQ: (v: string) => void; placeholder: string; filter?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
       <h2 className="flex items-center gap-2 pl-1 text-[0.9375rem] font-semibold">
         {title}
         <span className="min-w-6 rounded-full bg-muted px-2 text-center text-xs leading-6 font-bold text-muted-foreground tabular-nums">{count}</span>
       </h2>
-      <SearchBox className={quietSearch} value={q} onChange={onQ} placeholder={placeholder} />
+      <div className="flex flex-wrap items-center gap-2">
+        {filter}
+        <SearchBox className="sm:w-64 [&_input]:h-9" value={q} onChange={onQ} placeholder={placeholder} />
+      </div>
     </div>
   );
 }
@@ -251,17 +272,40 @@ function RawTab({ rows, onHistory }: { rows: RawStockRow[]; onHistory: (loadId: 
   const { can } = useAuth();
   const canOpenAll = can(Permission.OPERATIONS_VIEW_ALL);
   const [q, setQ] = useState('');
+  // most loads on the ledger are used up; the list opens on the ones that still hold raw wood
+  const [scope, setScope] = useState<'stock' | 'all'>('stock');
+  const inStock = useMemo(() => rows.filter((r) => r.cft > 0), [rows]);
   const shown = useMemo(() => {
     const k = q.toLowerCase();
-    return k ? rows.filter((r) => r.importCode.toLowerCase().includes(k) || r.woodType.toLowerCase().includes(k)) : rows;
-  }, [rows, q]);
+    const base = scope === 'stock' ? inStock : rows;
+    return k ? base.filter((r) => r.importCode.toLowerCase().includes(k) || r.woodType.toLowerCase().includes(k)) : base;
+  }, [rows, inStock, scope, q]);
   const paged = useClientPaging(shown);
   return (
     <TableCard
       empty={shown.length === 0}
       emptyText={q ? t('noMatches', { q }) : t('noStock')}
       pager={paged.pager}
-      toolbar={<TableTop title={t('rawByLoad')} count={shown.length} q={q} onQ={setQ} placeholder={t('searchLoads')} />}
+      toolbar={
+        <TableTop
+          title={t('rawByLoad')}
+          count={shown.length}
+          q={q}
+          onQ={setQ}
+          placeholder={t('searchLoads')}
+          filter={
+            <FilterChips
+              label={t('rawByLoad')}
+              value={scope}
+              onChange={setScope}
+              options={[
+                { value: 'stock', label: t('inStock'), count: inStock.length, quiet: true },
+                { value: 'all', label: t('all'), count: rows.length, quiet: true },
+              ]}
+            />
+          }
+        />
+      }
     >
       <Table className={gridTable}>
         <TableHeader>
@@ -280,7 +324,7 @@ function RawTab({ rows, onHistory }: { rows: RawStockRow[]; onHistory: (loadId: 
             const share = r.receivedCft > 0 ? Math.min(100, Math.max(0, (r.cft / r.receivedCft) * 100)) : 0;
             return (
               <TableRow key={r.importLoadId} className="hover:bg-muted">
-                <TableCell className="pl-4 font-medium">
+                <TableCell className="pl-4 font-semibold">
                   {canOpenAll ? (
                     <Link className="text-primary hover:underline" to={`/imports/${r.importLoadId}`}>
                       {r.importCode}
@@ -292,7 +336,7 @@ function RawTab({ rows, onHistory }: { rows: RawStockRow[]; onHistory: (loadId: 
                 </TableCell>
                 <TableCell className={wide}>{r.woodType}</TableCell>
                 <TableCell className={cn(wide, 'text-muted-foreground')}>{dateTime(r.arrivalAt)}</TableCell>
-                <TableCell className="min-w-40">
+                <TableCell className="min-w-40 max-md:min-w-28">
                   <div className="tabular-nums">
                     <span className="font-semibold">{num3(r.cft)}</span>
                     <span className="text-muted-foreground"> / {num3(r.receivedCft)}</span>
@@ -305,14 +349,14 @@ function RawTab({ rows, onHistory }: { rows: RawStockRow[]; onHistory: (loadId: 
                 <TableCell className="w-px pr-4 text-right">
                   <div className="flex justify-end gap-1">
                     {r.cft > 0 && (
-                      <Button asChild variant="outline" size="sm">
-                        <Link to={`/production/new?load=${r.importLoadId}`} aria-label={t('production')}>
+                      <Button asChild variant="outline" size="sm" className="max-md:size-8 max-md:px-0">
+                        <Link to={`/production/new?load=${r.importLoadId}`} aria-label={t('production')} title={t('production')}>
                           <ScissorsIcon />
                           <span className="max-md:sr-only">{t('production')}</span>
                         </Link>
                       </Button>
                     )}
-                    <Button variant="ghost" size="sm" onClick={() => onHistory(r.importLoadId)} aria-label={t('movements')}>
+                    <Button variant="ghost" size="sm" className="max-md:size-8 max-md:px-0" onClick={() => onHistory(r.importLoadId)} aria-label={t('movements')} title={t('movements')}>
                       <HistoryIcon />
                       <span className="max-md:sr-only">{t('movements')}</span>
                     </Button>
@@ -488,12 +532,12 @@ function MovementsTab({ loads, load, onLoad }: { loads: { id: string; code: stri
               <TableHead className={cn(wide, 'pl-4')}>{t('time')}</TableHead>
               <TableHead className="max-md:pl-4">{t('source')}</TableHead>
               <TableHead className={wide}>{t('importId')}</TableHead>
-              <TableHead className={wide}>{t('stockKind')}</TableHead>
-              <TableHead className={wide}>{t('size')}</TableHead>
+              <TableHead className="hidden lg:table-cell">{t('stockKind')}</TableHead>
+              <TableHead className="hidden lg:table-cell">{t('size')}</TableHead>
               <TableHead>{t('direction')}</TableHead>
-              <TableHead className={cn(numCell, wide)}>{t('pieces')}</TableHead>
+              <TableHead className={cn(numCell, 'hidden lg:table-cell')}>{t('pieces')}</TableHead>
               <TableHead className={cn(numCell, 'max-md:pr-4')}>CFT</TableHead>
-              <TableHead className={cn(wide, 'pr-4')}>{t('user')}</TableHead>
+              <TableHead className="hidden pr-4 xl:table-cell">{t('user')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -527,16 +571,16 @@ function MovementsTab({ loads, load, onLoad }: { loads: { id: string; code: stri
                     </div>
                   </TableCell>
                   <TableCell className={wide}>{m.importCode}</TableCell>
-                  <TableCell className={wide}>
+                  <TableCell className="hidden lg:table-cell">
                     {t(m.kind === 'RAW' ? 'raw' : 'finished')} · {m.woodType}
                   </TableCell>
-                  <TableCell className={wide}>{sizeOf(m)}</TableCell>
+                  <TableCell className="hidden lg:table-cell">{sizeOf(m)}</TableCell>
                   <TableCell>
                     <Direction delta={m.cftDelta} />
                   </TableCell>
-                  <TableCell className={cn(numCell, wide, deltaClass(m.piecesDelta))}>{m.piecesDelta ? signed(m.piecesDelta) : '—'}</TableCell>
+                  <TableCell className={cn(numCell, 'hidden lg:table-cell', deltaClass(m.piecesDelta))}>{m.piecesDelta ? signed(m.piecesDelta) : '—'}</TableCell>
                   <TableCell className={cn(numCell, 'max-md:pr-4', deltaClass(m.cftDelta))}>{signed(m.cftDelta, num3)}</TableCell>
-                  <TableCell className={cn(wide, 'max-w-36 truncate pr-4')}>{m.postedByName}</TableCell>
+                  <TableCell className="hidden max-w-36 truncate pr-4 xl:table-cell">{m.postedByName}</TableCell>
                 </TableRow>
               );
             })}
@@ -659,14 +703,7 @@ function AdjustmentsTab({
       {/* what an adjustment is and when it takes effect: stock moves only on approval */}
       <Card className="gap-3 py-5">
         <CardContent className="px-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-[0.9375rem] font-semibold">{t('adjHowTitle')}</h2>
-            {!form && (
-              <Button size="sm" onClick={() => setForm(emptyAdj())}>
-                <PlusIcon /> {t('newAdjustment')}
-              </Button>
-            )}
-          </div>
+          <h2 className="text-[0.9375rem] font-semibold">{t('adjHowTitle')}</h2>
           <ol className="mt-4 grid gap-4 sm:grid-cols-3">
             {(
               [
@@ -835,9 +872,9 @@ function AdjustmentsTab({
                 <TableHead className={wide}>{t('importId')}</TableHead>
                 <TableHead className={wide}>{t('size')}</TableHead>
                 <TableHead className={numCell}>{t('change')}</TableHead>
-                <TableHead className={wide}>{t('reason')}</TableHead>
+                <TableHead className="hidden xl:table-cell">{t('reason')}</TableHead>
                 <TableHead className="hidden sm:table-cell max-md:pr-4">{t('status')}</TableHead>
-                {isOwner && <TableHead className={cn(wide, 'pr-4')}>{t('createdBy')}</TableHead>}
+                {isOwner && <TableHead className="hidden pr-4 xl:table-cell">{t('createdBy')}</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -864,19 +901,19 @@ function AdjustmentsTab({
                           <span className={deltaClass(a.cftDelta)}>{changeText(a)}</span>
                         </div>
                       </TableCell>
-                      <TableCell className={cn(wide, 'max-w-56 truncate')} title={a.reason}>
+                      <TableCell className="hidden max-w-56 truncate xl:table-cell" title={a.reason}>
                         {a.reason}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell max-md:pr-4">
                         <StatusBadge status={a.status} />
                       </TableCell>
-                      {isOwner && <TableCell className={cn(wide, 'pr-4')}>{a.createdByName}</TableCell>}
+                      {isOwner && <TableCell className="hidden pr-4 xl:table-cell">{a.createdByName}</TableCell>}
                     </TableRow>
                     {expanded && (
                       <TableRow className="hover:bg-transparent">
                         <TableCell colSpan={cols} className="bg-muted/30 px-4 py-3 whitespace-normal">
                           <div className="flex flex-col gap-2">
-                            <p className="text-sm text-muted-foreground md:hidden">
+                            <p className="text-sm text-muted-foreground xl:hidden">
                               {a.importCode} · {sizeOf(a)} · {a.reason}
                             </p>
                             {a.rejectionReason && a.status === 'REJECTED' && (

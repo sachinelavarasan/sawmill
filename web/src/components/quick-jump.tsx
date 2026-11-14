@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { useI18n } from '../i18n';
-import { NAV_ITEMS } from '../nav';
+import { NAV_ITEMS, navVisible } from '../nav';
 import { StatusBadge } from './status-badge';
 
 interface Hit {
@@ -77,7 +77,7 @@ export function QuickJump() {
 
   const needle = text.trim().toLowerCase();
   const pages = useMemo(
-    () => NAV_ITEMS.filter((n) => can(n.permission)).filter((n) => !needle || t(n.labelKey).toLowerCase().includes(needle)),
+    () => NAV_ITEMS.filter((n) => navVisible(n, can)).filter((n) => !needle || t(n.labelKey).toLowerCase().includes(needle)),
     [can, t, needle],
   );
   const actions = useMemo(

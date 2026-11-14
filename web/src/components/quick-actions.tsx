@@ -16,7 +16,7 @@ export function QuickActions() {
     { to: '/exports/new', label: t('newExport'), icon: <ArrowUpFromLineIcon /> },
   ];
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 print:hidden">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 print:hidden">
       {actions.map((a) => (
         <Link
           key={a.to}

@@ -8,13 +8,13 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { ChartCard, ColumnChart } from '../components/charts';
 import { num3, useLoad } from '../components/common';
-import { LinkRow, LoadState, numCell, Page, PageHeader, Section, TableCard, wide } from '../components/page';
+import { LinkRow, LoadState, numCell, Page, PageHeader, Section, Stat, TableCard, wide } from '../components/page';
 import { QuickActions } from '../components/quick-actions';
 import { StatusBadge } from '../components/status-badge';
 import { type TKey, useI18n } from '../i18n';
 import type { ExportSummary } from './Exports';
 import type { ImportSummary } from './Imports';
-import { Panel, shortDay, TodayFigure } from './OwnerDashboard';
+import { Panel, shortDay } from './OwnerDashboard';
 import type { ProductionSummary } from './Production';
 
 interface AccountantDashboardData {
@@ -84,6 +84,7 @@ export function AccountantDashboard() {
   const open = data?.measurementProgress ?? [];
   const locale = lang === 'ta' ? 'ta-IN' : 'en-IN';
   const now = new Date();
+  const today = now.toLocaleDateString(locale, { day: 'numeric', month: 'long' });
   const refreshing = loading || charts.loading || entries.loading;
   const refresh = () => {
     reload();
@@ -128,38 +129,45 @@ export function AccountantDashboard() {
 
       {k && (
         <>
-          <div className="grid gap-4 lg:grid-cols-5">
-            <Panel className="lg:col-span-2" title={t('today')} tools={<span className="text-sm text-muted-foreground">{now.toLocaleDateString(locale, { day: 'numeric', month: 'long' })}</span>}>
-              <div className="flex flex-1 gap-3">
-                <TodayFigure to="/imports" icon={<ArrowDownToLineIcon />} label={t('todayImports')} value={k.todayImports} />
-                <TodayFigure to="/exports" icon={<ArrowUpFromLineIcon />} label={t('todayExports')} value={k.todayExports} />
-              </div>
-            </Panel>
+          {/* today's two counts beside where every entry stands (the same frame as the owner's dashboard) */}
+          <div className="grid gap-3 sm:gap-4 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-1">
+              <Stat to="/imports" icon={<ArrowDownToLineIcon />} label={t('todayImports')} value={k.todayImports.toLocaleString('en-IN')} hint={today} />
+              <Stat to="/exports" icon={<ArrowUpFromLineIcon />} label={t('todayExports')} value={k.todayExports.toLocaleString('en-IN')} hint={today} />
+            </div>
 
-            <Panel className="lg:col-span-3" title={t('entryStatus')} tools={<span className="text-sm text-muted-foreground tabular-nums">{totalEntries}</span>}>
+            <Panel
+              className="lg:col-span-3"
+              title={t('entryStatus')}
+              tools={
+                <span className="text-sm text-muted-foreground">
+                  {t('total')} <span className="font-semibold text-foreground tabular-nums">{totalEntries}</span>
+                </span>
+              }
+            >
               {/* one bar split by status: how much of the work is through approval */}
-              <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-muted" role="img" aria-label={statuses.map((s) => `${s.label}: ${s.n}`).join(', ')}>
+              <div className="flex h-2 gap-0.5 overflow-hidden rounded-full bg-muted" role="img" aria-label={statuses.map((s) => `${s.label}: ${s.n}`).join(', ')}>
                 {statuses
                   .filter((s) => s.n > 0)
                   .map((s) => (
                     <span key={s.label} className={cn('min-w-1.5', s.bar)} style={{ flexGrow: s.n }} />
                   ))}
               </div>
-              <dl className="mt-5 grid flex-1 grid-cols-2 content-center gap-x-4 gap-y-4 sm:grid-cols-4">
+              <dl className="mt-4 grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
                 {statuses.map((s) => (
-                  <div key={s.label} className="min-w-0">
-                    <dt className="flex items-center gap-1.5 text-[0.8125rem] text-muted-foreground">
-                      <span className={cn('size-2 shrink-0 rounded-full', s.bar)} aria-hidden />
-                      <span className="truncate">{s.label}</span>
+                  <div key={s.label} className="flex min-w-0 flex-col justify-center gap-2.5 rounded-lg bg-muted/60 p-3.5">
+                    <dt className="flex items-start gap-2 text-[0.8125rem] leading-snug font-medium text-muted-foreground">
+                      <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', s.bar)} aria-hidden />
+                      {s.label}
                     </dt>
-                    <dd className={cn('mt-1 text-2xl leading-tight font-bold tabular-nums', s.n > 0 && s.text)}>{s.n}</dd>
+                    <dd className={cn('text-2xl leading-none font-bold tracking-[-0.02em] tabular-nums sm:text-[1.7rem]', s.n > 0 && s.text)}>{s.n}</dd>
                   </div>
                 ))}
               </dl>
             </Panel>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-5">
+          <div className="grid gap-3 sm:gap-4 lg:grid-cols-5">
             {/* loads still open: drafts to keep measuring, rejected ones to fix */}
             <Panel
               className="lg:col-span-3"
@@ -222,11 +230,18 @@ export function AccountantDashboard() {
             </ChartCard>
           </div>
 
-          <Section title={t('recentEntries')}>
+          <Section
+            title={t('recentEntries')}
+            tools={
+              <Button asChild size="sm" variant="outline">
+                <Link to="/my-entries">{t('viewAll')}</Link>
+              </Button>
+            }
+          >
             <TableCard empty={(entries.data ?? []).length === 0} emptyText={entries.error ?? (entries.loading ? t('loading') : t('noData'))} busy={entries.loading && !!entries.data}>
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted/50">
+                  <TableRow>
                     <TableHead className="pl-4">ID</TableHead>
                     <TableHead className={wide}>{t('type')}</TableHead>
                     <TableHead className={wide}>{t('woodType')}</TableHead>

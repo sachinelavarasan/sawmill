@@ -1,6 +1,6 @@
-import { ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, LogOutIcon, MenuIcon, MoonIcon, SunIcon } from 'lucide-react';
+import { ChevronRightIcon, LogOutIcon, MenuIcon, MoonIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, SunIcon } from 'lucide-react';
 import { Permission } from '@sawmill/shared';
-import { ReactNode, useCallback, useEffect, useState } from 'react';
+import { Fragment, ReactNode, useCallback, useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { Lang, useI18n } from '../i18n';
-import { NAV_ITEMS } from '../nav';
+import { NAV_GROUPS, NAV_ITEMS, navVisible } from '../nav';
 import { LogoMark } from './brand';
 import { QuickJump } from './quick-jump';
 import { useTheme } from '../theme';
@@ -49,7 +49,7 @@ function useSidebarCollapsed() {
   return { collapsed, toggle };
 }
 
-/** The app frame: collapsible dark sidebar (a slide-in sheet on phones) + a glass top bar + page. */
+/** The app frame: collapsible dark-slate sidebar (a slide-in sheet on phones) + a white top bar + page. */
 export function Layout({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -60,10 +60,10 @@ export function Layout({ children }: { children: ReactNode }) {
       <aside
         className={cn(
           'sticky top-0 hidden h-svh shrink-0 bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-out lg:block print:hidden',
-          collapsed ? 'w-[4.75rem]' : 'w-[17rem]',
+          collapsed ? 'w-[4.25rem]' : 'w-[15.625rem]',
         )}
       >
-        <SidebarNav collapsed={collapsed} onToggle={toggle} />
+        <SidebarNav collapsed={collapsed} />
       </aside>
 
       <Sheet open={open} onOpenChange={setOpen}>
@@ -75,9 +75,20 @@ export function Layout({ children }: { children: ReactNode }) {
       </Sheet>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-border/60 bg-background/75 px-4 backdrop-blur-xl backdrop-saturate-150 sm:px-6 lg:px-8 print:hidden">
-          <Button variant="outline" size="icon" className="lg:hidden" aria-label={t('menu')} onClick={() => setOpen(true)}>
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b bg-card px-4 sm:px-6 print:hidden">
+          <Button variant="ghost" size="icon" className="lg:hidden" aria-label={t('menu')} onClick={() => setOpen(true)}>
             <MenuIcon />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="-ml-2 text-muted-foreground max-lg:hidden"
+            aria-label={collapsed ? t('expandMenu') : t('collapseMenu')}
+            aria-expanded={!collapsed}
+            title={collapsed ? t('expandMenu') : t('collapseMenu')}
+            onClick={toggle}
+          >
+            {collapsed ? <PanelLeftOpenIcon /> : <PanelLeftCloseIcon />}
           </Button>
           <Crumbs />
           <div className="flex-1" />
@@ -86,7 +97,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <LangToggle />
           <UserMenu />
         </header>
-        <main className="flex-1 px-4 pt-5 pb-10 sm:px-6 sm:pt-7 lg:px-8 print:p-0">{children}</main>
+        <main className="flex-1 px-4 pt-5 pb-10 sm:px-6 sm:pt-6 print:p-0">{children}</main>
       </div>
     </div>
   );
@@ -140,13 +151,13 @@ function usePendingApprovals() {
   return n;
 }
 
-function SidebarNav({ onNavigate, collapsed = false, onToggle }: { onNavigate?: () => void; collapsed?: boolean; onToggle?: () => void }) {
+function SidebarNav({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
   const { user, can } = useAuth();
   const pending = usePendingApprovals();
   const { t } = useI18n();
   const { pathname } = useLocation();
-  const items = NAV_ITEMS.filter((n) => can(n.permission));
-  const isOwner = user?.role === 'OWNER';
+  const items = NAV_ITEMS.filter((n) => navVisible(n, can));
+  const groups = NAV_GROUPS.map((g) => ({ ...g, items: items.filter((n) => n.group === g.id) })).filter((g) => g.items.length > 0);
 
   const link = (n: (typeof items)[number]) => {
     const label = t(n.labelKey);
@@ -162,9 +173,9 @@ function SidebarNav({ onNavigate, collapsed = false, onToggle }: { onNavigate?: 
         onClick={onNavigate}
         aria-label={collapsed ? (badge ? `${label} (${badge})` : label) : undefined}
         className={cn(
-          'relative flex shrink-0 items-center rounded-lg text-sm transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-accent',
-          collapsed ? 'size-11 justify-center' : 'min-h-11 gap-3 px-3 lg:min-h-10',
-          isActive ? 'bg-sidebar-active font-semibold text-white' : 'font-medium text-sidebar-muted hover:bg-white/[0.06] hover:text-white',
+          'relative flex shrink-0 items-center rounded-lg text-[0.8125rem] transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-accent',
+          collapsed ? 'size-10 justify-center' : 'min-h-11 gap-3 px-3 lg:min-h-9',
+          isActive ? 'bg-sidebar-active font-semibold text-white' : 'font-medium text-sidebar-muted hover:bg-white/[0.07] hover:text-white',
         )}
       >
         {/* the marker of the open page */}
@@ -173,16 +184,16 @@ function SidebarNav({ onNavigate, collapsed = false, onToggle }: { onNavigate?: 
           className={cn(
             'absolute top-1/2 left-0 h-5 w-[3px] -translate-x-3 -translate-y-1/2 rounded-full bg-sidebar-accent',
             !isActive && 'hidden',
-            collapsed && '-translate-x-4',
+            collapsed && '-translate-x-3.5',
           )}
         />
         <n.icon className={cn('size-[1.125rem] shrink-0', isActive && 'text-sidebar-accent')} strokeWidth={1.75} />
         {!collapsed && <span className="flex-1 truncate">{label}</span>}
         {badge &&
           (collapsed ? (
-            <span className="absolute top-2 right-2 size-2.5 rounded-full border-2 border-sidebar bg-sidebar-accent" aria-hidden="true" />
+            <span className="absolute top-1.5 right-1.5 size-2.5 rounded-full border-2 border-sidebar bg-sidebar-accent" aria-hidden="true" />
           ) : (
-            <span className="min-w-5 rounded-full bg-sidebar-accent px-1.5 text-center text-xs leading-5 font-bold text-hero tabular-nums">{badge}</span>
+            <span className="min-w-5 rounded-full bg-sidebar-accent px-1.5 text-center text-xs leading-5 font-bold text-brand-foreground tabular-nums">{badge}</span>
           ))}
       </NavLink>
     );
@@ -197,13 +208,10 @@ function SidebarNav({ onNavigate, collapsed = false, onToggle }: { onNavigate?: 
     );
   };
 
-  const ToggleIcon = collapsed ? ChevronsRightIcon : ChevronsLeftIcon;
-  const toggleLabel = collapsed ? t('expandMenu') : t('collapseMenu');
-
   return (
     <TooltipProvider delayDuration={150}>
       <div className="flex h-full flex-col">
-        <div className={cn('flex h-16 shrink-0 items-center gap-3', collapsed ? 'justify-center' : 'px-5')}>
+        <div className={cn('flex h-16 shrink-0 items-center gap-3 border-b border-white/10', collapsed ? 'justify-center' : 'px-4')}>
           <LogoMark />
           {!collapsed && (
             <div className="min-w-0 leading-tight">
@@ -213,35 +221,19 @@ function SidebarNav({ onNavigate, collapsed = false, onToggle }: { onNavigate?: 
           )}
         </div>
 
-        <nav aria-label={t('menu')} className={cn('scroll-quiet flex flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto px-3 py-2', collapsed && 'items-center')}>
-          {items.filter((n) => n.section === 'main').map(link)}
-          {isOwner &&
-            (collapsed ? (
-              <div className="my-2 w-8 shrink-0 border-t border-white/10" />
-            ) : (
-              <div className="px-3 pt-5 pb-1.5 text-[0.6875rem] font-semibold tracking-wider text-sidebar-muted uppercase">{t('ownerOnly')}</div>
-            ))}
-          {items.filter((n) => n.section === 'owner').map(link)}
-        </nav>
-
-        {onToggle && (
-          <div className={cn('flex shrink-0 border-t border-white/10 p-3', collapsed && 'justify-center')}>
-            <button
-              type="button"
-              onClick={onToggle}
-              aria-label={toggleLabel}
-              aria-expanded={!collapsed}
-              title={collapsed ? toggleLabel : undefined}
-              className={cn(
-                'flex items-center rounded-lg text-sm font-medium text-sidebar-muted transition-colors outline-none hover:bg-white/[0.06] hover:text-white focus-visible:ring-2 focus-visible:ring-sidebar-accent',
-                collapsed ? 'size-11 justify-center' : 'min-h-10 w-full gap-3 px-3',
+        <nav aria-label={t('menu')} className={cn('scroll-quiet flex flex-1 flex-col gap-0.5 overflow-x-hidden overflow-y-auto px-3 py-3', collapsed && 'items-center')}>
+          {groups.map((g, i) => (
+            <Fragment key={g.id}>
+              {/* a group heading; in the icon rail (and for groups without a name) a hairline instead */}
+              {g.labelKey && !collapsed ? (
+                <div className="shrink-0 truncate px-3 pt-4 pb-1.5 text-[0.6875rem] font-semibold tracking-wider text-sidebar-muted/70 uppercase">{t(g.labelKey)}</div>
+              ) : (
+                i > 0 && <div className={cn('my-2 shrink-0 border-t border-white/10', collapsed ? 'w-8' : 'mx-3')} />
               )}
-            >
-              <ToggleIcon className="size-[1.125rem] shrink-0" strokeWidth={1.75} />
-              {!collapsed && <span>{toggleLabel}</span>}
-            </button>
-          </div>
-        )}
+              {g.items.map(link)}
+            </Fragment>
+          ))}
+        </nav>
       </div>
     </TooltipProvider>
   );

@@ -20,8 +20,8 @@ export interface Column<T> {
   sort?: (row: T) => string | number | null | undefined;
   /** Right-aligned with tabular figures. */
   numeric?: boolean;
-  /** Hide below this breakpoint (the first column usually repeats the detail on phones). */
-  from?: 'sm' | 'md';
+  /** Hide below this breakpoint (the first column usually repeats the detail on phones). The sidebar takes 250px, so secondary columns want `lg` or `xl`. */
+  from?: 'sm' | 'md' | 'lg' | 'xl';
   /** Extra classes for the body cells / the header cell. */
   className?: string;
   headClassName?: string;
@@ -33,11 +33,11 @@ const features = tableFeatures({
   sortFns: { alphanumeric: sortFn_alphanumeric, basic: sortFn_basic },
 });
 
-const FROM = { sm: 'hidden sm:table-cell', md: 'hidden md:table-cell' } as const;
+const FROM = { sm: 'hidden sm:table-cell', md: 'hidden md:table-cell', lg: 'hidden lg:table-cell', xl: 'hidden xl:table-cell' } as const;
 const EMPTY: never[] = [];
 /** Spreadsheet look for a Table: sentence-case headers and a hairline between columns. */
 export const gridTable =
-  '[&_td]:border-r [&_td]:border-border/70 [&_td]:py-3 [&_td:last-child]:border-r-0 [&_th]:h-11 [&_th]:border-r [&_th]:border-border/70 [&_th]:text-[0.8125rem] [&_th]:font-medium [&_th]:tracking-normal [&_th]:text-foreground [&_th]:normal-case [&_th:last-child]:border-r-0';
+  '[&_td]:border-r [&_td]:border-border/70 [&_td:last-child]:border-r-0 [&_th]:h-11 [&_th]:border-r [&_th]:border-border/70 [&_th]:text-[0.8125rem] [&_th]:font-medium [&_th]:tracking-normal [&_th]:text-foreground [&_th]:normal-case [&_th:last-child]:border-r-0';
 /** The open row: an opaque tint so it can sit above a panel's backdrop (z-50) without the dimming showing through, and a bar on its left edge. */
 const SELECTED = 'relative z-[55] bg-primary-soft hover:bg-primary-soft data-[state=selected]:bg-primary-soft [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-primary)]';
 

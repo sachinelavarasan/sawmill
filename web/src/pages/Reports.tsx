@@ -242,7 +242,7 @@ export function ReportsPage() {
               </Select>
             )}
             {info?.statusFilter && (
-              <ToggleGroup type="single" variant="outline" value={status} onValueChange={(v) => v && update({ status: v })} className="bg-card">
+              <ToggleGroup type="single" variant="outline" value={status} onValueChange={(v) => v && update({ status: v })} className="bg-card max-sm:w-full max-sm:[&>button]:h-auto max-sm:[&>button]:min-h-10 max-sm:[&>button]:flex-1 max-sm:[&>button]:py-1.5 max-sm:[&>button]:whitespace-normal">
                 <ToggleGroupItem value="APPROVED" className="px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
                   {t('approvedOnly')}
                 </ToggleGroupItem>
@@ -271,7 +271,7 @@ export function ReportsPage() {
 
           {/* the report as it prints: a letterhead, then the table */}
           <article className={cn('overflow-hidden rounded-xl bg-card shadow-card transition-opacity print:overflow-visible print:rounded-none print:shadow-none', report.loading && 'opacity-60')}>
-            <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b border-border/70 px-5 py-5 print:px-0 print:pt-0">
+            <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b border-border/70 px-5 py-5 print:border-b-2 print:border-foreground print:px-0 print:pt-0 print:pb-3">
               <div className="min-w-0">
                 <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{r.millName}</div>
                 <h2 className="mt-1 text-xl leading-tight font-bold tracking-tight">{r.title}</h2>
@@ -297,7 +297,7 @@ export function ReportsPage() {
             </header>
 
             <TableCard empty={r.rows.length === 0} emptyText={t('noRows')} pager={paged.pager} className="rounded-none shadow-none print:border-0">
-              <Table className="print:text-[11px]">
+              <Table className="print:text-[10px]">
                 <TableHeader>
                   <TableRow>
                     {r.columns.map((c, i) => (
@@ -318,7 +318,9 @@ export function ReportsPage() {
                           <TableCell
                             key={c.key}
                             className={cn(
-                              'py-2.5',
+                              'py-2.5 print:py-1.5',
+                              // on paper only long text (notes, names) may wrap; see the print rules in index.css
+                              c.type === 'text' && String(row[c.key] ?? '').length > 18 && 'print-wrap',
                               NUMERIC.includes(c.type) && 'text-right tabular-nums',
                               (c.type === 'date' || c.type === 'datetime') && 'text-muted-foreground tabular-nums',
                               i === 0 && 'pl-5 font-medium print:pl-0',
@@ -346,7 +348,10 @@ export function ReportsPage() {
                 )}
               </Table>
             </TableCard>
-            <footer className="hidden pt-3 text-xs text-muted-foreground print:block">SAWMILL PRO</footer>
+            <footer className="hidden justify-between pt-3 text-[10px] text-muted-foreground print:flex">
+              <span>SAWMILL PRO · {r.millName}</span>
+              <span className="tabular-nums">{dateTime(r.generatedAt)}</span>
+            </footer>
           </article>
         </>
       )}

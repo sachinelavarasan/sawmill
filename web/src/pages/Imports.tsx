@@ -10,7 +10,7 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { money, num3, useLoad } from '../components/common';
 import { DataTable } from '../components/data-table';
-import { ListEmpty, ListToolbar, openColumn, PageSum, useRecordList, type ListColumn } from '../components/record-list';
+import { ListEmpty, ListToolbar, openColumn, PageSum, StatusCards, useRecordList, type ListColumn } from '../components/record-list';
 import { StatusBadge } from '../components/status-badge';
 import { useToast } from '../components/toast';
 import { Field, FormActions, FormCard, FormSection, LoadState, Notice, Page, PageHeader } from '../components/page';
@@ -73,6 +73,8 @@ export const importFormBody = (f: ImportForm) => JSON.stringify({ ...f, arrivalA
 
 
 const arrivalAt = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+const arrivalDay = (iso: string) => new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+const arrivalTime = (iso: string) => new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
 
 /** `/imports` lists every load; `/measurement` (openOnly) lists the ones still being measured. */
 export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
@@ -91,29 +93,39 @@ export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
         header: t('importId'),
         cell: (l) => (
           <>
-            <Link className="font-medium text-foreground hover:underline" to={`/imports/${l.id}`}>
+            <Link className="font-semibold text-primary hover:underline" to={`/imports/${l.id}`}>
               {l.code}
             </Link>
-            <div className="mt-0.5 text-xs text-muted-foreground md:hidden">
+            <div className="mt-0.5 text-xs whitespace-normal text-muted-foreground md:hidden">
               {l.lorryNumber} · {l.woodType} · {arrivalAt(l.arrivalAt)}
             </div>
           </>
         ),
       },
-      { id: 'arrival', label: t('arrival'), header: t('arrival'), from: 'md', cell: (l) => arrivalAt(l.arrivalAt) },
-      { id: 'lorry', label: t('lorry'), header: t('lorry'), from: 'md', cell: (l) => l.lorryNumber },
-      { id: 'driver', label: t('driverName'), header: t('driverName'), from: 'md', className: 'max-w-40 truncate', cell: (l) => l.driverName ?? '—' },
+      {
+        id: 'arrival',
+        label: t('arrival'),
+        header: t('arrival'),
+        from: 'md',
+        cell: (l) => (
+          <>
+            {arrivalDay(l.arrivalAt)} <span className="ml-1 text-xs text-muted-foreground">{arrivalTime(l.arrivalAt)}</span>
+          </>
+        ),
+      },
+      { id: 'lorry', label: t('lorry'), header: t('lorry'), from: 'md', className: 'font-medium', cell: (l) => l.lorryNumber },
+      { id: 'driver', label: t('driverName'), header: t('driverName'), from: 'xl', className: 'max-w-40 truncate', cell: (l) => l.driverName ?? '—' },
     ];
     // the supplier belongs to the purchase record, which only the owner sees
-    if (isOwner) cols.push({ id: 'supplier', label: t('supplier'), header: t('supplier'), from: 'md', className: 'max-w-40 truncate', cell: (l) => l.supplierName ?? '—' });
+    if (isOwner) cols.push({ id: 'supplier', label: t('supplier'), header: t('supplier'), from: 'xl', className: 'max-w-40 truncate', cell: (l) => l.supplierName ?? '—' });
     cols.push(
-      { id: 'origin', label: t('originLocation'), header: t('originLocation'), from: 'md', className: 'max-w-48 truncate', cell: (l) => l.originLocation ?? '—' },
-      { id: 'wood', label: t('woodType'), header: t('woodType'), from: 'md', cell: (l) => l.woodType },
-      { id: 'logs', label: t('logs'), header: t('logs'), from: 'md', numeric: true, cell: (l) => l.totalLogs },
-      { id: 'cft', header: t('totalCft'), numeric: true, cell: (l) => num3(l.totalCft) },
+      { id: 'origin', label: t('originLocation'), header: t('originLocation'), from: 'xl', className: 'max-w-48 truncate', cell: (l) => l.originLocation ?? '—' },
+      { id: 'wood', label: t('woodType'), header: t('woodType'), from: 'lg', cell: (l) => l.woodType },
+      { id: 'logs', label: t('logs'), header: t('logs'), from: 'lg', numeric: true, cell: (l) => l.totalLogs },
+      { id: 'cft', header: t('totalCft'), numeric: true, className: 'font-semibold', cell: (l) => num3(l.totalCft) },
       { id: 'status', header: t('status'), cell: (l) => <StatusBadge status={l.status} /> },
     );
-    if (isOwner) cols.push({ id: 'by', label: t('createdBy'), header: t('createdBy'), from: 'md', className: 'max-w-32 truncate', cell: (l) => l.createdByName });
+    if (isOwner) cols.push({ id: 'by', label: t('createdBy'), header: t('createdBy'), from: 'xl', className: 'max-w-32 truncate', cell: (l) => l.createdByName });
     cols.push(
       openOnly
         ? {
@@ -152,6 +164,8 @@ export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
           </Button>
         }
       />
+
+      {!openOnly && <StatusCards list={list} totalLabel={t('totalImportLoads')} />}
 
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
 

@@ -40,7 +40,7 @@ export function PeriodPicker({ value, onChange, className }: { value: PeriodValu
           </Button>
         ))}
       </div>
-      <div className="flex h-9 items-center gap-1.5 rounded-lg border bg-card pr-2 pl-3 shadow-xs sm:ml-auto transition-colors hover:border-foreground/25 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+      <div className="flex h-9 items-center gap-1.5 rounded-lg border border-input bg-card pr-2 pl-3 sm:ml-auto transition-colors hover:border-foreground/25 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
         <CalendarRangeIcon className="size-4 text-muted-foreground" />
         <Input
           type="date"

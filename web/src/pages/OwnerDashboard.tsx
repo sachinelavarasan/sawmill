@@ -1,7 +1,9 @@
 import { Permission } from '@sawmill/shared';
 import {
   ActivityIcon,
+  ArrowDownLeftIcon,
   ArrowDownToLineIcon,
+  ArrowUpRightIcon,
   ArrowUpFromLineIcon,
   CalendarDaysIcon,
   CheckCircle2Icon,
@@ -40,6 +42,7 @@ import { periodQuery, presets } from '../components/period';
 import { QuickActions } from '../components/quick-actions';
 import { useI18n } from '../i18n';
 import { type ApprovalItem, type ApprovalQueue, KINDS, PAGE_PATH } from './Approvals';
+import { ACTIONS, ENTITIES, recordName } from './AuditLog';
 
 interface OwnerDashboardData {
   kpis: {
@@ -85,7 +88,7 @@ interface OwnerCharts {
 export const shortDay = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 const shortMonth = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
 /** How many waiting records the dashboard previews before sending the owner to the full queue. */
-const QUEUE_PREVIEW = 3;
+const QUEUE_PREVIEW = 4;
 const kindKey = Object.fromEntries(KINDS);
 /** The one CFT figure that sums a waiting record up. */
 const queueCft = (i: ApprovalItem) => (i.type === 'PRODUCTION' ? i.outputCft : i.type === 'ADJUSTMENT' ? i.cftDelta : i.totalCft);
@@ -98,6 +101,9 @@ interface AuditRow {
   id: string;
   action: string;
   entityType: string;
+  entityId: string | null;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
   createdAt: string;
   user: { name: string } | null;
 }
@@ -105,6 +111,8 @@ interface AuditRow {
 const ACTIVITY_PREVIEW = 5;
 /** Sign-ins and token housekeeping are in the audit log, but they aren't mill activity. */
 const SESSION_NOISE = /^(LOGIN|LOGOUT|REFRESH)/;
+/** How far back to look for them: the most the API gives at once, since sign-ins can crowd a short page out. */
+const ACTIVITY_SCAN = 200;
 const ACTION_ICON: Record<string, LucideIcon> = {
   CREATE: PlusIcon,
   UPDATE: PencilIcon,
@@ -116,7 +124,7 @@ const ACTION_ICON: Record<string, LucideIcon> = {
   DOWNLOAD_REPORT: FileDownIcon,
   RESET_PASSWORD: LogInIcon,
 };
-/** 'OWNER_EDIT' → 'Owner edit', 'ImportLoad' → 'Import load' */
+/** For codes the app has no words for: 'OWNER_EDIT' → 'Owner edit', 'ImportLoad' → 'Import load' */
 const readable = (code: string) => {
   const words = code.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ').toLowerCase();
   return words.charAt(0).toUpperCase() + words.slice(1);
@@ -137,22 +145,6 @@ export function Panel({ title, tools, children, className, flush }: { title: Rea
   );
 }
 
-/** One of today's counts: a quiet tile with an icon, a label and a large number. */
-export function TodayFigure({ icon, label, value, to }: { icon: ReactNode; label: string; value: number; to: string }) {
-  return (
-    <Link
-      to={to}
-      className="flex min-w-0 flex-1 flex-col justify-center gap-3 rounded-lg bg-muted/60 p-4 transition-colors duration-200 outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50"
-    >
-      <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground [&_svg]:size-4 [&_svg]:shrink-0">
-        {icon}
-        {label}
-      </span>
-      <span className="text-3xl leading-none font-bold tracking-[-0.02em] tabular-nums">{value}</span>
-    </Link>
-  );
-}
-
 export function OwnerDashboard() {
   const { t, lang } = useI18n();
   const { user, can } = useAuth();
@@ -160,7 +152,7 @@ export function OwnerDashboard() {
   const charts = useLoad(() => api<OwnerCharts>('/dashboard/owner/charts'));
   const queue = useLoad(() => api<ApprovalQueue>('/approvals'));
   const canAudit = can(Permission.AUDIT_VIEW);
-  const audit = useLoad(() => (canAudit ? api<{ items: AuditRow[] }>('/audit-logs?take=40') : Promise.resolve(null)), [canAudit]);
+  const audit = useLoad(() => (canAudit ? api<{ items: AuditRow[] }>(`/audit-logs?take=${ACTIVITY_SCAN}`) : Promise.resolve(null)), [canAudit]);
   const canFinance = can(Permission.FINANCE_VIEW);
   const yearQuery = periodQuery(presets().thisYear);
   const accounts = useLoad(() => (canFinance ? api<AccountsSummary>(`/accounts/summary?${yearQuery}`) : Promise.resolve(null)), [canFinance, yearQuery]);
@@ -172,6 +164,7 @@ export function OwnerDashboard() {
 
   const locale = lang === 'ta' ? 'ta-IN' : 'en-IN';
   const now = new Date();
+  const today = now.toLocaleDateString(locale, { day: 'numeric', month: 'long' });
   const refreshing = loading || charts.loading || queue.loading || audit.loading || accounts.loading;
   const refresh = () => {
     reload();
@@ -251,17 +244,11 @@ export function OwnerDashboard() {
           </StatGrid>
 
           {/* today, and what is waiting for the owner */}
-          <div className="grid gap-4 lg:grid-cols-5">
-            <Panel
-              className="lg:col-span-2"
-              title={t('today')}
-              tools={<span className="text-sm text-muted-foreground">{now.toLocaleDateString(locale, { day: 'numeric', month: 'long' })}</span>}
-            >
-              <div className="flex flex-1 gap-3">
-                <TodayFigure to="/imports" icon={<ArrowDownToLineIcon />} label={t('todayImports')} value={k.todayImports} />
-                <TodayFigure to="/exports" icon={<ArrowUpFromLineIcon />} label={t('todayExports')} value={k.todayExports} />
-              </div>
-            </Panel>
+          <div className="grid gap-3 sm:gap-4 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-1">
+              <Stat to="/imports" icon={<ArrowDownToLineIcon />} label={t('todayImports')} value={k.todayImports.toLocaleString('en-IN')} hint={today} />
+              <Stat to="/exports" icon={<ArrowUpFromLineIcon />} label={t('todayExports')} value={k.todayExports.toLocaleString('en-IN')} hint={today} />
+            </div>
 
             <Panel
               className="lg:col-span-3"
@@ -353,25 +340,26 @@ export function OwnerDashboard() {
                 hint={thisMonth(month && month.sales - month.expenses)}
               />
               <Link to="/accounts" className="group/stat min-w-0 rounded-xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
-                <Card className="h-full gap-3 py-5 transition-shadow duration-200 group-hover/stat:shadow-lift">
-                  <CardHeader className="flex flex-row items-center gap-3 px-5">
-                    <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary [&_svg]:size-[1.125rem]">
+                <Card className="h-full gap-2.5 py-4 transition-shadow duration-200 group-hover/stat:shadow-lift">
+                  <CardHeader className="flex flex-row items-center gap-3 px-4">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary [&_svg]:size-[1.125rem]">
                       <WalletIcon />
                     </span>
-                    <span className="min-w-0 flex-1 text-sm font-medium text-muted-foreground">{t('pendingPayments')}</span>
+                    <span className="min-w-0 flex-1 text-[0.8125rem] font-medium text-muted-foreground">{t('pendingPayments')}</span>
                   </CardHeader>
-                  <CardContent className="grid gap-2.5 px-5">
+                  <CardContent className="grid gap-2 px-4">
                     {(
                       [
-                        [t('pendingReceivables'), k.pendingReceivables],
-                        [t('pendingPayables'), k.pendingPayables],
+                        [t('pendingReceivables'), k.pendingReceivables, ArrowDownLeftIcon, 'text-success'],
+                        [t('pendingPayables'), k.pendingPayables, ArrowUpRightIcon, 'text-destructive'],
                       ] as const
-                    ).map(([label, amount]) => (
-                      <div key={label} className="flex items-baseline justify-between gap-2">
-                        <span className="min-w-0 truncate text-[0.8125rem] text-muted-foreground" title={label}>
-                          {label}
+                    ).map(([label, amount, Icon, iconTone]) => (
+                      <div key={label} className="flex min-w-0 items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center gap-1.5 text-[0.8125rem] text-muted-foreground" title={label}>
+                          <Icon className={cn('size-3.5 shrink-0', iconTone)} aria-hidden />
+                          <span className="truncate">{label}</span>
                         </span>
-                        <span className={cn('text-[0.9375rem] font-bold whitespace-nowrap tabular-nums', amount > 0 && 'text-warning')}>{money(amount)}</span>
+                        <span className={cn('text-base font-bold whitespace-nowrap tabular-nums', amount > 0 && 'text-warning')}>{money(amount)}</span>
                       </div>
                     ))}
                   </CardContent>
@@ -382,7 +370,7 @@ export function OwnerDashboard() {
           </Section>
 
           {/* three across, like a report page: money first, then wood */}
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid gap-3 sm:gap-4 lg:grid-cols-3">
           <ChartCard
             className={canFinance ? undefined : 'lg:col-span-2'}
             title={t('chartCashTitle')}
@@ -456,19 +444,27 @@ export function OwnerDashboard() {
                 <ul className="-my-1 divide-y divide-border/70">
                   {recent.map((a) => {
                     const Icon = ACTION_ICON[a.action] ?? ActivityIcon;
+                    const act = ACTIONS[a.action];
+                    const ent = ENTITIES[a.entityType];
+                    const name = recordName(a);
+                    const page = a.entityId ? ent?.page?.(a.entityId) : undefined;
                     return (
                       <li key={a.id} className="flex items-center gap-3 py-2.5">
-                        <span
-                          className={cn(
-                            'grid size-8 shrink-0 place-items-center rounded-lg [&_svg]:size-4',
-                            a.action === 'REJECT' ? 'bg-destructive-soft text-destructive' : a.action === 'APPROVE' ? 'bg-success-soft text-success' : 'bg-muted text-muted-foreground',
-                          )}
-                        >
+                        <span className={cn('grid size-8 shrink-0 place-items-center rounded-lg [&_svg]:size-4', act?.tone ?? 'bg-muted text-muted-foreground')}>
                           <Icon aria-hidden />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm">
-                            <span className="font-medium">{readable(a.action)}</span> <span className="text-muted-foreground">· {readable(a.entityType)}</span>
+                          <div className="truncate text-[0.8125rem]">
+                            <span className="font-semibold">{act ? t(act.label) : readable(a.action)}</span>{' '}
+                            <span className="text-muted-foreground">· {ent ? t(ent.label) : readable(a.entityType)}</span>
+                            {name &&
+                              (page ? (
+                                <Link to={page} className="ml-1.5 font-medium text-primary hover:underline">
+                                  {name}
+                                </Link>
+                              ) : (
+                                <span className="ml-1.5 font-medium">{name}</span>
+                              ))}
                           </div>
                           <div className="truncate text-xs text-muted-foreground">
                             {a.user?.name ?? '—'} · {dateTime(a.createdAt)}
@@ -487,12 +483,12 @@ export function OwnerDashboard() {
             <TableCard empty={data!.accountantActivity.length === 0} emptyText={t('noAccountants')} pager={activity.pager}>
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted/50">
+                  <TableRow>
                     <TableHead className="pl-4">{t('accountant')}</TableHead>
                     <TableHead className={wide}>{t('lastEntry')}</TableHead>
                     <TableHead className={cn(numCell, wide)}>{t('logsMeasured')}</TableHead>
                     <TableHead className={cn(numCell, wide)}>{t('totalCft')}</TableHead>
-                    <TableHead className={cn(numCell, wide)}>{t('draft')}</TableHead>
+                    <TableHead className={cn(numCell, 'hidden lg:table-cell')}>{t('draft')}</TableHead>
                     <TableHead className={numCell}>{t('pending')}</TableHead>
                     <TableHead className={numCell}>{t('approved')}</TableHead>
                     <TableHead className={cn(numCell, 'pr-4')}>{t('rejected')}</TableHead>
@@ -520,7 +516,8 @@ export function OwnerDashboard() {
                       <TableCell className={wide}>
                         {a.lastEntryType ? (
                           <>
-                            {a.lastEntryType} <span className="text-xs text-muted-foreground">{dateTime(a.lastEntryAt)}</span>
+                            <div className="font-medium">{kindKey[a.lastEntryType] ? t(kindKey[a.lastEntryType]) : a.lastEntryType}</div>
+                            <div className="text-xs text-muted-foreground">{dateTime(a.lastEntryAt)}</div>
                           </>
                         ) : (
                           '—'
@@ -528,7 +525,7 @@ export function OwnerDashboard() {
                       </TableCell>
                       <TableCell className={cn(numCell, wide)}>{a.logsMeasured}</TableCell>
                       <TableCell className={cn(numCell, wide)}>{num3(a.totalCft)}</TableCell>
-                      <TableCell className={cn(numCell, wide)}>{a.draftEntries}</TableCell>
+                      <TableCell className={cn(numCell, 'hidden lg:table-cell')}>{a.draftEntries}</TableCell>
                       <TableCell className={cn(numCell, a.pendingEntries && 'font-semibold text-warning')}>{a.pendingEntries}</TableCell>
                       <TableCell className={cn(numCell, a.approvedEntries && 'font-semibold text-success')}>{a.approvedEntries}</TableCell>
                       <TableCell className={cn(numCell, 'pr-4', a.rejectedEntries && 'font-semibold text-destructive')}>{a.rejectedEntries}</TableCell>

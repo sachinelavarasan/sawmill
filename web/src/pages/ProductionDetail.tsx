@@ -48,6 +48,9 @@ export interface ProductionDetail {
   status: string;
   rejectionReason: string | null;
   createdByName: string;
+  submittedAt?: string | null;
+  /** when the owner approved or rejected it */
+  reviewedAt?: string | null;
   editable: boolean;
   canSubmit: boolean;
   canReview: boolean;
@@ -174,7 +177,7 @@ function Facts({ items, className }: { items: [string, ReactNode][]; className?:
       {items.map(([label, value]) => (
         <div key={label} className="min-w-0">
           <dt className="text-xs text-muted-foreground">{label}</dt>
-          <dd className="mt-0.5 font-medium break-words">{value || '—'}</dd>
+          <dd className="mt-1 font-medium break-words">{value || '—'}</dd>
         </div>
       ))}
     </dl>
@@ -227,7 +230,7 @@ function DetailsSection({ run, onSaved }: { run: ProductionDetail; onSaved: () =
   if (form)
     return (
       <Section title={t('productionDetails')}>
-        <FormCard onSubmit={submit}>
+        <FormCard onSubmit={submit} className="[&_form]:gap-6">
           <ProductionFields form={form} onChange={setForm} availableCft={available} />
           {error && <Notice tone="error">{error}</Notice>}
           <FormActions>
@@ -243,7 +246,7 @@ function DetailsSection({ run, onSaved }: { run: ProductionDetail; onSaved: () =
     );
 
   return (
-    <div className="grid items-start gap-x-4 gap-y-5 lg:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-x-4 gap-y-5 lg:grid-cols-2">
       {/* what went in: the load the raw wood came from, and how much of it this run used */}
       <Section title={t('secRawInput')} tools={editButton}>
         <Card className="gap-4 py-5">
@@ -284,6 +287,10 @@ function DetailsSection({ run, onSaved }: { run: ProductionDetail; onSaved: () =
               items={[
                 [t('date'), dateOnly(run.productionDate)],
                 [t('createdBy'), run.createdByName],
+                ...(run.submittedAt ? ([[t('submittedOn'), dateTime(run.submittedAt)]] as [string, ReactNode][]) : []),
+                ...(run.reviewedAt && (run.status === 'APPROVED' || run.status === 'REJECTED')
+                  ? ([[t(run.status === 'APPROVED' ? 'approved' : 'rejected'), dateTime(run.reviewedAt)]] as [string, ReactNode][])
+                  : []),
                 [t('cuttingMachine'), run.cuttingMachine],
                 [t('machineOperator'), run.machineOperator],
                 [t('startTime'), run.startAt ? dateTime(run.startAt) : null],
@@ -375,7 +382,7 @@ function OutputsSection({ run, onChanged }: { run: ProductionDetail; onChanged: 
       <Input
         type="number"
         aria-label={label}
-        className="h-8 w-20 text-right tabular-nums"
+        className="h-8 w-20 text-right tabular-nums max-md:w-14"
         value={editing[k]}
         onChange={(e) => setEditing({ ...editing, [k]: e.target.value })}
         min={step === '1' ? 1 : 0.01}
@@ -472,7 +479,7 @@ function OutputsSection({ run, onChanged }: { run: ProductionDetail; onChanged: 
         <form onSubmit={saveEdit}>
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/50">
+              <TableRow>
                 <TableHead className="pl-4">{t('size')}</TableHead>
                 <TableHead className={numCell}>{t('pieces')}</TableHead>
                 <TableHead className={numCell}>CFT</TableHead>
@@ -494,11 +501,11 @@ function OutputsSection({ run, onChanged }: { run: ProductionDetail; onChanged: 
                     <TableCell className={cn(numCell, 'font-semibold')}>{editCalc ? num3(editCalc.cft) : '—'}</TableCell>
                     <TableCell className="pr-4 text-right">
                       <div className="flex justify-end gap-1">
-                        <Button type="submit" size="sm" disabled={busy || !editCalc} aria-label={t('save')}>
+                        <Button type="submit" size="sm" className="max-md:size-8 max-md:px-0" disabled={busy || !editCalc} aria-label={t('save')}>
                           <CheckIcon />
                           <span className="max-md:sr-only">{t('save')}</span>
                         </Button>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(null)} aria-label={t('cancel')}>
+                        <Button type="button" variant="ghost" size="sm" className="max-md:size-8 max-md:px-0" onClick={() => setEditing(null)} aria-label={t('cancel')}>
                           <XIcon />
                           <span className="max-md:sr-only">{t('cancel')}</span>
                         </Button>
@@ -509,7 +516,7 @@ function OutputsSection({ run, onChanged }: { run: ProductionDetail; onChanged: 
                   <TableRow key={o.id}>
                     <TableCell className="pl-4 font-medium">{sizeLabel(o.thicknessIn, o.widthIn, o.lengthFt)}</TableCell>
                     <TableCell className={numCell}>{o.pieces}</TableCell>
-                    <TableCell className={numCell}>{num3(o.cft)}</TableCell>
+                    <TableCell className={cn(numCell, 'font-semibold')}>{num3(o.cft)}</TableCell>
                     <TableCell className="pr-4 text-right">
                       {run.editable && (
                         <div className="flex justify-end gap-1">
@@ -517,6 +524,7 @@ function OutputsSection({ run, onChanged }: { run: ProductionDetail; onChanged: 
                             type="button"
                             variant="outline"
                             size="sm"
+                            className="max-md:size-8 max-md:px-0"
                             aria-label={t('edit')}
                             onClick={() =>
                               setEditing({ id: o.id, thickness: String(o.thicknessIn), width: String(o.widthIn), length: String(o.lengthFt), pieces: String(o.pieces) })
@@ -525,7 +533,7 @@ function OutputsSection({ run, onChanged }: { run: ProductionDetail; onChanged: 
                             <PencilIcon />
                             <span className="max-md:sr-only">{t('edit')}</span>
                           </Button>
-                          <Button type="button" variant="ghost" size="sm" aria-label={t('delete')} onClick={() => remove(o)}>
+                          <Button type="button" variant="ghost" size="sm" className="max-md:size-8 max-md:px-0" aria-label={t('delete')} onClick={() => remove(o)}>
                             <Trash2Icon />
                             <span className="max-md:sr-only">{t('delete')}</span>
                           </Button>

@@ -220,7 +220,7 @@ function DetailsSection({ load, onSaved }: { load: ImportDetail; onSaved: () => 
               {facts.map(([label, value]) => (
                 <div key={label} className="min-w-0">
                   <dt className="text-xs text-muted-foreground">{label}</dt>
-                  <dd className="mt-0.5 font-medium break-words">{value || '—'}</dd>
+                  <dd className="mt-1 font-medium break-words">{value || '—'}</dd>
                 </div>
               ))}
             </dl>
@@ -329,7 +329,7 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
       <TableCard compactEmpty empty={load.unloadings.length === 0} emptyText={t('noUnloading')} pager={unloadings.pager}>
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/50">
+            <TableRow>
               <TableHead className="pl-4">{t('vehicleNumber')}</TableHead>
               <TableHead className={wide}>{t('startTime')}</TableHead>
               <TableHead className={wide}>{t('endTime')}</TableHead>
@@ -364,14 +364,14 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
                   {load.editable && (
                     <div className="flex justify-end gap-1">
                       {!u.endAt && (
-                        <Button variant="outline" size="sm" onClick={() => endNow(u)} aria-label={t('endNow')}>
+                        <Button variant="outline" size="sm" className="max-lg:size-8 max-lg:px-0" title={t('endNow')} onClick={() => endNow(u)} aria-label={t('endNow')}>
                           <ClockIcon />
-                          <span className="max-md:sr-only">{t('endNow')}</span>
+                          <span className="max-lg:sr-only">{t('endNow')}</span>
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm" aria-label={t('delete')} onClick={() => remove(u)}>
+                      <Button variant="ghost" size="sm" className="max-lg:size-8 max-lg:px-0" title={t('delete')} aria-label={t('delete')} onClick={() => remove(u)}>
                         <Trash2Icon />
-                        <span className="max-md:sr-only">{t('delete')}</span>
+                        <span className="max-lg:sr-only">{t('delete')}</span>
                       </Button>
                     </div>
                   )}
@@ -606,7 +606,7 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
 
   const newestFirst = [...load.logs].reverse();
   const logs = useClientPaging(newestFirst);
-  const cellInput = 'ml-auto h-8 w-24 text-right tabular-nums';
+  const cellInput = 'ml-auto h-8 w-24 text-right tabular-nums max-md:w-16';
 
   return (
     <Section id="logs" title={t('measurement')}>
@@ -742,7 +742,7 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
         <form onSubmit={saveEdit}>
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/50">
+              <TableRow>
                 <TableHead className="pl-4">{t('logNo')}</TableHead>
                 <TableHead className={numCell}>{t('girth')}</TableHead>
                 <TableHead className={numCell}>{t('lengthFt')}</TableHead>
@@ -791,11 +791,11 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
                     </TableCell>
                     <TableCell className="pr-4 text-right">
                       <div className="flex justify-end gap-1">
-                        <Button type="submit" size="sm" disabled={busy} aria-label={t('save')}>
+                        <Button type="submit" size="sm" className="max-md:size-8 max-md:px-0" disabled={busy} aria-label={t('save')}>
                           <CheckIcon />
                           <span className="max-md:sr-only">{t('save')}</span>
                         </Button>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(null)} aria-label={t('cancel')}>
+                        <Button type="button" variant="ghost" size="sm" className="max-md:size-8 max-md:px-0" onClick={() => setEditing(null)} aria-label={t('cancel')}>
                           <XIcon />
                           <span className="max-md:sr-only">{t('cancel')}</span>
                         </Button>
@@ -815,13 +815,14 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
                             type="button"
                             variant="outline"
                             size="sm"
+                            className="max-md:size-8 max-md:px-0"
                             aria-label={t('edit')}
                             onClick={() => setEditing({ id: log.id, girth: String(log.girthIn), length: String(log.lengthFt) })}
                           >
                             <PencilIcon />
                             <span className="max-md:sr-only">{t('edit')}</span>
                           </Button>
-                          <Button type="button" variant="ghost" size="sm" aria-label={t('delete')} onClick={() => remove(log)}>
+                          <Button type="button" variant="ghost" size="sm" className="max-md:size-8 max-md:px-0" aria-label={t('delete')} onClick={() => remove(log)}>
                             <Trash2Icon />
                             <span className="max-md:sr-only">{t('delete')}</span>
                           </Button>

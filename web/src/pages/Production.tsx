@@ -1,6 +1,6 @@
 import { recoveryPercent } from '@sawmill/shared';
 import { PlusIcon } from 'lucide-react';
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, ReactNode, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { num3, useLoad } from '../components/common';
 import { DataTable } from '../components/data-table';
 import { ListEmpty, ListToolbar, openColumn, PageSum, StatusCards, useRecordList, type ListColumn } from '../components/record-list';
 import { StatusBadge } from '../components/status-badge';
-import { Field, FormActions, FormCard, FormGrid, LoadState, Notice, Page, PageHeader } from '../components/page';
+import { Field, FormActions, FormCard, FormSection, LoadState, Notice, Page, PageHeader } from '../components/page';
 import { useI18n } from '../i18n';
 import { fromLocalInput, toLocalInput } from './Imports';
 import { ProductionQuickView } from './QuickViews';
@@ -75,7 +75,7 @@ export function ProductionPage() {
   const { t } = useI18n();
   const { user } = useAuth();
   const isOwner = user?.role === 'OWNER';
-  const list = useRecordList<ProductionSummary>({ path: '/production', name: 'production' });
+  const list = useRecordList<ProductionSummary>({ path: '/production', name: 'production', hiddenByDefault: ['waste'] });
   const { data, loading, error, reload } = list;
   /** the run shown in the side panel, if any */
   const [peek, setPeek] = useState<ProductionSummary | null>(null);
@@ -87,10 +87,10 @@ export function ProductionPage() {
         header: t('productionId'),
         cell: (r) => (
           <>
-            <Link className="font-medium text-foreground hover:underline" to={`/production/${r.id}`}>
+            <Link className="font-semibold text-primary hover:underline" to={`/production/${r.id}`}>
               {r.code}
             </Link>
-            <div className="mt-0.5 text-xs text-muted-foreground md:hidden">
+            <div className="mt-0.5 text-xs whitespace-normal text-muted-foreground md:hidden">
               {r.importCode} · {r.woodType} · {dateOnly(r.productionDate)}
             </div>
           </>
@@ -103,32 +103,30 @@ export function ProductionPage() {
         header: t('sourceLoad'),
         from: 'md',
         cell: (r) => (
-          <Link className="text-primary hover:underline" to={`/imports/${r.importLoadId}`}>
+          <Link className="font-medium text-primary hover:underline" to={`/imports/${r.importLoadId}`}>
             {r.importCode}
           </Link>
         ),
       },
-      { id: 'wood', label: t('woodType'), header: t('woodType'), from: 'md', cell: (r) => r.woodType },
+      { id: 'wood', label: t('woodType'), header: t('woodType'), from: 'lg', cell: (r) => r.woodType },
+      { id: 'input', label: t('inputCft'), header: t('inputCft'), from: 'lg', numeric: true, cell: (r) => (r.inputCft != null ? num3(r.inputCft) : '—') },
+      { id: 'output', header: t('outputCft'), numeric: true, className: 'font-semibold', cell: (r) => num3(r.outputCft) },
       {
-        id: 'output',
-        header: t('finishedOfRaw'),
-        className: 'min-w-44',
-        // finished against raw used, with the recovery share as a bar (the same formula the server reports)
+        id: 'recovery',
+        label: t('recovery'),
+        header: t('recovery'),
+        from: 'xl',
+        className: 'min-w-32',
+        // the share of the raw wood that came out finished, as a bar (the same formula the server reports)
         cell: (r) => {
           const pct = recoveryPercent(r.inputCft, r.outputCft);
           return (
-            <>
-              <div className="tabular-nums">
-                <span className="font-semibold">{num3(r.outputCft)}</span>
-                <span className="text-muted-foreground"> / {r.inputCft != null ? num3(r.inputCft) : '—'}</span>
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                <div className={cn('h-full rounded-full', pct != null && pct > 100 ? 'bg-destructive' : 'bg-chart-1')} style={{ width: `${Math.min(100, Math.max(0, pct ?? 0))}%` }} />
               </div>
-              <div className="mt-1.5 flex items-center gap-2 max-md:hidden">
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                  <div className={cn('h-full rounded-full', pct != null && pct > 100 ? 'bg-destructive' : 'bg-chart-1')} style={{ width: `${Math.min(100, Math.max(0, pct ?? 0))}%` }} />
-                </div>
-                <span className="w-11 text-right text-xs text-muted-foreground tabular-nums">{pct != null ? `${pct}%` : '—'}</span>
-              </div>
-            </>
+              <span className="w-11 text-right text-xs text-muted-foreground tabular-nums">{pct != null ? `${pct}%` : '—'}</span>
+            </div>
           );
         },
       },
@@ -136,13 +134,13 @@ export function ProductionPage() {
         id: 'waste',
         label: t('wasteCft'),
         header: t('wasteCft'),
-        from: 'md',
+        from: 'xl',
         numeric: true,
         cell: (r) => <span className={cn(r.wasteCft != null && r.wasteCft < 0 && 'font-semibold text-destructive')}>{r.wasteCft != null ? num3(r.wasteCft) : '—'}</span>,
       },
       { id: 'status', header: t('status'), cell: (r) => <StatusBadge status={r.status} /> },
     ];
-    if (isOwner) cols.push({ id: 'by', label: t('createdBy'), header: t('createdBy'), from: 'md', className: 'max-w-36 truncate', cell: (r) => r.createdByName });
+    if (isOwner) cols.push({ id: 'by', label: t('createdBy'), header: t('createdBy'), from: 'xl', className: 'max-w-36 truncate', cell: (r) => r.createdByName });
     cols.push(
       openColumn<ProductionSummary>(
         (r) => `/production/${r.id}`,
@@ -193,56 +191,67 @@ export function ProductionPage() {
   );
 }
 
-/** Run fields shared by "New Production Run" and the edit panel on the detail page. */
+/**
+ * Run fields, in numbered sections, shared by "New Production Run" and the edit panel on the
+ * detail page. `source` is the load picker, which only the new-run screen has.
+ */
 export function ProductionFields({
   form,
   onChange,
   availableCft,
+  source,
 }: {
   form: ProductionForm;
   onChange: (f: ProductionForm) => void;
   /** Raw CFT left in the chosen load, for the hint and "Use all". */
   availableCft: number | null;
+  source?: ReactNode;
 }) {
   const { t } = useI18n();
   const set = (k: keyof ProductionForm) => (e: { target: { value: string } }) => onChange({ ...form, [k]: e.target.value });
   return (
-    <FormGrid>
-      <Field id="prod-date" label={`${t('productionDate')} *`}>
-        <Input id="prod-date" type="date" value={form.productionDate} onChange={set('productionDate')} required />
-      </Field>
-      <Field
-        id="prod-input"
-        label={t('inputCft')}
-        hint={
-          availableCft != null && (
-            <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => onChange({ ...form, inputCft: String(availableCft) })}>
-              {t('inputCftHint', { cft: num3(availableCft) })} · {t('useAll')}
-            </Button>
-          )
-        }
-      >
-        <Input id="prod-input" type="number" value={form.inputCft} onChange={set('inputCft')} min={0.001} step="0.001" inputMode="decimal" />
-      </Field>
-      <Field id="prod-machine" label={t('cuttingMachine')}>
-        <Input id="prod-machine" value={form.cuttingMachine} onChange={set('cuttingMachine')} maxLength={100} />
-      </Field>
-      <Field id="prod-operator" label={t('machineOperator')}>
-        <Input id="prod-operator" value={form.machineOperator} onChange={set('machineOperator')} maxLength={100} />
-      </Field>
-      <Field id="prod-start" label={t('startTime')}>
-        <Input id="prod-start" type="datetime-local" value={form.startAt} onChange={set('startAt')} />
-      </Field>
-      <Field id="prod-end" label={t('endTime')}>
-        <Input id="prod-end" type="datetime-local" value={form.endAt} onChange={set('endAt')} min={form.startAt || undefined} />
-      </Field>
-      <Field id="prod-workers" label={t('workerDetails')} className="sm:col-span-full">
-        <Input id="prod-workers" value={form.workerDetails} onChange={set('workerDetails')} maxLength={500} />
-      </Field>
-      <Field id="prod-waste" label={t('wasteNotes')} className="sm:col-span-full">
-        <Input id="prod-waste" value={form.wasteNotes} onChange={set('wasteNotes')} maxLength={1000} />
-      </Field>
-    </FormGrid>
+    <>
+      <FormSection step={1} title={t('secRawInput')}>
+        {source}
+        <Field id="prod-date" label={t('productionDate')} required>
+          <Input id="prod-date" type="date" value={form.productionDate} onChange={set('productionDate')} required />
+        </Field>
+        <Field
+          id="prod-input"
+          label={t('inputCft')}
+          hint={
+            availableCft != null && (
+              <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => onChange({ ...form, inputCft: String(availableCft) })}>
+                {t('inputCftHint', { cft: num3(availableCft) })} · {t('useAll')}
+              </Button>
+            )
+          }
+        >
+          <Input id="prod-input" type="number" value={form.inputCft} onChange={set('inputCft')} min={0.001} step="0.001" inputMode="decimal" className="tabular-nums" />
+        </Field>
+      </FormSection>
+
+      <FormSection step={2} title={t('runDetails')}>
+        <Field id="prod-machine" label={t('cuttingMachine')}>
+          <Input id="prod-machine" value={form.cuttingMachine} onChange={set('cuttingMachine')} maxLength={100} />
+        </Field>
+        <Field id="prod-operator" label={t('machineOperator')}>
+          <Input id="prod-operator" value={form.machineOperator} onChange={set('machineOperator')} maxLength={100} />
+        </Field>
+        <Field id="prod-start" label={t('startTime')}>
+          <Input id="prod-start" type="datetime-local" value={form.startAt} onChange={set('startAt')} />
+        </Field>
+        <Field id="prod-end" label={t('endTime')}>
+          <Input id="prod-end" type="datetime-local" value={form.endAt} onChange={set('endAt')} min={form.startAt || undefined} />
+        </Field>
+        <Field id="prod-workers" label={t('workerDetails')} className="sm:col-span-2">
+          <Input id="prod-workers" value={form.workerDetails} onChange={set('workerDetails')} maxLength={500} />
+        </Field>
+        <Field id="prod-waste" label={t('wasteNotes')} className="sm:col-span-2">
+          <Input id="prod-waste" value={form.wasteNotes} onChange={set('wasteNotes')} maxLength={1000} />
+        </Field>
+      </FormSection>
+    </>
   );
 }
 
@@ -284,38 +293,44 @@ export function NewProductionPage() {
   }
 
   return (
-    <Page>
-      <PageHeader title={t('newProduction')} back={{ to: '/production', label: t('production') }} />
+    <Page className="max-w-5xl">
+      <PageHeader title={t('newProduction')} subtitle={t('requiredNote')} back={{ to: '/production', label: t('production') }} />
       <LoadState loading={stock.loading && !stock.data} error={stock.error} onRetry={stock.reload} />
       {stock.data && loads.length === 0 && <Notice>{t('noRawStock')}</Notice>}
       {stock.data && loads.length > 0 && (
-        <FormCard onSubmit={submit}>
-          <FormGrid>
-            <Field label={`${t('sourceLoad')} *`} className="sm:col-span-full">
-              <Select value={loadId} onValueChange={setLoadId} required>
-                <SelectTrigger className="w-full" aria-label={t('sourceLoad')}>
-                  <SelectValue placeholder={t('pickLoad')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {loads.map((l) => (
-                    <SelectItem key={l.importLoadId} value={l.importLoadId}>
-                      {l.importCode} · {l.woodType} · {num3(l.cft)} CFT
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </FormGrid>
-          <ProductionFields form={form} onChange={setForm} availableCft={chosen?.cft ?? null} />
+        <FormCard onSubmit={submit} className="py-7 [&_form]:gap-7">
+          <ProductionFields
+            form={form}
+            onChange={setForm}
+            availableCft={chosen?.cft ?? null}
+            source={
+              <Field label={t('sourceLoad')} required className="sm:col-span-2">
+                <Select value={loadId} onValueChange={setLoadId} required>
+                  <SelectTrigger className="w-full" aria-label={t('sourceLoad')}>
+                    <SelectValue placeholder={t('pickLoad')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {loads.map((l) => (
+                      <SelectItem key={l.importLoadId} value={l.importLoadId}>
+                        {l.importCode} · {l.woodType} · {num3(l.cft)} CFT
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            }
+          />
           {error && <Notice tone="error">{error}</Notice>}
-          <FormActions>
-            <Button asChild variant="ghost">
-              <Link to="/production">{t('cancel')}</Link>
-            </Button>
-            <Button type="submit" disabled={busy || !loadId}>
-              {t('create')}
-            </Button>
-          </FormActions>
+          <div className="border-t border-border/70 pt-5">
+            <FormActions>
+              <Button asChild variant="ghost">
+                <Link to="/production">{t('cancel')}</Link>
+              </Button>
+              <Button type="submit" disabled={busy || !loadId}>
+                {t('create')}
+              </Button>
+            </FormActions>
+          </div>
         </FormCard>
       )}
     </Page>
