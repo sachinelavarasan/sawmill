@@ -14,7 +14,6 @@ import { dateTime, useApi } from '../components/common';
 import { useConfirm } from '../components/confirm';
 import { type Column, DataTable } from '../components/data-table';
 import { Field, FigureStrip, FilterChips, FormGrid, LoadState, Notice, Page, PageHeader, SearchBox } from '../components/page';
-import { quietSearch } from '../components/record-list';
 import { useToast } from '../components/toast';
 import { useI18n } from '../i18n';
 
@@ -197,9 +196,9 @@ export function UsersPage() {
             busy={loading}
             toolbar={
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <SearchBox className={quietSearch} value={q} onChange={setQ} placeholder={t('searchUsers')} />
+                <SearchBox className="sm:w-80 [&_input]:h-10" value={q} onChange={setQ} placeholder={t('searchUsers')} />
                 <FilterChips
-                  className="sm:ml-auto [&_button]:h-8"
+                  className="sm:ml-auto"
                   label={t('status')}
                   value={status}
                   onChange={setStatus}
@@ -336,7 +335,7 @@ function CreateUserForm({ onDone }: { onDone: (ok: boolean) => void }) {
         </FormGrid>
         {error && <Notice tone="error">{error}</Notice>}
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => onDone(false)}>
+          <Button type="button" variant="outline" onClick={() => onDone(false)}>
             {t('cancel')}
           </Button>
           <Button type="submit" disabled={busy}>
@@ -391,7 +390,7 @@ function EditUserForm({ user, onDone }: { user: UserRow; onDone: (ok: boolean) =
         </div>
         {error && <Notice tone="error">{error}</Notice>}
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => onDone(false)}>
+          <Button type="button" variant="outline" onClick={() => onDone(false)}>
             {t('cancel')}
           </Button>
           <Button type="submit" disabled={busy}>
@@ -435,7 +434,7 @@ function ResetPasswordForm({ user, onDone }: { user: UserRow; onDone: (ok: boole
         </Field>
         {error && <Notice tone="error">{error}</Notice>}
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => onDone(false)}>
+          <Button type="button" variant="outline" onClick={() => onDone(false)}>
             {t('cancel')}
           </Button>
           <Button type="submit" disabled={busy}>

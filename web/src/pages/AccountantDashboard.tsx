@@ -8,13 +8,14 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { ChartCard, ColumnChart } from '../components/charts';
 import { num3, useLoad } from '../components/common';
-import { LinkRow, LoadState, numCell, Page, PageHeader, Section, TableCard, wide } from '../components/page';
+import { LinkRow, LoadState, numCell, Page, PageHeader, Section, Stat, TableCard, wide } from '../components/page';
+import { Reveal } from '../components/depth';
 import { QuickActions } from '../components/quick-actions';
 import { StatusBadge } from '../components/status-badge';
 import { type TKey, useI18n } from '../i18n';
 import type { ExportSummary } from './Exports';
 import type { ImportSummary } from './Imports';
-import { Panel, shortDay, TodayFigure } from './OwnerDashboard';
+import { Panel, shortDay } from './OwnerDashboard';
 import type { ProductionSummary } from './Production';
 
 interface AccountantDashboardData {
@@ -84,6 +85,7 @@ export function AccountantDashboard() {
   const open = data?.measurementProgress ?? [];
   const locale = lang === 'ta' ? 'ta-IN' : 'en-IN';
   const now = new Date();
+  const today = now.toLocaleDateString(locale, { day: 'numeric', month: 'long' });
   const refreshing = loading || charts.loading || entries.loading;
   const refresh = () => {
     reload();
@@ -110,11 +112,11 @@ export function AccountantDashboard() {
         subtitle={t('accountantDashSub')}
         actions={
           <>
-            <span className="inline-flex h-9 items-center gap-2 rounded-lg bg-card px-3 text-sm font-medium shadow-card">
+            <span className="inline-flex h-11 items-center gap-2 rounded-lg border border-input bg-card px-3.5 text-sm font-medium">
               <CalendarDaysIcon className="size-4 text-muted-foreground" aria-hidden />
               <time dateTime={now.toISOString().slice(0, 10)}>{now.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</time>
             </span>
-            <Button variant="outline" size="icon" className="size-9 print:hidden" onClick={refresh} disabled={refreshing} aria-label={t('refresh')} title={t('refresh')}>
+            <Button variant="outline" size="icon" className="print:hidden" onClick={refresh} disabled={refreshing} aria-label={t('refresh')} title={t('refresh')}>
               <RefreshCwIcon className={cn(refreshing && 'animate-spin')} />
             </Button>
           </>
@@ -128,38 +130,46 @@ export function AccountantDashboard() {
 
       {k && (
         <>
-          <div className="grid gap-4 lg:grid-cols-5">
-            <Panel className="lg:col-span-2" title={t('today')} tools={<span className="text-sm text-muted-foreground">{now.toLocaleDateString(locale, { day: 'numeric', month: 'long' })}</span>}>
-              <div className="flex flex-1 gap-3">
-                <TodayFigure to="/imports" icon={<ArrowDownToLineIcon />} label={t('todayImports')} value={k.todayImports} />
-                <TodayFigure to="/exports" icon={<ArrowUpFromLineIcon />} label={t('todayExports')} value={k.todayExports} />
-              </div>
-            </Panel>
+          {/* today's two counts beside where every entry stands (the same frame as the owner's dashboard) */}
+          <div className="stagger grid gap-3 sm:gap-5 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-1">
+              <Stat to="/imports" icon={<ArrowDownToLineIcon />} label={t('todayImports')} value={k.todayImports.toLocaleString('en-IN')} hint={today} />
+              <Stat to="/exports" icon={<ArrowUpFromLineIcon />} label={t('todayExports')} value={k.todayExports.toLocaleString('en-IN')} hint={today} />
+            </div>
 
-            <Panel className="lg:col-span-3" title={t('entryStatus')} tools={<span className="text-sm text-muted-foreground tabular-nums">{totalEntries}</span>}>
+            <Panel
+              className="lg:col-span-3"
+              title={t('entryStatus')}
+              tools={
+                <span className="text-sm text-muted-foreground">
+                  {t('total')} <span className="font-semibold text-foreground tabular-nums">{totalEntries}</span>
+                </span>
+              }
+            >
               {/* one bar split by status: how much of the work is through approval */}
-              <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-muted" role="img" aria-label={statuses.map((s) => `${s.label}: ${s.n}`).join(', ')}>
+              <div className="flex h-2 gap-0.5 overflow-hidden rounded-full bg-muted" role="img" aria-label={statuses.map((s) => `${s.label}: ${s.n}`).join(', ')}>
                 {statuses
                   .filter((s) => s.n > 0)
                   .map((s) => (
                     <span key={s.label} className={cn('min-w-1.5', s.bar)} style={{ flexGrow: s.n }} />
                   ))}
               </div>
-              <dl className="mt-5 grid flex-1 grid-cols-2 content-center gap-x-4 gap-y-4 sm:grid-cols-4">
+              {/* each status on its own: a dot of its colour, its name, its count */}
+              <dl className="mt-5 grid flex-1 grid-cols-2 content-center gap-x-5 gap-y-5 sm:grid-cols-4">
                 {statuses.map((s) => (
-                  <div key={s.label} className="min-w-0">
-                    <dt className="flex items-center gap-1.5 text-[0.8125rem] text-muted-foreground">
-                      <span className={cn('size-2 shrink-0 rounded-full', s.bar)} aria-hidden />
-                      <span className="truncate">{s.label}</span>
+                  <div key={s.label} className="flex min-w-0 flex-col gap-2 border-l-2 pl-3.5">
+                    <dt className="flex items-start gap-2 text-[0.8125rem] leading-snug font-medium text-muted-foreground">
+                      <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', s.bar)} aria-hidden />
+                      {s.label}
                     </dt>
-                    <dd className={cn('mt-1 text-2xl leading-tight font-bold tabular-nums', s.n > 0 && s.text)}>{s.n}</dd>
+                    <dd className={cn('text-[1.625rem] leading-none font-semibold tracking-[-0.025em] tabular-nums sm:text-[2rem]', s.n > 0 && s.text)}>{s.n}</dd>
                   </div>
                 ))}
               </dl>
             </Panel>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-5">
+          <div className="grid gap-5 lg:grid-cols-5">
             {/* loads still open: drafts to keep measuring, rejected ones to fix */}
             <Panel
               className="lg:col-span-3"
@@ -186,7 +196,7 @@ export function AccountantDashboard() {
               ) : (
                 <ul className="divide-y divide-border/70 border-t border-border/70">
                   {open.slice(0, OPEN_LOADS).map((l) => (
-                    <li key={l.id} className="flex items-center gap-3 px-5 py-3">
+                    <li key={l.id} className="flex items-center gap-3 px-5 py-3.5 sm:px-6">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <Link className="font-semibold text-primary hover:underline" to={`/imports/${l.id}`}>
@@ -222,12 +232,20 @@ export function AccountantDashboard() {
             </ChartCard>
           </div>
 
-          <Section title={t('recentEntries')}>
+          <Reveal>
+          <Section
+            title={t('recentEntries')}
+            tools={
+              <Button asChild size="sm" variant="outline">
+                <Link to="/my-entries">{t('viewAll')}</Link>
+              </Button>
+            }
+          >
             <TableCard empty={(entries.data ?? []).length === 0} emptyText={entries.error ?? (entries.loading ? t('loading') : t('noData'))} busy={entries.loading && !!entries.data}>
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="pl-4">ID</TableHead>
+                  <TableRow>
+                    <TableHead className="pl-4">{t('record')}</TableHead>
                     <TableHead className={wide}>{t('type')}</TableHead>
                     <TableHead className={wide}>{t('woodType')}</TableHead>
                     <TableHead className={wide}>{t('date')}</TableHead>
@@ -265,6 +283,7 @@ export function AccountantDashboard() {
               </Table>
             </TableCard>
           </Section>
+          </Reveal>
         </>
       )}
     </Page>

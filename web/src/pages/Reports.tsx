@@ -142,12 +142,12 @@ export function ReportsPage() {
         <LoadState loading={list.loading && !list.data} error={list.error} onRetry={list.reload} />
         {list.data &&
           shownGroups.map(([g, label]) => (
-            <section key={g} className="flex flex-col gap-3">
-              <h2 className="flex items-center gap-2 text-[1.0625rem] font-semibold tracking-tight">
+            <section key={g} className="flex flex-col gap-4">
+              <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
                 {label}
                 {g === 'financial' && <OwnerOnly />}
               </h2>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-3 sm:gap-5 sm:grid-cols-2 lg:grid-cols-4">
                 {list
                   .data!.filter((r) => r.group === g)
                   .map((r) => {
@@ -158,10 +158,10 @@ export function ReportsPage() {
                         key={r.key}
                         type="button"
                         onClick={() => update({ r: r.key })}
-                        className="group flex h-full flex-col gap-3 rounded-xl bg-card p-4 text-left shadow-card transition-shadow duration-200 outline-none hover:shadow-lift focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                        className="group flex h-full flex-col gap-4 rounded-xl bg-card p-5 text-left shadow-card sm:p-6 hover-lift outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                       >
                         <span className="flex items-center justify-between">
-                          <span className="grid size-10 place-items-center rounded-lg bg-primary-soft text-primary">
+                          <span className="grid size-10 place-items-center rounded-lg bg-muted text-foreground/80">
                             <Icon className="size-[1.125rem]" strokeWidth={1.75} aria-hidden />
                           </span>
                           <ArrowRightIcon className="size-4 text-muted-foreground opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden />
@@ -218,11 +218,11 @@ export function ReportsPage() {
         />
 
         {/* which report, for what period, and which entries */}
-        <Card className="gap-0 py-4">
-          <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-3 px-4">
+        <Card className="gap-0 py-5">
+          <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-4 px-5 sm:px-6">
             {list.data && (
               <Select value={key} onValueChange={(v) => update({ r: v })}>
-                <SelectTrigger className="w-full sm:w-60" aria-label={t('chooseReport')}>
+                <SelectTrigger className="h-10 w-full sm:w-64" aria-label={t('chooseReport')}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -242,7 +242,7 @@ export function ReportsPage() {
               </Select>
             )}
             {info?.statusFilter && (
-              <ToggleGroup type="single" variant="outline" value={status} onValueChange={(v) => v && update({ status: v })} className="bg-card">
+              <ToggleGroup type="single" variant="outline" value={status} onValueChange={(v) => v && update({ status: v })} className="bg-card max-sm:w-full max-sm:[&>button]:h-auto max-sm:[&>button]:min-h-10 max-sm:[&>button]:flex-1 max-sm:[&>button]:py-1.5 max-sm:[&>button]:whitespace-normal">
                 <ToggleGroupItem value="APPROVED" className="px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
                   {t('approvedOnly')}
                 </ToggleGroupItem>
@@ -271,10 +271,10 @@ export function ReportsPage() {
 
           {/* the report as it prints: a letterhead, then the table */}
           <article className={cn('overflow-hidden rounded-xl bg-card shadow-card transition-opacity print:overflow-visible print:rounded-none print:shadow-none', report.loading && 'opacity-60')}>
-            <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b border-border/70 px-5 py-5 print:px-0 print:pt-0">
+            <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b border-border/70 px-5 py-6 sm:px-6 print:border-b-2 print:border-foreground print:px-0 print:pt-0 print:pb-3">
               <div className="min-w-0">
                 <div className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{r.millName}</div>
-                <h2 className="mt-1 text-xl leading-tight font-bold tracking-tight">{r.title}</h2>
+                <h2 className="mt-1 text-xl leading-tight font-semibold tracking-tight">{r.title}</h2>
               </div>
               <dl className="grid grid-cols-[auto_auto] gap-x-3 gap-y-0.5 text-sm">
                 {r.period && (
@@ -297,7 +297,7 @@ export function ReportsPage() {
             </header>
 
             <TableCard empty={r.rows.length === 0} emptyText={t('noRows')} pager={paged.pager} className="rounded-none shadow-none print:border-0">
-              <Table className="print:text-[11px]">
+              <Table className="print:text-[10px]">
                 <TableHeader>
                   <TableRow>
                     {r.columns.map((c, i) => (
@@ -318,7 +318,9 @@ export function ReportsPage() {
                           <TableCell
                             key={c.key}
                             className={cn(
-                              'py-2.5',
+                              'py-3 print:py-1.5',
+                              // on paper only long text (notes, names) may wrap; see the print rules in index.css
+                              c.type === 'text' && String(row[c.key] ?? '').length > 18 && 'print-wrap',
                               NUMERIC.includes(c.type) && 'text-right tabular-nums',
                               (c.type === 'date' || c.type === 'datetime') && 'text-muted-foreground tabular-nums',
                               i === 0 && 'pl-5 font-medium print:pl-0',
@@ -346,7 +348,10 @@ export function ReportsPage() {
                 )}
               </Table>
             </TableCard>
-            <footer className="hidden pt-3 text-xs text-muted-foreground print:block">SAWMILL PRO</footer>
+            <footer className="hidden justify-between pt-3 text-[10px] text-muted-foreground print:flex">
+              <span>SAWMILL PRO · {r.millName}</span>
+              <span className="tabular-nums">{dateTime(r.generatedAt)}</span>
+            </footer>
           </article>
         </>
       )}

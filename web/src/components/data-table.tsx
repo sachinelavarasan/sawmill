@@ -20,8 +20,8 @@ export interface Column<T> {
   sort?: (row: T) => string | number | null | undefined;
   /** Right-aligned with tabular figures. */
   numeric?: boolean;
-  /** Hide below this breakpoint (the first column usually repeats the detail on phones). */
-  from?: 'sm' | 'md';
+  /** Hide below this breakpoint (the first column repeats the detail meanwhile). The sidebar takes 250px, so secondary columns want `lg` or `xl`. */
+  from?: 'sm' | 'md' | 'lg' | 'xl';
   /** Extra classes for the body cells / the header cell. */
   className?: string;
   headClassName?: string;
@@ -33,11 +33,10 @@ const features = tableFeatures({
   sortFns: { alphanumeric: sortFn_alphanumeric, basic: sortFn_basic },
 });
 
-const FROM = { sm: 'hidden sm:table-cell', md: 'hidden md:table-cell' } as const;
+const FROM = { sm: 'hidden sm:table-cell', md: 'hidden md:table-cell', lg: 'hidden lg:table-cell', xl: 'hidden xl:table-cell' } as const;
 const EMPTY: never[] = [];
-/** Spreadsheet look for a Table: sentence-case headers and a hairline between columns. */
-export const gridTable =
-  '[&_td]:border-r [&_td]:border-border/70 [&_td]:py-3 [&_td:last-child]:border-r-0 [&_th]:h-11 [&_th]:border-r [&_th]:border-border/70 [&_th]:text-[0.8125rem] [&_th]:font-medium [&_th]:tracking-normal [&_th]:text-foreground [&_th]:normal-case [&_th:last-child]:border-r-0';
+/** Long lists: sentence-case headers (easier to read across many columns). No lines between columns: spacing does that. */
+export const gridTable = '[&_th]:text-[0.8125rem] [&_th]:font-medium [&_th]:tracking-normal [&_th]:normal-case';
 /** The open row: an opaque tint so it can sit above a panel's backdrop (z-50) without the dimming showing through, and a bar on its left edge. */
 const SELECTED = 'relative z-[55] bg-primary-soft hover:bg-primary-soft data-[state=selected]:bg-primary-soft [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-primary)]';
 
@@ -135,7 +134,7 @@ export function DataTable<T extends RowData>({
                       type="button"
                       onClick={h.column.getToggleSortingHandler()}
                       className={cn(
-                        '-mx-2 inline-flex h-7 items-center gap-1 rounded-md px-2 tracking-[inherit] uppercase transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
+                        '-mx-2 inline-flex h-7 items-center gap-1 rounded-md px-2 tracking-[inherit] [text-transform:inherit] transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
                         c.numeric && 'flex-row-reverse',
                         dir && 'text-foreground',
                       )}
@@ -159,7 +158,7 @@ export function DataTable<T extends RowData>({
               </TableCell>
             ));
             return rowTo ? (
-              <LinkRow key={r.id} to={rowTo(r.original)} className="hover:bg-muted">
+              <LinkRow key={r.id} to={rowTo(r.original)}>
                 {cells}
               </LinkRow>
             ) : onRowClick ? (
@@ -167,7 +166,7 @@ export function DataTable<T extends RowData>({
                 key={r.id}
                 data-state={r.id === selectedKey ? 'selected' : undefined}
                 aria-selected={r.id === selectedKey || undefined}
-                className={cn('cursor-pointer hover:bg-muted', r.id === selectedKey && SELECTED)}
+                className={cn('cursor-pointer', r.id === selectedKey && SELECTED)}
                 onClick={(e) => {
                   if ((e.target as HTMLElement).closest('a, button, input, select, textarea, label, [role="combobox"]')) return;
                   if (window.getSelection()?.toString()) return;
@@ -182,7 +181,7 @@ export function DataTable<T extends RowData>({
           })}
         </TableBody>
       </Table>
-      {footer && <div className="border-t border-border/70 bg-muted/40 px-4 py-2.5 text-right text-sm">{footer}</div>}
+      {footer && <div className="border-t border-border/70 px-4 py-3.5 text-right text-sm">{footer}</div>}
     </TableCard>
   );
 }

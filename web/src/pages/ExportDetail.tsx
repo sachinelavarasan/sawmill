@@ -232,22 +232,22 @@ function DetailsSection({ exp, finished, onSaved }: { exp: ExportDetail; finishe
         <Card className="gap-0 py-0">
           <CardContent className="grid px-0 lg:grid-cols-2 lg:divide-x lg:divide-border/70">
             {groups.map((g) => (
-              <div key={g.title} className="border-b border-border/70 px-5 py-5 lg:border-b-0">
+              <div key={g.title} className="border-b border-border/70 px-5 py-6 sm:px-6 lg:border-b-0">
                 <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{g.title}</h3>
-                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3">
+                <dl className="mt-4 grid grid-cols-2 gap-x-5 gap-y-5 sm:grid-cols-3">
                   {g.facts.map(([label, value]) => (
                     <div key={label} className="min-w-0">
                       <dt className="text-xs text-muted-foreground">{label}</dt>
-                      <dd className="mt-0.5 font-medium break-words">{value || '—'}</dd>
+                      <dd className="mt-1 font-medium break-words">{value || '—'}</dd>
                     </div>
                   ))}
                 </dl>
               </div>
             ))}
             {exp.notes && (
-              <div className="border-t border-border/70 px-5 py-4 lg:col-span-2">
+              <div className="border-t border-border/70 px-5 py-5 sm:px-6 lg:col-span-2">
                 <div className="text-xs text-muted-foreground">{t('notes')}</div>
-                <p className="mt-0.5 font-medium break-words whitespace-pre-line">{exp.notes}</p>
+                <p className="mt-1 font-medium break-words whitespace-pre-line">{exp.notes}</p>
               </div>
             )}
           </CardContent>
@@ -360,9 +360,9 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
         <Card className="gap-0 py-0">
           <CardContent className="px-0">
             {/* 1 · what is in stock: one press fills the load and the size */}
-            <div className="border-b border-border/70 px-4 py-4 sm:px-5">
+            <div className="border-b border-border/70 px-5 py-5 sm:px-6">
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <h3 className="text-sm font-semibold">{t('pickFromStock')}</h3>
+                <h3 className="text-base font-semibold">{t('pickFromStock')}</h3>
                 <p className="text-xs text-muted-foreground">{t('pickFromStockHint')}</p>
               </div>
               {sameWood.length === 0 ? (
@@ -371,7 +371,7 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
                   {t('noFinishedOfWood', { wood: exp.woodType })}
                 </p>
               ) : (
-                <ul className="scroll-quiet mt-3 grid max-h-56 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label={t('fromStock')}>
+                <ul className="scroll-quiet mt-4 grid max-h-60 gap-2.5 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label={t('fromStock')}>
                   {sameWood.map((f) => {
                     const on = picked === f;
                     return (
@@ -402,7 +402,7 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
             </div>
 
             {/* 2 · the line itself: source load, size, pieces — and its CFT as it is typed */}
-            <form onSubmit={add} className="grid gap-4 px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-stretch">
+            <form onSubmit={add} className="grid gap-5 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-stretch">
               <div className="grid content-start gap-4">
                 <Field id="line-load" label={t('sourceLoadShort')} required className="sm:max-w-xs">
                   <Select value={entry.importLoadId} onValueChange={(v) => setEntry({ ...entry, importLoadId: v })} required>
@@ -442,10 +442,10 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
                 </div>
               </div>
 
-              <div className="flex flex-col justify-between gap-3 rounded-lg bg-muted/60 p-4">
+              <div className="flex flex-col justify-between gap-4 rounded-lg bg-muted/60 p-5">
                 <div aria-live="polite">
                   <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('lineCft')}</div>
-                  <div className={cn('mt-0.5 text-3xl leading-tight font-bold tracking-tight tabular-nums', liveCft == null && 'text-muted-foreground')}>
+                  <div className={cn('mt-1 text-[2rem] leading-tight font-semibold tracking-tight tabular-nums', liveCft == null && 'text-muted-foreground')}>
                     {liveCft != null ? num3(liveCft) : '0.000'} <span className="text-sm font-medium tracking-normal text-muted-foreground">CFT</span>
                   </div>
                   <div className="mt-1 text-sm text-muted-foreground">
@@ -527,7 +527,7 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
                       <div className="flex justify-end gap-1">
                         {editing?.id === l.id ? (
                           <>
-                            <Button type="submit" form={`edit-${l.id}`} size="sm" disabled={busy} aria-label={t('save')}>
+                            <Button type="submit" form={`edit-${l.id}`} size="sm" className="max-md:size-9 max-md:px-0" disabled={busy} aria-label={t('save')}>
                               <CheckIcon />
                               <span className="max-md:sr-only">{t('save')}</span>
                             </Button>
@@ -559,7 +559,7 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
               </TableCell>
               <TableCell className="max-sm:hidden" />
               <TableCell className={cn(numCell, 'font-semibold')}>{exp.totalPieces}</TableCell>
-              <TableCell className={cn(numCell, 'text-base font-bold', !exp.editable && 'pr-4')}>
+              <TableCell className={cn(numCell, 'text-base font-semibold', !exp.editable && 'pr-4')}>
                 {num3(exp.totalCft)} <span className="text-xs font-medium text-muted-foreground">CFT</span>
               </TableCell>
               {exp.editable && <TableCell className="pr-4" />}
@@ -661,7 +661,7 @@ function SaleSection({ exp, canPickClient }: { exp: ExportDetail; canPickClient:
                 [t('balance'), balance != null ? money(balance) : '—', balance != null && balance > 0 ? 'text-warning' : ''],
               ] as const
             ).map(([label, value, tone], i) => (
-              <div key={label} className="min-w-0 bg-card px-5 py-4">
+              <div key={label} className="min-w-0 bg-card px-5 py-5 sm:px-6">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   {label}
                   {i === 3 && (
@@ -670,7 +670,7 @@ function SaleSection({ exp, canPickClient }: { exp: ExportDetail; canPickClient:
                     </Badge>
                   )}
                 </div>
-                <div className={cn('mt-0.5 truncate text-lg leading-tight font-bold tabular-nums', tone)}>{value}</div>
+                <div className={cn('mt-1 truncate text-xl leading-tight font-semibold tabular-nums', tone)}>{value}</div>
               </div>
             ))}
           </CardContent>
@@ -707,7 +707,7 @@ function SaleSection({ exp, canPickClient }: { exp: ExportDetail; canPickClient:
             <Field id="sale-received" label={t('amountReceived')}>
               <Input id="sale-received" type="number" value={form.received} onChange={set('received')} min={0} step="0.01" inputMode="decimal" />
             </Field>
-            <Field id="sale-notes" label={t('notes')} className="sm:col-span-full">
+            <Field id="sale-notes" label={t('notes')} className="sm:col-span-full lg:col-span-2">
               <Input id="sale-notes" value={form.notes} onChange={set('notes')} maxLength={1000} />
             </Field>
           </FormGrid>

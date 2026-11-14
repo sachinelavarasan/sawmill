@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 /** The app mark: the end grain of a sawn log on a saffron tile. */
 export function LogoMark({ className }: { className?: string }) {
   return (
-    <span className={cn('grid size-9 shrink-0 place-items-center rounded-lg bg-sidebar-accent text-hero ', className)}>
+    <span className={cn('grid size-9 shrink-0 place-items-center rounded-lg bg-brand text-brand-foreground', className)}>
       <svg viewBox="0 0 24 24" className="size-[64%]" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden>
         <circle cx="12" cy="12" r="9.5" />
         <circle cx="12.4" cy="11.7" r="5.6" />

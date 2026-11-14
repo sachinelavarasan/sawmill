@@ -48,7 +48,7 @@ export function QuickPanel({
       >
         <div className="border-b border-border/70 px-5 py-4 pr-12 text-[0.9375rem] font-semibold">{title}</div>
         <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
-          <div className="flex items-center gap-4 rounded-xl bg-card p-3.5 shadow-lift">
+          <div className="flex items-center gap-4 rounded-xl border border-border/70 bg-muted/40 p-3.5">
             <span className="grid size-20 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary [&_svg]:size-8 [&_svg]:stroke-[1.5]">{icon}</span>
             <div className="min-w-0 flex-1">
               <SheetTitle className="text-lg leading-tight">{code}</SheetTitle>

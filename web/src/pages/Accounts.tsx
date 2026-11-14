@@ -1,6 +1,6 @@
-import { ArrowDownLeftIcon, ArrowUpRightIcon, PencilIcon, PlusIcon, Trash2Icon, TrendingUpIcon, WalletIcon } from 'lucide-react';
-import { FormEvent, ReactNode, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { ArrowDownLeftIcon, ArrowUpRightIcon, PencilIcon, PlusIcon, Trash2Icon, TrendingDownIcon, TrendingUpIcon } from 'lucide-react';
+import { FormEvent, ReactNode, useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -100,8 +100,8 @@ export function AccountsPage() {
       <PageHeader title={t('accounts')} badge={<OwnerOnly />} subtitle={t('accountsSub')} />
 
       {/* the period everything below (except the balances) is worked out for */}
-      <Card className="gap-3 py-4">
-        <CardContent className="flex flex-col gap-3 px-4">
+      <Card className="gap-3 py-5">
+        <CardContent className="flex flex-col gap-4 px-5 sm:px-6">
           <PeriodPicker
             className="w-full"
             value={period}
@@ -126,11 +126,11 @@ export function AccountsPage() {
         <>
           {/* income − expenses = profit, read left to right */}
           <StatGrid>
-            <Stat icon={<ArrowDownLeftIcon />} label={t('sales')} value={money(s.pnl.sales)} hint={t('income')} />
-            <Stat icon={<WalletIcon />} label={t('totalExpenses')} value={money(s.pnl.totalExpenses)} hint={t('expensesHead')} />
+            <Stat icon={<ArrowDownLeftIcon />} iconTone="good" label={t('sales')} value={money(s.pnl.sales)} hint={t('income')} />
+            <Stat icon={<ArrowUpRightIcon />} iconTone="bad" label={t('totalExpenses')} value={money(s.pnl.totalExpenses)} hint={t('expensesHead')} />
             <Stat
               hero
-              icon={<TrendingUpIcon />}
+              icon={s.pnl.profit < 0 ? <TrendingDownIcon /> : <TrendingUpIcon />}
               tone={s.pnl.profit < 0 ? 'bad' : undefined}
               label={t(s.pnl.profit < 0 ? 'netLoss' : 'netProfit')}
               value={money(s.pnl.profit)}
@@ -138,7 +138,7 @@ export function AccountsPage() {
             />
           </StatGrid>
 
-          <div className="grid items-start gap-4 lg:grid-cols-5">
+          <div className="grid items-start gap-5 lg:grid-cols-5">
             <Section title={t('reportPnl')} className="lg:col-span-3">
               <Card className="gap-0 overflow-hidden py-0">
                 <CardContent className="px-0">
@@ -188,10 +188,11 @@ export function AccountsPage() {
       {s && (
         <Section title={t('outstandingBalances')}>
           <p className="-mt-2 text-sm text-muted-foreground">{t('outstandingNote')}</p>
-          <div className="grid items-start gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 items-start gap-5 min-[1400px]:grid-cols-2">
             <BalanceTable
               title={t('pendingReceivables')}
               icon={<ArrowDownLeftIcon />}
+              tone="in"
               total={toReceive}
               rows={s.receivables}
               partyLabel={t('client')}
@@ -202,6 +203,7 @@ export function AccountsPage() {
             <BalanceTable
               title={t('pendingPayables')}
               icon={<ArrowUpRightIcon />}
+              tone="out"
               total={toPay}
               rows={s.payables}
               partyLabel={t('supplier')}
@@ -218,21 +220,21 @@ export function AccountsPage() {
 
 /** A heading row inside the statement: Income, Expenses. */
 function PnlGroup({ title }: { title: string }) {
-  return <div className="border-b border-border/70 bg-muted/40 px-4 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase not-first:border-t">{title}</div>;
+  return <div className="border-b border-border/70 px-5 pt-5 pb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase not-first:border-t sm:px-6">{title}</div>;
 }
 
 function PnlLine({ label, amount, strong, highlight, indent }: { label: ReactNode; amount: number; strong?: boolean; highlight?: boolean; indent?: boolean }) {
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-4 px-4 py-2.5 text-sm not-last:border-b not-last:border-border/70',
+        'flex items-center justify-between gap-4 px-5 py-3 text-sm not-last:border-b not-last:border-border/70 sm:px-6',
         strong && 'font-semibold',
         indent && 'py-1.5 text-[0.8125rem]',
-        highlight && 'bg-muted/60 py-3.5 text-base',
+        highlight && 'bg-muted/50 py-4 text-base',
       )}
     >
       <span className={cn(indent && 'pl-5 text-muted-foreground')}>{label}</span>
-      <span className={cn('tabular-nums', indent && 'text-muted-foreground', highlight && 'text-lg font-bold', highlight && (amount < 0 ? 'text-destructive' : 'text-success'))}>{money2(amount)}</span>
+      <span className={cn('tabular-nums', indent && 'text-muted-foreground', highlight && 'text-xl font-semibold', highlight && (amount < 0 ? 'text-destructive' : 'text-success'))}>{money2(amount)}</span>
     </div>
   );
 }
@@ -240,6 +242,7 @@ function PnlLine({ label, amount, strong, highlight, indent }: { label: ReactNod
 function BalanceTable({
   title,
   icon,
+  tone,
   total,
   rows,
   partyLabel,
@@ -249,6 +252,8 @@ function BalanceTable({
 }: {
   title: string;
   icon: ReactNode;
+  /** money owed to the mill (green) or by it (amber) */
+  tone: 'in' | 'out';
   /** the sum of every row's balance, not just this page */
   total: number;
   rows: Balance[];
@@ -267,14 +272,14 @@ function BalanceTable({
       pager={paged.pager}
       toolbar={
         <div className="flex items-center gap-3">
-          <span className={cn('grid size-10 shrink-0 place-items-center rounded-lg [&_svg]:size-[1.125rem]', total > 0 ? 'bg-warning-soft text-warning' : 'bg-muted text-muted-foreground')} aria-hidden>
+          <span className={cn('grid size-10 shrink-0 place-items-center rounded-lg [&_svg]:size-[1.125rem]', total > 0 ? (tone === 'in' ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning') : 'bg-muted text-muted-foreground')} aria-hidden>
             {icon}
           </span>
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-sm font-semibold">{title}</h3>
+            <h3 className="text-sm leading-snug font-semibold">{title}</h3>
             <div className="text-xs text-muted-foreground">{t('totalDue')}</div>
           </div>
-          <div className={cn('text-xl font-bold tabular-nums', total > 0 && 'text-warning')}>{money2(total)}</div>
+          <div className={cn('text-xl font-semibold tabular-nums', total > 0 && (tone === 'in' ? 'text-success' : 'text-warning'))}>{money2(total)}</div>
         </div>
       }
     >
@@ -354,6 +359,17 @@ function ExpensesSection({
     );
   };
 
+  // linked from a "Record expense" shortcut: open the form straight away, once, then tidy the address
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    if (params.get('new') !== 'expense') return;
+    open();
+    const next = new URLSearchParams(params);
+    next.delete('new');
+    setParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
+
   async function save(e: FormEvent) {
     e.preventDefault();
     if (!form) return;
@@ -394,7 +410,7 @@ function ExpensesSection({
       tools={
         <div className="flex flex-wrap items-center gap-2">
           <Select value={category || ALL} onValueChange={(v) => onCategory(v === ALL ? '' : v)}>
-            <SelectTrigger size="sm" className="w-44" aria-label={t('category')}>
+            <SelectTrigger className="h-10 w-52 max-sm:w-44" aria-label={t('category')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -407,7 +423,7 @@ function ExpensesSection({
               ))}
             </SelectContent>
           </Select>
-          <Button size="sm" onClick={() => open()}>
+          <Button className="h-10" onClick={() => open()}>
             <PlusIcon /> {t('addExpense')}
           </Button>
         </div>
@@ -420,8 +436,8 @@ function ExpensesSection({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-4">{t('date')}</TableHead>
-                <TableHead>{t('category')}</TableHead>
+                <TableHead className={cn(wide, 'pl-4')}>{t('date')}</TableHead>
+                <TableHead className="max-md:pl-4">{t('category')}</TableHead>
                 <TableHead className={wide}>{t('importId')}</TableHead>
                 <TableHead className={wide}>{t('notes')}</TableHead>
                 <TableHead className={numCell}>{t('amount')}</TableHead>
@@ -433,14 +449,18 @@ function ExpensesSection({
             <TableBody>
               {data.items.map((e) => (
                 <TableRow key={e.id}>
-                  <TableCell className="pl-4 text-muted-foreground tabular-nums">{dateOnly(e.date)}</TableCell>
-                  <TableCell>
+                  <TableCell className={cn(wide, 'pl-4 text-muted-foreground tabular-nums')}>{dateOnly(e.date)}</TableCell>
+                  <TableCell className="max-md:pl-4">
                     <span className="inline-block max-w-40 truncate rounded-md bg-muted px-2 py-0.5 align-middle text-[0.8125rem] font-medium">{e.category}</span>
-                    {e.notes && <div className="max-w-[12rem] truncate text-xs font-normal text-muted-foreground md:hidden">{e.notes}</div>}
+                    {/* on phones the date and the note fold in here */}
+                    <div className="mt-1 max-w-[7.5rem] truncate text-xs font-normal text-muted-foreground md:hidden">
+                      {dateOnly(e.date)}
+                      {e.notes && ` · ${e.notes}`}
+                    </div>
                   </TableCell>
                   <TableCell className={wide}>
                     {e.importLoadId && e.importCode ? (
-                      <Link className="text-primary hover:underline" to={`/imports/${e.importLoadId}`}>
+                      <Link className="font-medium text-primary hover:underline" to={`/imports/${e.importLoadId}`}>
                         {e.importCode}
                       </Link>
                     ) : (
@@ -466,9 +486,15 @@ function ExpensesSection({
             </TableBody>
             <TableFooter>
               <TableRow className="hover:bg-transparent">
-                <TableCell className="pl-4 font-semibold" colSpan={2}>
-                  {t('total')}
-                  {category && <span className="font-normal text-muted-foreground"> · {category}</span>}
+                <TableCell className={cn(wide, 'pl-4 font-semibold')}>{t('total')}</TableCell>
+                <TableCell className="font-semibold max-md:pl-4">
+                  <span className="md:hidden">{t('total')}</span>
+                  {category && (
+                    <span className="font-normal text-muted-foreground">
+                      <span className="md:hidden"> · </span>
+                      {category}
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell className={wide} />
                 <TableCell className={wide} />

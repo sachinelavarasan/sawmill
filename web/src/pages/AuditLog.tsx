@@ -25,7 +25,7 @@ interface AuditRow {
 }
 
 /** What happened, in words, and how loudly to show it. Actions not listed are shown as recorded. */
-const ACTIONS: Record<string, { label: TKey; tone: string }> = {
+export const ACTIONS: Record<string, { label: TKey; tone: string }> = {
   CREATE: { label: 'auditActCreate', tone: 'bg-info-soft text-info' },
   UPDATE: { label: 'auditActUpdate', tone: 'bg-muted text-foreground' },
   OWNER_EDIT: { label: 'auditActOwnerEdit', tone: 'bg-muted text-foreground' },
@@ -41,7 +41,7 @@ const ACTIONS: Record<string, { label: TKey; tone: string }> = {
   DOWNLOAD_REPORT: { label: 'auditActDownloadReport', tone: 'bg-muted text-muted-foreground' },
 };
 /** The kinds of record the log speaks of; `page` is where such a record opens, when it has a page of its own. */
-const ENTITIES: Record<string, { label: TKey; page?: (id: string) => string }> = {
+export const ENTITIES: Record<string, { label: TKey; page?: (id: string) => string }> = {
   ImportLoad: { label: 'auditEntImportLoad', page: (id) => `/imports/${id}` },
   LogMeasurement: { label: 'auditEntLogMeasurement' },
   UnloadingEntry: { label: 'auditEntUnloadingEntry' },
@@ -61,7 +61,7 @@ const ENTITIES: Record<string, { label: TKey; page?: (id: string) => string }> =
 };
 
 /** The record's own name where the event carries one (its code, a person's or party's name), so it can be recognised without its ID. */
-function recordName(r: AuditRow): string | null {
+export function recordName(r: { before: Json; after: Json }): string | null {
   for (const data of [r.after, r.before]) {
     if (!data) continue;
     for (const k of ['code', 'name', 'username', 'category', 'key']) {
@@ -194,10 +194,10 @@ export function AuditLogPage() {
     [t],
   );
 
-  const selectClass = 'w-full sm:w-44';
+  const selectClass = 'h-10 w-full sm:w-48';
   const toolbar = (
-    <div className="flex flex-col gap-2.5">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2.5">
         {users.data && (
           <Select
             value={userId || ALL}
@@ -206,7 +206,7 @@ export function AuditLogPage() {
               paging.reset();
             }}
           >
-            <SelectTrigger size="sm" className={selectClass} aria-label={t('user')}>
+            <SelectTrigger className={selectClass} aria-label={t('user')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -226,7 +226,7 @@ export function AuditLogPage() {
             paging.reset();
           }}
         >
-          <SelectTrigger size="sm" className={selectClass} aria-label={t('recordType')}>
+          <SelectTrigger className={selectClass} aria-label={t('recordType')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -239,7 +239,7 @@ export function AuditLogPage() {
           </SelectContent>
         </Select>
         <Select value={action || ALL} onValueChange={(v) => setAction(v === ALL ? '' : v)}>
-          <SelectTrigger size="sm" className={selectClass} aria-label={t('eventType')}>
+          <SelectTrigger className={selectClass} aria-label={t('eventType')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -252,12 +252,12 @@ export function AuditLogPage() {
           </SelectContent>
         </Select>
         <div className="flex items-center gap-1.5">
-          <Input type="date" aria-label={t('from')} title={t('from')} value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} className="h-8 w-[9.25rem]" />
+          <Input type="date" aria-label={t('from')} title={t('from')} value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} className="h-10 w-[9.5rem]" />
           <span className="text-muted-foreground">–</span>
-          <Input type="date" aria-label={t('to')} title={t('to')} value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} className="h-8 w-[9.25rem]" />
+          <Input type="date" aria-label={t('to')} title={t('to')} value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} className="h-10 w-[9.5rem]" />
         </div>
         {anyFilter && (
-          <Button variant="ghost" size="sm" onClick={clear}>
+          <Button variant="ghost" className="h-10" onClick={clear}>
             {t('clearFilters')}
           </Button>
         )}

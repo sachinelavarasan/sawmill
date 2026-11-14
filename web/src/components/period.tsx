@@ -35,12 +35,12 @@ export function PeriodPicker({ value, onChange, className }: { value: PeriodValu
     <div className={cn('flex flex-wrap items-center gap-2', className)}>
       <div role="group" aria-label={t('period')} className="flex flex-wrap items-center gap-1.5">
         {(['thisMonth', 'lastMonth', 'thisQuarter', 'thisYear', 'lastYear'] as const).map((k) => (
-          <Button key={k} type="button" size="sm" variant={same(p[k]) ? 'default' : 'outline'} className="h-9" aria-pressed={same(p[k])} onClick={() => onChange(p[k])}>
+          <Button key={k} type="button" size="sm" variant={same(p[k]) ? 'default' : 'outline'} className="h-10 px-3.5" aria-pressed={same(p[k])} onClick={() => onChange(p[k])}>
             {t(k)}
           </Button>
         ))}
       </div>
-      <div className="flex h-9 items-center gap-1.5 rounded-lg border bg-card pr-2 pl-3 shadow-xs sm:ml-auto transition-colors hover:border-foreground/25 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+      <div className="flex h-10 items-center gap-1.5 rounded-lg border border-input bg-card pr-2 pl-3 sm:ml-auto transition-colors hover:border-foreground/25 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
         <CalendarRangeIcon className="size-4 text-muted-foreground" />
         <Input
           type="date"

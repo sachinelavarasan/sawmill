@@ -31,8 +31,20 @@ export function initTheme() {
   syncMeta(current());
 }
 
+/** What the person picked: a fixed theme, or whatever the device uses. */
+export type ThemeChoice = ThemeName | 'system';
+
+/** A quarter-second colour fade while the theme changes (styles in index.css), unless less motion is asked for. */
+function fadeColours() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const root = document.documentElement;
+  root.classList.add('theme-switching');
+  window.setTimeout(() => root.classList.remove('theme-switching'), 300);
+}
+
 export function useTheme() {
   const [theme, setTheme] = useState<ThemeName>(current);
+  const [choice, setChoiceState] = useState<ThemeChoice>(() => saved() ?? 'system');
 
   useEffect(() => {
     const mq = systemQuery();
@@ -45,16 +57,22 @@ export function useTheme() {
 
   useEffect(() => syncMeta(theme), [theme]);
 
-  const toggle = useCallback(() => {
-    const next: ThemeName = theme === 'dark' ? 'light' : 'dark';
+  /** Light, dark, or follow the device again. */
+  const setChoice = useCallback((next: ThemeChoice) => {
+    fadeColours();
     try {
-      localStorage.setItem(THEME_KEY, next);
+      if (next === 'system') localStorage.removeItem(THEME_KEY);
+      else localStorage.setItem(THEME_KEY, next);
     } catch {
       /* storage unavailable — the choice lasts for this page only */
     }
-    document.documentElement.dataset.theme = next;
-    setTheme(next);
-  }, [theme]);
+    if (next === 'system') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = next;
+    setChoiceState(next);
+    setTheme(next === 'system' ? (systemQuery().matches ? 'dark' : 'light') : next);
+  }, []);
 
-  return { theme, toggle };
+  const toggle = useCallback(() => setChoice(theme === 'dark' ? 'light' : 'dark'), [theme, setChoice]);
+
+  return { theme, choice, setChoice, toggle };
 }

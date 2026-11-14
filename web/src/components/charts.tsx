@@ -87,8 +87,8 @@ export function ChartCard({
   const { t } = useI18n();
   const [asTable, setAsTable] = useState(false);
   return (
-    <Card className={cn('gap-3 py-5', className)}>
-      <CardHeader className="flex flex-row items-start justify-between gap-3 px-5">
+    <Card className={cn('gap-4 py-6 shadow-widget', className)}>
+      <CardHeader className="flex flex-row items-start justify-between gap-3 px-5 sm:px-6">
         <div className="min-w-0">
           <CardTitle className="text-base">{title}</CardTitle>
           {subtitle && <CardDescription className="mt-0.5 text-xs">{subtitle}</CardDescription>}
@@ -99,7 +99,7 @@ export function ChartCard({
           </Button>
         )}
       </CardHeader>
-      <CardContent className="px-5">
+      <CardContent className="px-5 sm:px-6">
         {series && series.length > 1 && !asTable && !empty && (
           <ul className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
             {series.map((s) => (
@@ -228,7 +228,7 @@ export function LineChart({
           role="img"
           aria-label={ariaLabel}
           tabIndex={0}
-          className="block touch-pan-y outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          className="chart-line block touch-pan-y outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           onPointerMove={(e) => pick(e.clientX, e.currentTarget)}
           onPointerLeave={() => setHover(null)}
           onBlur={() => setHover(null)}
@@ -337,7 +337,7 @@ export function ColumnChart({
           role="img"
           aria-label={ariaLabel}
           tabIndex={0}
-          className="block outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          className="chart-columns block outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           onPointerLeave={() => setHover(null)}
           onBlur={() => setHover(null)}
           onKeyDown={(e) => {
@@ -411,7 +411,7 @@ export function StackedBars({
   return (
     <div ref={ref} className="relative">
       {width > 0 && (
-        <svg width={width} height={height} role="img" aria-label={ariaLabel} className="block" onPointerLeave={() => setHover(null)}>
+        <svg width={width} height={height} role="img" aria-label={ariaLabel} className="chart-bars block" onPointerLeave={() => setHover(null)}>
           {rows.map((r, ri) => {
             const y0 = ri * ROW + (ROW - BAR) / 2;
             const parts = series.map((s) => ({ s, v: Math.max(0, r.values[s.key] ?? 0) })).filter((p) => p.v > 0);
@@ -454,6 +454,38 @@ export function StackedBars({
           title={rows[hover.row].label}
           rows={series.map((s) => ({ label: s.label, value: formatValue(rows[hover.row].values[s.key] ?? 0), color: s.color }))}
         />
+      )}
+    </div>
+  );
+}
+
+// ───────── sparkline (a KPI's recent shape, no axes) ─────────
+
+/**
+ * A tiny trend line under a KPI: its shape over recent periods, nothing more. The area under the
+ * line is a faint wash of the same colour; the last point is marked. Decorative: the card states
+ * the figure and the comparison in text, so screen readers skip it.
+ */
+export function Sparkline({ values, color = 'var(--chart-1)', className }: { values: number[]; color?: string; className?: string }) {
+  const [ref, width] = useWidth<HTMLDivElement>();
+  const H = 32;
+  const pts = values.filter((v) => Number.isFinite(v));
+  if (pts.length < 2) return <div ref={ref} className={cn('h-8', className)} aria-hidden />;
+  const min = Math.min(...pts);
+  const max = Math.max(...pts);
+  const span = max - min || 1;
+  const x = (i: number) => (i / (pts.length - 1)) * Math.max(width - 4, 1) + 2;
+  const y = (v: number) => H - 3 - ((v - min) / span) * (H - 8);
+  const line = pts.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
+  const area = `${line}L${x(pts.length - 1).toFixed(1)},${H}L${x(0).toFixed(1)},${H}Z`;
+  return (
+    <div ref={ref} className={cn('h-8', className)} aria-hidden>
+      {width > 0 && (
+        <svg width={width} height={H} className="chart-line block overflow-visible">
+          <path d={area} style={{ fill: color }} opacity={0.12} />
+          <path d={line} fill="none" style={{ stroke: color }} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx={x(pts.length - 1)} cy={y(pts[pts.length - 1])} r={3} style={{ fill: color }} className="stroke-card" strokeWidth={2} />
+        </svg>
       )}
     </div>
   );

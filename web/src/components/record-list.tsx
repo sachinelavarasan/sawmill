@@ -3,20 +3,19 @@
  * (search, status filter, paging, column choice, per-status counts) and the quiet toolbar
  * above the table — Columns, Filter, Search, and where you are in the list.
  */
-import { CheckCircle2Icon, ChevronLeftIcon, ChevronRightIcon, ClipboardListIcon, ClockIcon, Columns3Icon, ListFilterIcon, PlusIcon, XCircleIcon } from 'lucide-react';
+import { CheckCircle2Icon, ChevronLeftIcon, ChevronRightIcon, ClipboardListIcon, ClockIcon, Columns3Icon, ListFilterIcon, PlusIcon, XCircleIcon, XIcon } from 'lucide-react';
 import { ReactNode, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { type TKey, useI18n } from '../i18n';
 import { num3, useApi } from './common';
 import type { Column } from './data-table';
 import { SearchBox, usePaging } from './page';
 
-/** A search box that sits quietly in a table's toolbar until it is used. */
-export const quietSearch =
-  'sm:w-64 [&_input]:h-8 [&_input]:border-transparent [&_input]:bg-transparent [&_input]:shadow-none [&_input]:hover:bg-muted/60 [&_input]:focus-visible:border-ring [&_input]:focus-visible:bg-card';
+/** The search box in a table's toolbar: bordered, a little shorter than a form field. */
+export const quietSearch = 'sm:w-72 [&_input]:h-10';
 
 const STATUS_VALUES = ['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED'] as const;
 const STATUS_LABEL: Record<(typeof STATUS_VALUES)[number], TKey> = { DRAFT: 'draft', SUBMITTED: 'pending', APPROVED: 'approved', REJECTED: 'rejected' };
@@ -113,7 +112,7 @@ export function StatusCards({ list, totalLabel }: { list: RecordList; totalLabel
     { status: 'REJECTED', label: t('rejected'), icon: XCircleIcon, tile: 'bg-destructive-soft text-destructive' },
   ];
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 print:hidden">
+    <div className="stagger grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4 print:hidden">
       {cards.map((c) => {
         const on = list.status === c.status && c.status !== '';
         return (
@@ -123,16 +122,16 @@ export function StatusCards({ list, totalLabel }: { list: RecordList; totalLabel
             aria-pressed={on}
             onClick={() => list.pickStatus(on ? '' : c.status)}
             className={cn(
-              'flex items-center gap-3.5 rounded-xl bg-card px-4 py-4 text-left shadow-card transition-shadow duration-200 outline-none hover:shadow-lift focus-visible:ring-[3px] focus-visible:ring-ring/50',
-              on && 'ring-2 ring-primary/30',
+              'flex items-center gap-3.5 rounded-xl bg-card px-5 py-4 text-left shadow-card hover-lift outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:py-5',
+              on && 'ring-2 ring-brand',
             )}
           >
-            <span className={cn('grid size-11 shrink-0 place-items-center rounded-xl [&_svg]:size-5', c.tile)}>
+            <span className={cn('grid size-10 shrink-0 place-items-center rounded-lg [&_svg]:size-5', c.tile)}>
               <c.icon aria-hidden />
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-sm text-muted-foreground">{c.label}</span>
-              <span className="block text-2xl leading-tight font-bold tabular-nums">{list.counts[c.status]?.toLocaleString('en-IN') ?? '–'}</span>
+              <span className="line-clamp-2 text-[0.8125rem] leading-snug font-medium text-muted-foreground">{c.label}</span>
+              <span className="block text-[1.625rem] leading-tight font-semibold tracking-[-0.025em] tabular-nums">{list.counts[c.status]?.toLocaleString('en-IN') ?? '–'}</span>
             </span>
           </button>
         );
@@ -141,44 +140,25 @@ export function StatusCards({ list, totalLabel }: { list: RecordList; totalLabel
   );
 }
 
-/** One quiet row above the table: columns, filter, search — and where you are in the list. */
+/** The row above a list: search first, then the status filter; on the right, where you are in the list and the column choice. */
 export function ListToolbar<T>({ list, columns, searchPlaceholder }: { list: RecordList; columns: ListColumn<T>[]; searchPlaceholder: string }) {
   const { t } = useI18n();
   const { status, counts } = list;
   const pager = list.data ? list.paging.pager(list.data.total) : null;
   return (
-    <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="max-md:hidden">
-            <Columns3Icon /> {t('columnsMenu')}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-60 p-2">
-          <DropdownMenuLabel className="px-2.5 pt-1.5 pb-2 text-[0.9375rem] font-semibold">{t('columnsMenu')}</DropdownMenuLabel>
-          <DropdownMenuSeparator className="mb-1.5" />
-          {columns
-            .filter((c) => c.label)
-            .map((c) => (
-              <DropdownMenuCheckboxItem key={c.id} checked={!list.hidden.includes(c.id)} onCheckedChange={() => list.toggleColumn(c.id)} onSelect={(e) => e.preventDefault()}>
-                {c.label}
-              </DropdownMenuCheckboxItem>
-            ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+    <div className="flex flex-wrap items-center gap-2.5">
+      <SearchBox className="sm:w-80 [&_input]:h-10" value={list.q} onChange={list.setQ} placeholder={searchPlaceholder} />
 
       {list.hasStatusFilter && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm">
+            <Button variant="outline" className="h-10 px-3.5">
               <ListFilterIcon /> {t('filterMenu')}
-              {status && <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">{t(STATUS_LABEL[status as keyof typeof STATUS_LABEL])}</span>}
+              {status && <span className="-mr-1 rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">{t(STATUS_LABEL[status as keyof typeof STATUS_LABEL])}</span>}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-64 p-2">
-            <DropdownMenuLabel className="px-2.5 pt-1.5 pb-2 text-[0.9375rem] font-semibold">{t('filterMenu')}</DropdownMenuLabel>
-            <DropdownMenuSeparator className="mb-1.5" />
-            <DropdownMenuLabel className="px-2.5 pb-1 text-xs font-medium text-muted-foreground">{t('status')}</DropdownMenuLabel>
+            <DropdownMenuLabel className="px-2.5 pt-1.5 pb-1 text-xs font-medium text-muted-foreground">{t('status')}</DropdownMenuLabel>
             <DropdownMenuRadioGroup value={status} onValueChange={list.pickStatus}>
               {(['', ...STATUS_VALUES] as const).map((s) => (
                 <DropdownMenuRadioItem key={s} value={s}>
@@ -187,39 +167,45 @@ export function ListToolbar<T>({ list, columns, searchPlaceholder }: { list: Rec
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
-            {status && (
-              <>
-                <DropdownMenuSeparator className="mt-1.5" />
-                <DropdownMenuItem className="justify-center py-2 font-medium" onSelect={() => list.pickStatus('')}>
-                  {t('clearFilters')}
-                </DropdownMenuItem>
-              </>
-            )}
           </DropdownMenuContent>
         </DropdownMenu>
       )}
-
-      <SearchBox
-        className={cn('ml-1', quietSearch)}
-        value={list.q}
-        onChange={list.setQ}
-        placeholder={searchPlaceholder}
-      />
-
-      {pager && pager.total > 0 && (
-        <div className="ml-auto flex items-center gap-1.5 text-sm">
-          <span className="rounded-md border px-2.5 py-1 font-medium tabular-nums">
-            {pager.skip + 1} – {Math.min(pager.skip + pager.page, pager.total)}
-          </span>
-          <span className="px-1 text-muted-foreground tabular-nums">/ {pager.total}</span>
-          <Button variant="outline" size="icon-sm" disabled={pager.skip <= 0} onClick={() => pager.onSkip(Math.max(0, pager.skip - pager.page))} aria-label={t('previous')} title={t('previous')}>
-            <ChevronLeftIcon />
-          </Button>
-          <Button variant="outline" size="icon-sm" disabled={pager.skip + pager.page >= pager.total} onClick={() => pager.onSkip(pager.skip + pager.page)} aria-label={t('next')} title={t('next')}>
-            <ChevronRightIcon />
-          </Button>
-        </div>
+      {list.filtered && (
+        <Button variant="ghost" className="h-10 px-3 text-muted-foreground" onClick={list.clearFilters}>
+          <XIcon /> {t('clearFilters')}
+        </Button>
       )}
+
+      <div className="ml-auto flex items-center gap-2">
+        {pager && pager.total > 0 && (
+          <div className="flex items-center gap-1 text-[0.8125rem]">
+            <span className="px-1 text-muted-foreground tabular-nums">{t('rangeOf', { from: pager.skip + 1, to: Math.min(pager.skip + pager.page, pager.total), total: pager.total })}</span>
+            <Button variant="ghost" size="icon-sm" disabled={pager.skip <= 0} onClick={() => pager.onSkip(Math.max(0, pager.skip - pager.page))} aria-label={t('previous')} title={t('previous')}>
+              <ChevronLeftIcon />
+            </Button>
+            <Button variant="ghost" size="icon-sm" disabled={pager.skip + pager.page >= pager.total} onClick={() => pager.onSkip(pager.skip + pager.page)} aria-label={t('next')} title={t('next')}>
+              <ChevronRightIcon />
+            </Button>
+          </div>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="h-10 px-3.5 max-md:hidden">
+              <Columns3Icon /> {t('columnsMenu')}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-56 p-2">
+            <DropdownMenuLabel className="px-2.5 pt-1.5 pb-1 text-xs font-medium text-muted-foreground">{t('columnsMenu')}</DropdownMenuLabel>
+            {columns
+              .filter((c) => c.label)
+              .map((c) => (
+                <DropdownMenuCheckboxItem key={c.id} checked={!list.hidden.includes(c.id)} onCheckedChange={() => list.toggleColumn(c.id)} onSelect={(e) => e.preventDefault()}>
+                  {c.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 }

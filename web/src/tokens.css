@@ -1,149 +1,357 @@
-/*
- * SAWMILL PRO theme — Slate & Saffron: neutral graphite, white, one saffron accent.
- * Tokens mirror packages/shared/src/theme.ts (used by the Android app); change both together.
- * Light is the default. Dark applies when the device asks for it, or when the user
- * picks it with the toggle (which sets data-theme on <html>).
- */
-:root {
-  --bg: #f4f5f6;
-  --surface: #ffffff;
-  --surface-2: #eceef0;
-  --border: #dde1e5;
-  --text: #1a1f24;
-  --muted: #58626c;
-  --primary: #27323d;
-  --primary-hover: #1a232c;
-  --on-primary: #ffffff;
-  --primary-soft: #e6eaee;
-  --accent: #985200;
-  --accent-soft: #fdefd6;
-  --ok: #1b6b45;
-  --ok-soft: #e0f2e7;
-  --bad: #a32d22;
-  --bad-soft: #fbe6e3;
-  --info: #1a5a9e;
-  --info-soft: #e4eefa;
-  --hero: #1e262e;
-  --side: #1e262e;
-  --side-text: #dbe1e6;
-  --side-muted: #a4afb9;
-  --side-active: #36424f;
-  /* the saffron marker of the open page in the sidebar (the dark-theme accent, same in both themes) */
-  --side-accent: #f0a04b;
-  --shadow: 0 1px 2px rgba(26, 31, 36, 0.05);
-  /* chart series (validated: dataviz validator, light on #ffffff) */
-  --chart-1: #2a78d6;
-  --chart-2: #eb6834;
-  --chart-axis: #c5cbd1;
 
-  --radius-sm: 8px;
-  --radius: 12px;
-  --radius-lg: 16px;
+/*
+ * SAWMILL PRO — Slate & Saffron Theme
+ *
+ * Design direction: Modern Minimal, Professional Business Software
+ * Primary: Slate
+ * Accent: Saffron
+ * Light: White cards, cool slate background
+ * Dark: Deep navy/slate surfaces
+ *
+ * Light is the default.
+ * Dark follows system preference unless manually overridden.
+ * Manual override: <html data-theme="dark"> or <html data-theme="light">
+ *
+ * Shared variable naming convention for Web and Android.
+ */
+
+/* ============================================
+   1. LIGHT THEME (DEFAULT)
+   ============================================ */
+
+:root {
+  /* Base surfaces */
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --border: #e8ecf1;
+  --input: #cbd5e1;
+
+  /* Dedicated layout surfaces */
+  --topbar: #ffffff;
+  --content-bg: #ffffff;
+
+  /* Typography */
+  --text: #1e293b;
+  --muted: #64748b;
+
+  /* Primary - Slate */
+  --primary: #334155;
+  --primary-hover: #1e293b;
+  --on-primary: #ffffff;
+  --primary-soft: #f1f5f9;
+
+  /* Brand accent - Saffron */
+  --saffron: #e5a000;
+  --on-saffron: #1e293b;
+  --accent: #92400e;
+  --accent-soft: #fef3c7;
+
+  /* Sidebar */
+  --side: #1e293b;
+  --side-text: #ffffff;
+  --side-muted: #cbd5e1;
+  --side-active: #334155;
+  --side-accent: #e5a000;
+
+  /* Subtle shadows */
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.035),
+            0 3px 8px rgba(15, 23, 42, 0.025);
+
+  /* Semantic status colours (the same light values as the print theme below) */
+  --ok: #15803d;
+  --ok-soft: #dcfce7;
+
+  --bad: #b42318;
+  --bad-soft: #fee4e2;
+
+  --warning: #b45309;
+  --warning-soft: #fef3c7;
+
+  --info: #1d4ed8;
+  --info-soft: #dbeafe;
+
+  /* Dashboard / Hero */
+  --hero: #334155;
+
+  /* Interactive states */
+  --focus: #64748b;
+  --focus-ring: rgba(100, 116, 139, 0.25);
+  --selection: #e2e8f0;
+  --disabled: #94a3b8;
+
+  /* Charts (light series on white, as in print) */
+  --chart-1: #2878c8;
+  --chart-2: #d97736;
+  --chart-3: #16845b;
+  --chart-4: #8b65c5;
+  --chart-5: #c18a22;
+  --chart-axis: #cbd5e1;
+  --chart-grid: #e2e8f0;
 
   color-scheme: light;
   font-family: Inter, 'Noto Sans Tamil', system-ui, -apple-system, sans-serif;
-  font-size: 15px;
-  line-height: 1.45;
+  font-size: 16px;
+  line-height: 1.5;
   color: var(--text);
-  background: var(--bg);
 }
 
+/* ============================================
+   2. DARK THEME
+   ============================================ */
+
 :root[data-theme='dark'] {
-  --bg: #111417;
-  --surface: #1a1f24;
-  --surface-2: #232a31;
-  --border: #323b44;
-  --text: #e8ecef;
-  --muted: #a1acb6;
-  --primary: #c9d3dc;
-  --primary-hover: #dde4ea;
-  --on-primary: #141a20;
-  --primary-soft: #2a333c;
-  --accent: #f0a04b;
-  --accent-soft: #3a2a14;
-  --ok: #6fd3a0;
+  /* Base surfaces */
+  --bg: #0f172a;
+  --surface: #172033;
+  --surface-2: #1e293b;
+  --border: #334155;
+  --input: #475569;
+
+  /* Typography */
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+
+  /* Primary - Slate */
+  --primary: #cbd5e1;
+  --primary-hover: #e2e8f0;
+  --on-primary: #0f172a;
+  --primary-soft: #1e293b;
+
+  /* Brand accent - Saffron */
+  --saffron: #e5a000;
+  --on-saffron: #1e293b;
+  --accent: #f2b535;
+  --accent-soft: #3b2f12;
+
+  /* Semantic status colours */
+  --ok: #6fd39a;
   --ok-soft: #173526;
+
   --bad: #f2958b;
   --bad-soft: #3d1d19;
+
+  --warning: #f2b535;
+  --warning-soft: #44351b;
+
   --info: #8fbdf3;
   --info-soft: #172a40;
-  --hero: #1a2128;
-  --side: #0d1013;
-  --side-text: #dbe1e6;
-  --side-muted: #a4afb9;
-  --side-active: #2a333c;
-  --side-accent: #f0a04b;
+
+  /* Dashboard / Hero */
+  --hero: #1e293b;
+
+  /* Sidebar */
+  --side: #172033;
+  --side-text: #f8fafc;
+  --side-muted: #94a3b8;
+  --side-active: #334155;
+  --side-accent: #e5a000;
+
+  /* Interactive states */
+  --focus: #94a3b8;
+  --focus-ring: rgba(148, 163, 184, 0.25);
+  --selection: #334155;
+  --disabled: #64748b;
+
+  /* Shadows */
   --shadow: none;
-  /* chart series: 4.6:1 and 4.3:1 on the #1a1f24 card, above the 3:1 needed for chart marks */
-  --chart-1: #3987e5;
-  --chart-2: #d95926;
-  --chart-axis: #3d4650;
+
+  /* Charts */
+  --chart-1: #65a9f2;
+  --chart-2: #e99a65;
+  --chart-3: #62c99b;
+  --chart-4: #b69ae8;
+  --chart-5: #e5bd65;
+  --chart-axis: #475569;
+  --chart-grid: #334155;
+
   color-scheme: dark;
 }
 
+/* ============================================
+   3. SYSTEM DARK MODE
+   Applies only when there is no manual override.
+   ============================================ */
+
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --bg: #111417;
-    --surface: #1a1f24;
-    --surface-2: #232a31;
-    --border: #323b44;
-    --text: #e8ecef;
-    --muted: #a1acb6;
-    --primary: #c9d3dc;
-    --primary-hover: #dde4ea;
-    --on-primary: #141a20;
-    --primary-soft: #2a333c;
-    --accent: #f0a04b;
-    --accent-soft: #3a2a14;
-    --ok: #6fd3a0;
+  :root:not([data-theme='light']):not([data-theme='dark']) {
+    /* Base surfaces */
+    --bg: #0f172a;
+    --surface: #172033;
+    --surface-2: #1e293b;
+    --border: #334155;
+    --input: #475569;
+
+    /* Typography */
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+
+    /* Primary */
+    --primary: #cbd5e1;
+    --primary-hover: #e2e8f0;
+    --on-primary: #0f172a;
+    --primary-soft: #1e293b;
+
+    /* Brand accent */
+    --saffron: #e5a000;
+    --on-saffron: #1e293b;
+    --accent: #f2b535;
+    --accent-soft: #3b2f12;
+
+    /* Semantic status */
+    --ok: #6fd39a;
     --ok-soft: #173526;
+
     --bad: #f2958b;
     --bad-soft: #3d1d19;
+
+    --warning: #f2b535;
+    --warning-soft: #44351b;
+
     --info: #8fbdf3;
     --info-soft: #172a40;
-    --hero: #1a2128;
-    --side: #0d1013;
-    --side-text: #dbe1e6;
-    --side-muted: #a4afb9;
-    --side-active: #2a333c;
-    --side-accent: #f0a04b;
+
+    /* Dashboard */
+    --hero: #1e293b;
+
+    /* Sidebar */
+    --side: #172033;
+    --side-text: #f8fafc;
+    --side-muted: #94a3b8;
+    --side-active: #334155;
+    --side-accent: #e5a000;
+
+    /* Interactive states */
+    --focus: #94a3b8;
+    --focus-ring: rgba(148, 163, 184, 0.25);
+    --selection: #334155;
+    --disabled: #64748b;
+
+    /* Shadows */
     --shadow: none;
-    --chart-1: #3987e5;
-    --chart-2: #d95926;
-    --chart-axis: #3d4650;
+
+    /* Charts */
+    --chart-1: #65a9f2;
+    --chart-2: #e99a65;
+    --chart-3: #62c99b;
+    --chart-4: #b69ae8;
+    --chart-5: #e5bd65;
+    --chart-axis: #475569;
+    --chart-grid: #334155;
+
     color-scheme: dark;
   }
 }
 
-body { margin: 0; background: var(--bg); color: var(--text); }
+/* ============================================
+   4. GLOBAL STYLES
+   ============================================ */
 
-/* Paper is white: always print with the light palette, even in dark mode. */
+html {
+  min-height: 100%;
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+::selection {
+  color: var(--text);
+  background: var(--selection);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   5. PRINT THEME
+   Always use the light palette for printing.
+   ============================================ */
+
 @media print {
   :root,
   :root[data-theme='dark'],
   :root:not([data-theme='light']) {
-    --bg: #f4f5f6;
+    /* Base surfaces */
+    --bg: #ffffff;
     --surface: #ffffff;
-    --surface-2: #eceef0;
-    --border: #dde1e5;
-    --text: #1a1f24;
-    --muted: #58626c;
-    --primary: #27323d;
-    --primary-hover: #1a232c;
+    --surface-2: #f1f5f9;
+    --border: #e2e8f0;
+    --input: #cbd5e1;
+
+    /* Typography */
+    --text: #1e293b;
+    --muted: #64748b;
+
+    /* Primary */
+    --primary: #334155;
+    --primary-hover: #1e293b;
     --on-primary: #ffffff;
-    --primary-soft: #e6eaee;
-    --accent: #985200;
-    --accent-soft: #fdefd6;
-    --ok: #1b6b45;
-    --ok-soft: #e0f2e7;
-    --bad: #a32d22;
-    --bad-soft: #fbe6e3;
-    --info: #1a5a9e;
-    --info-soft: #e4eefa;
-    --shadow: 0 1px 2px rgba(26, 31, 36, 0.05);
-    --chart-1: #2a78d6;
-    --chart-2: #eb6834;
-    --chart-axis: #c5cbd1;
+    --primary-soft: #f1f5f9;
+
+    /* Brand accent */
+    --saffron: #e5a000;
+    --on-saffron: #1e293b;
+    --accent: #92400e;
+    --accent-soft: #fef3c7;
+
+    /* Semantic status */
+    --ok: #15803d;
+    --ok-soft: #dcfce7;
+
+    --bad: #b42318;
+    --bad-soft: #fee4e2;
+
+    --warning: #b45309;
+    --warning-soft: #fef3c7;
+
+    --info: #1d4ed8;
+    --info-soft: #dbeafe;
+
+    /* Dashboard */
+    --hero: #334155;
+
+    /* Sidebar */
+    --side: #1e293b;
+    --side-text: #ffffff;
+    --side-muted: #cbd5e1;
+    --side-active: #334155;
+    --side-accent: #e5a000;
+
+    /* Interactive states */
+    --focus: #64748b;
+    --focus-ring: rgba(100, 116, 139, 0.25);
+    --selection: #e2e8f0;
+    --disabled: #94a3b8;
+
+    /* Shadows */
+    --shadow: none;
+
+    /* Charts */
+    --chart-1: #2878c8;
+    --chart-2: #d97736;
+    --chart-3: #16845b;
+    --chart-4: #8b65c5;
+    --chart-5: #c18a22;
+    --chart-axis: #cbd5e1;
+    --chart-grid: #e2e8f0;
+
     color-scheme: light;
+  }
+
+  body {
+    background: #ffffff;
+    color: var(--text);
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }

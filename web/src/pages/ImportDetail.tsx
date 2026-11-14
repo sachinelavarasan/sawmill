@@ -177,15 +177,27 @@ function DetailsSection({ load, onSaved }: { load: ImportDetail; onSaved: () => 
     }
   }
 
-  const facts: [string, string | null][] = [
-    [t('driverName'), load.driverName],
-    [t('driverMobile'), load.driverMobile],
-    [t('lorryOwnerName'), load.lorryOwnerName],
-    [t('lorryOwnerMobile'), load.lorryOwnerMobile],
-    [t('originLocation'), load.originLocation],
-    [t('woodCategory'), load.woodCategory],
-    [t('createdBy'), load.createdByName],
-    [t('notes'), load.notes],
+  const groups: { title: string; facts: [string, string | null][] }[] = [
+    {
+      title: t('lorryAndDriver'),
+      facts: [
+        [t('lorryNumber'), load.lorryNumber],
+        [t('driverName'), load.driverName],
+        [t('driverMobile'), load.driverMobile],
+        [t('lorryOwnerName'), load.lorryOwnerName],
+        [t('lorryOwnerMobile'), load.lorryOwnerMobile],
+      ],
+    },
+    {
+      title: t('secImportInfo'),
+      facts: [
+        [t('woodType'), load.woodType],
+        [t('woodCategory'), load.woodCategory],
+        [t('originLocation'), load.originLocation],
+        [t('createdBy'), load.createdByName],
+        [t('notes'), load.notes],
+      ],
+    },
   ];
 
   return (
@@ -214,17 +226,20 @@ function DetailsSection({ load, onSaved }: { load: ImportDetail; onSaved: () => 
           </FormActions>
         </FormCard>
       ) : (
-        <Card className="py-5">
-          <CardContent className="px-5">
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-4 md:grid-cols-4">
-              {facts.map(([label, value]) => (
-                <div key={label} className="min-w-0">
-                  <dt className="text-xs text-muted-foreground">{label}</dt>
-                  <dd className="mt-0.5 font-medium break-words">{value || '—'}</dd>
-                </div>
-              ))}
-            </dl>
-          </CardContent>
+        <Card className="gap-0 py-0 lg:flex-row">
+          {groups.map((g) => (
+            <section key={g.title} className="min-w-0 flex-1 px-5 py-6 not-first:border-t sm:px-6 lg:not-first:border-t-0 lg:not-first:border-l">
+              <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{g.title}</h3>
+              <dl className="mt-4 grid grid-cols-2 gap-x-5 gap-y-5 sm:grid-cols-3">
+                {g.facts.map(([label, value]) => (
+                  <div key={label} className="min-w-0">
+                    <dt className="text-xs text-muted-foreground">{label}</dt>
+                    <dd className="mt-1 font-medium break-words">{value || '—'}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          ))}
         </Card>
       )}
     </Section>
@@ -329,7 +344,7 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
       <TableCard compactEmpty empty={load.unloadings.length === 0} emptyText={t('noUnloading')} pager={unloadings.pager}>
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/50">
+            <TableRow>
               <TableHead className="pl-4">{t('vehicleNumber')}</TableHead>
               <TableHead className={wide}>{t('startTime')}</TableHead>
               <TableHead className={wide}>{t('endTime')}</TableHead>
@@ -364,14 +379,14 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
                   {load.editable && (
                     <div className="flex justify-end gap-1">
                       {!u.endAt && (
-                        <Button variant="outline" size="sm" onClick={() => endNow(u)} aria-label={t('endNow')}>
+                        <Button variant="outline" size="sm" className="max-lg:size-9 max-lg:px-0" onClick={() => endNow(u)} aria-label={t('endNow')} title={t('endNow')}>
                           <ClockIcon />
-                          <span className="max-md:sr-only">{t('endNow')}</span>
+                          <span className="max-lg:sr-only">{t('endNow')}</span>
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm" aria-label={t('delete')} onClick={() => remove(u)}>
+                      <Button variant="ghost" size="sm" className="max-lg:size-9 max-lg:px-0" aria-label={t('delete')} title={t('delete')} onClick={() => remove(u)}>
                         <Trash2Icon />
-                        <span className="max-md:sr-only">{t('delete')}</span>
+                        <span className="max-lg:sr-only">{t('delete')}</span>
                       </Button>
                     </div>
                   )}
@@ -606,16 +621,16 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
 
   const newestFirst = [...load.logs].reverse();
   const logs = useClientPaging(newestFirst);
-  const cellInput = 'ml-auto h-8 w-24 text-right tabular-nums';
+  const cellInput = 'ml-auto h-9 w-24 text-right tabular-nums max-md:w-16';
 
   return (
     <Section id="logs" title={t('measurement')}>
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_19rem]">
         {/* the running total: beside the form on a wide screen, above it on a tablet or phone */}
-        <Card className="gap-0 bg-primary py-5 text-primary-foreground lg:sticky lg:top-20 lg:order-last dark:bg-primary-soft dark:text-foreground">
-          <CardContent className="px-5">
+        <Card className="gap-0 bg-primary py-6 text-primary-foreground lg:sticky lg:top-24 lg:order-last dark:bg-primary-soft dark:text-foreground">
+          <CardContent className="px-6">
             <div className="text-sm font-medium opacity-80">{t('totalCft')}</div>
-            <div className="mt-1 text-5xl leading-none font-bold tracking-[-0.03em] tabular-nums" aria-live="polite">
+            <div className="mt-2 text-5xl leading-none font-semibold tracking-[-0.03em] tabular-nums" aria-live="polite">
               {num3(load.totalCft)}
               <span className="ml-2 text-base font-medium tracking-normal opacity-75">CFT</span>
             </div>
@@ -637,11 +652,11 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
           </CardContent>
         </Card>
 
-        <div className="flex min-w-0 flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-4">
           {load.editable && (
-            <Card className="py-5">
-              <CardContent className="px-5">
-                <form onSubmit={add} className="grid gap-4">
+            <Card className="py-6">
+              <CardContent className="px-5 sm:px-6">
+                <form onSubmit={add} className="grid gap-5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="flex items-center gap-2.5 text-base font-semibold">
                       <span className="rounded-lg bg-primary-soft px-2.5 py-1 text-sm font-bold text-primary tabular-nums">
@@ -734,7 +749,7 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
           )}
           {error && <Notice tone="error">{error}</Notice>}
 
-          <h3 className="mt-2 flex items-center gap-2 text-[0.9375rem] font-semibold">
+          <h3 className="mt-4 flex items-center gap-2 text-base font-semibold">
             {t('measurementHistory')}
             <span className="min-w-6 rounded-full bg-muted px-2 text-center text-xs leading-6 font-bold text-muted-foreground tabular-nums">{load.totalLogs}</span>
           </h3>
@@ -742,7 +757,7 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
         <form onSubmit={saveEdit}>
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/50">
+              <TableRow>
                 <TableHead className="pl-4">{t('logNo')}</TableHead>
                 <TableHead className={numCell}>{t('girth')}</TableHead>
                 <TableHead className={numCell}>{t('lengthFt')}</TableHead>
@@ -791,11 +806,11 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
                     </TableCell>
                     <TableCell className="pr-4 text-right">
                       <div className="flex justify-end gap-1">
-                        <Button type="submit" size="sm" disabled={busy} aria-label={t('save')}>
+                        <Button type="submit" size="sm" className="max-md:size-9 max-md:px-0" disabled={busy} aria-label={t('save')}>
                           <CheckIcon />
                           <span className="max-md:sr-only">{t('save')}</span>
                         </Button>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(null)} aria-label={t('cancel')}>
+                        <Button type="button" variant="ghost" size="sm" className="max-md:size-9 max-md:px-0" onClick={() => setEditing(null)} aria-label={t('cancel')}>
                           <XIcon />
                           <span className="max-md:sr-only">{t('cancel')}</span>
                         </Button>
@@ -815,13 +830,14 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
                             type="button"
                             variant="outline"
                             size="sm"
+                            className="max-md:size-9 max-md:px-0"
                             aria-label={t('edit')}
                             onClick={() => setEditing({ id: log.id, girth: String(log.girthIn), length: String(log.lengthFt) })}
                           >
                             <PencilIcon />
                             <span className="max-md:sr-only">{t('edit')}</span>
                           </Button>
-                          <Button type="button" variant="ghost" size="sm" aria-label={t('delete')} onClick={() => remove(log)}>
+                          <Button type="button" variant="ghost" size="sm" className="max-md:size-9 max-md:px-0" aria-label={t('delete')} onClick={() => remove(log)}>
                             <Trash2Icon />
                             <span className="max-md:sr-only">{t('delete')}</span>
                           </Button>

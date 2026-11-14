@@ -38,11 +38,11 @@ const toForm = (d: MillSettings): Form => ({
 /** English / தமிழ், as two buttons. */
 function LanguageChoice({ value, onChange, label }: { value: Lang; onChange: (l: Lang) => void; label: string }) {
   return (
-    <ToggleGroup type="single" variant="outline" value={value} onValueChange={(v) => v && onChange(v as Lang)} className="w-fit bg-card" aria-label={label}>
-      <ToggleGroupItem value="en" className="px-5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+    <ToggleGroup type="single" variant="outline" value={value} onValueChange={(v) => v && onChange(v as Lang)} className="h-11 w-fit bg-card" aria-label={label}>
+      <ToggleGroupItem value="en" className="h-11 px-5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
         English
       </ToggleGroupItem>
-      <ToggleGroupItem value="ta" className="px-5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+      <ToggleGroupItem value="ta" className="h-11 px-5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
         தமிழ்
       </ToggleGroupItem>
     </ToggleGroup>
@@ -132,11 +132,11 @@ export function SettingsPage() {
 
           {/* nothing to set: shown so the owner can see what every figure is measured in */}
           <FormSection step={3} title={t('secUnits')} description={t('secUnitsSub')}>
-            <dl className="grid gap-px overflow-hidden rounded-lg border bg-border/70 sm:col-span-2 sm:grid-cols-2">
+            <dl className="grid gap-x-8 gap-y-5 sm:col-span-2 sm:grid-cols-2">
               {units.map(([label, value]) => (
-                <div key={label} className="bg-muted/40 px-4 py-3">
+                <div key={label} className="border-l-2 pl-4">
                   <dt className="text-xs text-muted-foreground">{label}</dt>
-                  <dd className="mt-0.5 text-sm font-medium">{value}</dd>
+                  <dd className="mt-1 text-sm font-medium">{value}</dd>
                 </div>
               ))}
             </dl>
@@ -174,7 +174,7 @@ export function SettingsPage() {
           {saveError && <Notice tone="error">{saveError}</Notice>}
 
           {/* one Save for sections 1, 2, 5 and 6; it stays in view while there is something to save */}
-          <div className={cn('flex flex-col-reverse gap-2 border-t border-border/70 pt-5 sm:flex-row sm:items-center', dirty && 'sticky bottom-0 -mx-5 -mb-7 rounded-b-xl bg-card px-5 pb-5 sm:-mx-6 sm:px-6')}>
+          <div className={cn('flex flex-col-reverse gap-2 border-t border-border/70 pt-5 sm:flex-row sm:items-center', dirty && 'sticky bottom-0 -mx-5 -mb-7 rounded-b-xl bg-card px-5 pb-6 sm:-mx-7 sm:px-7')}>
             <p className={cn('text-sm sm:mr-auto', dirty ? 'font-medium text-warning' : 'text-muted-foreground')} aria-live="polite">
               {t(dirty ? 'unsavedChanges' : 'noChanges')}
             </p>

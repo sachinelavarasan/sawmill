@@ -13,6 +13,7 @@ const ImportDetailPage = lazy(() => import('./pages/ImportDetail').then((m) => (
 const ImportsPage = lazy(() => import('./pages/Imports').then((m) => ({ default: m.ImportsPage })));
 const NewImportPage = lazy(() => import('./pages/Imports').then((m) => ({ default: m.NewImportPage })));
 const OwnerDashboard = lazy(() => import('./pages/OwnerDashboard').then((m) => ({ default: m.OwnerDashboard })));
+const MyEntriesPage = lazy(() => import('./pages/MyEntries').then((m) => ({ default: m.MyEntriesPage })));
 const NewProductionPage = lazy(() => import('./pages/Production').then((m) => ({ default: m.NewProductionPage })));
 const ProductionPage = lazy(() => import('./pages/Production').then((m) => ({ default: m.ProductionPage })));
 const ProductionDetailPage = lazy(() => import('./pages/ProductionDetail').then((m) => ({ default: m.ProductionDetailPage })));
@@ -65,6 +66,7 @@ export default function App() {
         <Route path="/imports/new" element={<Guard permission={Permission.OPERATIONS_CREATE}><NewImportPage /></Guard>} />
         <Route path="/imports/:id" element={<Guard permission={Permission.OPERATIONS_CREATE}><ImportDetailPage /></Guard>} />
         <Route path="/measurement" element={<Guard permission={Permission.OPERATIONS_CREATE}><ImportsPage openOnly /></Guard>} />
+        <Route path="/my-entries" element={<Guard permission={Permission.OPERATIONS_CREATE}><MyEntriesPage /></Guard>} />
         <Route path="/suppliers" element={<Guard permission={Permission.SUPPLIERS_MANAGE}><SuppliersPage /></Guard>} />
         <Route path="/production" element={<Guard permission={Permission.OPERATIONS_CREATE}><ProductionPage /></Guard>} />
         <Route path="/production/new" element={<Guard permission={Permission.OPERATIONS_CREATE}><NewProductionPage /></Guard>} />

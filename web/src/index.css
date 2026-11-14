@@ -48,7 +48,7 @@
   --color-accent-foreground: var(--text);
   --color-destructive: var(--bad);
   --color-border: var(--border);
-  --color-input: var(--border);
+  --color-input: var(--input);
   --color-ring: var(--primary);
 
   /* brand extras */
@@ -69,26 +69,54 @@
   --color-chart-2: var(--chart-2);
   --color-chart-axis: var(--chart-axis);
 
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  /* controls 8px (rounded-lg), cards 12px (rounded-xl) */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
 
   --color-primary-hover: var(--primary-hover);
   --color-sidebar-accent: var(--side-accent);
+  /* the saffron brand fill, and the text that sits on it */
+  --color-brand: var(--saffron);
+  --color-brand-foreground: var(--on-saffron);
 
   /*
-   * Elevation, in four steps. Each is a hairline ring (so edges stay crisp on any
-   * background) plus soft, wide shadows: resting card, hovered card, floating panel
-   * (menus, sticky bars), and dialogs.
+   * Shadow scale (values below, per theme): soft, layered, slate-tinted rather than black.
+   *   xs  subtle borders, small controls      sm  buttons, compact cards
+   *   md  dashboard cards, dropdowns          lg  modals, floating panels
+   *   xl  prominent overlays and dialogs
+   * The named roles combine a hairline ring (crisp edges on any background) with a step of
+   * the scale: a resting card, a hovered card, a floating panel, a dialog.
+   */
+  --shadow-xs: var(--elev-xs);
+  --shadow-sm: var(--elev-sm);
+  --shadow-md: var(--elev-md);
+  --shadow-lg: var(--elev-lg);
+  --shadow-xl: var(--elev-xl);
+  /*
+   * Elevation levels: 0 the flat page; 1 content surfaces (shadow-card); 2 floating and interactive
+   * panels (shadow-lift, the hover state of level 1); 3 prominent widgets and previews (shadow-widget);
+   * 4 overlays, menus and dialogs (shadow-float, shadow-pop).
    */
   --shadow-card: var(--elev-card);
+  /* tables: a step above cards, so lists stand out on the page */
+  --shadow-table: var(--elev-table);
+  --shadow-widget: var(--elev-widget);
   --shadow-lift: var(--elev-lift);
   --shadow-float: var(--elev-float);
   --shadow-pop: var(--elev-pop);
   /* a pressed-in control (inputs) and a raised one (primary buttons) */
   --shadow-inset: var(--elev-inset);
   --shadow-button: var(--elev-button);
+
+  /*
+   * Motion: 150–250ms for controls and hovers, 250–350ms for panels. One natural curve for
+   * things arriving (ease-smooth) and a quicker one for feedback (ease-snappy). No bounce.
+   */
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-snappy: cubic-bezier(0.2, 0, 0, 1);
 
   --animate-shimmer: shimmer 1.6s linear infinite;
   --animate-progress: progress 1.1s ease-in-out infinite;
@@ -97,7 +125,7 @@
 }
 
 
-/* Motion is for loading feedback only (skeleton shimmer, table refresh line); switched off below for people who ask for less motion. */
+/* Loading feedback (skeleton shimmer, table refresh line) and arrivals (charts); all switched off below for people who ask for less motion. */
 @keyframes shimmer {
   to { background-position: -200% 0; }
 }
@@ -112,6 +140,8 @@
     @apply border-border outline-ring/50;
   }
   body {
+    /* body text 14px; headings, tables and controls set their own */
+    font-size: 0.875rem;
     -webkit-font-smoothing: antialiased;
   }
   ::selection {
@@ -127,6 +157,36 @@
     animation: shimmer 1.6s linear infinite;
   }
 
+  /* a card you can click: it rises a little and its shadow deepens */
+  .hover-lift {
+    transition:
+      transform 200ms var(--ease-smooth),
+      box-shadow 200ms var(--ease-smooth);
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--elev-lift);
+  }
+  .hover-lift:active {
+    transform: translateY(0);
+    transition-duration: 75ms;
+  }
+
+  /*
+   * Table rows: a page of rows fades in as it loads; a hovered row tints. A row that opens something
+   * (LinkRow, or a row that opens a side panel) also shows a thin saffron marker on its leading edge;
+   * the selected row's own marker, set in data-table.tsx, wins.
+   */
+  [data-slot='table-body'] > [data-slot='table-row'] {
+    animation: chart-fade 0.3s var(--ease-smooth) both;
+  }
+  [data-slot='table-body'] > [data-slot='table-row'] > td:first-child {
+    transition: box-shadow 200ms var(--ease-smooth);
+  }
+  [data-slot='table-body'] > [data-slot='table-row'].cursor-pointer:hover > td:first-child {
+    box-shadow: inset 3px 0 0 var(--saffron);
+  }
+
   /* thin scrollbars inside panels (sidebar, tab strips) */
   .scroll-quiet {
     scrollbar-width: thin;
@@ -135,39 +195,61 @@
 }
 
 /*
- * Elevation values, kept subtle. Light surfaces get a hairline ring plus a soft shadow;
- * dark surfaces don't show shadows, so elevation there is a lighter hairline.
+ * Elevation values. Light: slate-tinted layered shadows under a hairline ring. Dark: deeper,
+ * black shadows with a faint light ring, since dark surfaces separate by edge more than by shade.
  * Paper (print) gets none.
  */
 :root {
-  --elev-card: 0 0 0 1px rgb(16 24 32 / 0.07), 0 1px 2px rgb(16 24 32 / 0.04);
-  --elev-lift: 0 0 0 1px rgb(16 24 32 / 0.08), 0 2px 4px rgb(16 24 32 / 0.04), 0 8px 20px -8px rgb(16 24 32 / 0.12);
-  --elev-float: 0 0 0 1px rgb(16 24 32 / 0.06), 0 8px 16px -4px rgb(16 24 32 / 0.1), 0 20px 40px -12px rgb(16 24 32 / 0.16);
-  --elev-pop: 0 0 0 1px rgb(16 24 32 / 0.08), 0 16px 32px -8px rgb(16 24 32 / 0.22), 0 40px 80px -24px rgb(16 24 32 / 0.3);
-  --elev-inset: inset 0 1px 2px rgb(16 24 32 / 0.06);
-  --elev-button: inset 0 1px 0 rgb(255 255 255 / 0.12), 0 1px 2px rgb(16 24 32 / 0.18);
+  --elev-xs: 0 1px 2px rgb(15 23 42 / 0.05);
+  --elev-sm: 0 1px 2px rgb(15 23 42 / 0.05), 0 2px 6px -1px rgb(15 23 42 / 0.06);
+  --elev-md: 0 1px 3px rgb(15 23 42 / 0.05), 0 6px 16px -4px rgb(15 23 42 / 0.09);
+  --elev-lg: 0 2px 6px rgb(15 23 42 / 0.05), 0 14px 32px -8px rgb(15 23 42 / 0.14);
+  --elev-xl: 0 4px 10px rgb(15 23 42 / 0.06), 0 28px 64px -16px rgb(15 23 42 / 0.24);
+  --elev-card: 0 0 0 1px rgb(15 23 42 / 0.09), 0 0 4px rgb(15 23 42 / 0.07), 0 0 24px rgb(15 23 42 / 0.12);
+  --elev-table: 0 0 0 1px rgb(15 23 42 / 0.1), 0 0 6px rgb(15 23 42 / 0.08), 0 0 32px rgb(15 23 42 / 0.16);
+  --elev-lift: 0 0 0 1px rgb(15 23 42 / 0.12), 0 0 8px rgb(15 23 42 / 0.09), 0 0 40px rgb(15 23 42 / 0.2);
+  --elev-widget: 0 0 0 1px rgb(15 23 42 / 0.11), 0 0 8px rgb(15 23 42 / 0.09), 0 0 44px rgb(15 23 42 / 0.22);
+  --elev-float: 0 0 0 1px rgb(15 23 42 / 0.07), var(--elev-lg);
+  --elev-pop: 0 0 0 1px rgb(15 23 42 / 0.08), var(--elev-xl);
+  --elev-inset: inset 0 1px 1px rgb(15 23 42 / 0.04);
+  --elev-button: inset 0 1px 0 rgb(255 255 255 / 0.12), 0 1px 2px rgb(15 23 42 / 0.16), 0 2px 6px -2px rgb(15 23 42 / 0.18);
 }
 :root[data-theme='dark'] {
-  --elev-card: 0 0 0 1px rgb(255 255 255 / 0.05);
-  --elev-lift: 0 0 0 1px rgb(255 255 255 / 0.1), 0 12px 28px -12px rgb(0 0 0 / 0.7);
-  --elev-float: 0 0 0 1px rgb(255 255 255 / 0.1), 0 16px 32px -8px rgb(0 0 0 / 0.7);
-  --elev-pop: 0 0 0 1px rgb(255 255 255 / 0.12), 0 32px 64px -16px rgb(0 0 0 / 0.85);
+  --elev-xs: 0 1px 2px rgb(0 0 0 / 0.3);
+  --elev-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 8px -2px rgb(0 0 0 / 0.35);
+  --elev-md: 0 1px 3px rgb(0 0 0 / 0.3), 0 8px 20px -6px rgb(0 0 0 / 0.5);
+  --elev-lg: 0 2px 6px rgb(0 0 0 / 0.35), 0 16px 36px -10px rgb(0 0 0 / 0.6);
+  --elev-xl: 0 4px 12px rgb(0 0 0 / 0.4), 0 32px 72px -18px rgb(0 0 0 / 0.75);
+  --elev-card: 0 0 0 1px var(--border), 0 0 4px rgb(0 0 0 / 0.35), 0 0 16px rgb(0 0 0 / 0.4);
+  --elev-table: 0 0 0 1px var(--border), 0 0 5px rgb(0 0 0 / 0.4), 0 0 26px rgb(0 0 0 / 0.55);
+  --elev-lift: 0 0 0 1px rgb(255 255 255 / 0.11), 0 0 6px rgb(0 0 0 / 0.45), 0 0 34px rgb(0 0 0 / 0.65);
+  --elev-widget: 0 0 0 1px rgb(255 255 255 / 0.09), 0 0 6px rgb(0 0 0 / 0.45), 0 0 40px rgb(0 0 0 / 0.7);
+  --elev-float: 0 0 0 1px rgb(255 255 255 / 0.09), var(--elev-lg);
+  --elev-pop: 0 0 0 1px rgb(255 255 255 / 0.1), var(--elev-xl);
   --elev-inset: inset 0 1px 2px rgb(0 0 0 / 0.3);
-  --elev-button: inset 0 1px 0 rgb(255 255 255 / 0.25), 0 1px 2px rgb(0 0 0 / 0.4);
+  --elev-button: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 1px 2px rgb(0 0 0 / 0.4);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --elev-card: 0 0 0 1px rgb(255 255 255 / 0.05);
-    --elev-lift: 0 0 0 1px rgb(255 255 255 / 0.1), 0 12px 28px -12px rgb(0 0 0 / 0.7);
-    --elev-float: 0 0 0 1px rgb(255 255 255 / 0.1), 0 16px 32px -8px rgb(0 0 0 / 0.7);
-    --elev-pop: 0 0 0 1px rgb(255 255 255 / 0.12), 0 32px 64px -16px rgb(0 0 0 / 0.85);
+    --elev-xs: 0 1px 2px rgb(0 0 0 / 0.3);
+    --elev-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 8px -2px rgb(0 0 0 / 0.35);
+    --elev-md: 0 1px 3px rgb(0 0 0 / 0.3), 0 8px 20px -6px rgb(0 0 0 / 0.5);
+    --elev-lg: 0 2px 6px rgb(0 0 0 / 0.35), 0 16px 36px -10px rgb(0 0 0 / 0.6);
+    --elev-xl: 0 4px 12px rgb(0 0 0 / 0.4), 0 32px 72px -18px rgb(0 0 0 / 0.75);
+    --elev-card: 0 0 0 1px var(--border), 0 0 4px rgb(0 0 0 / 0.35), 0 0 16px rgb(0 0 0 / 0.4);
+    --elev-table: 0 0 0 1px var(--border), 0 0 5px rgb(0 0 0 / 0.4), 0 0 26px rgb(0 0 0 / 0.55);
+    --elev-lift: 0 0 0 1px rgb(255 255 255 / 0.11), 0 0 6px rgb(0 0 0 / 0.45), 0 0 34px rgb(0 0 0 / 0.65);
+    --elev-widget: 0 0 0 1px rgb(255 255 255 / 0.09), 0 0 6px rgb(0 0 0 / 0.45), 0 0 40px rgb(0 0 0 / 0.7);
+    --elev-float: 0 0 0 1px rgb(255 255 255 / 0.09), var(--elev-lg);
+    --elev-pop: 0 0 0 1px rgb(255 255 255 / 0.1), var(--elev-xl);
     --elev-inset: inset 0 1px 2px rgb(0 0 0 / 0.3);
-    --elev-button: inset 0 1px 0 rgb(255 255 255 / 0.25), 0 1px 2px rgb(0 0 0 / 0.4);
+    --elev-button: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 1px 2px rgb(0 0 0 / 0.4);
   }
 }
 @media print {
   :root, :root[data-theme='dark'], :root:not([data-theme='light']) {
-    --elev-card: none; --elev-lift: none; --elev-float: none; --elev-pop: none; --elev-inset: none; --elev-button: none;
+    --elev-xs: none; --elev-sm: none; --elev-md: none; --elev-lg: none; --elev-xl: none; --elev-widget: none;
+    --elev-card: none; --elev-table: none; --elev-lift: none; --elev-float: none; --elev-pop: none; --elev-inset: none; --elev-button: none;
   }
 }
 
@@ -181,4 +263,145 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/*
+ * Paper: a table must fit the page width, since nothing can scroll there. Headings wrap between
+ * words; values (IDs, dates, figures) stay on one line; only cells marked .print-wrap (long text)
+ * wrap. Rows never split across pages, and the header repeats on each page.
+ */
+@media print {
+  @page {
+    margin: 12mm 10mm;
+  }
+  [data-slot='table-container'] {
+    overflow: visible;
+  }
+  [data-slot='table-head'],
+  [data-slot='table-cell'] {
+    height: auto;
+    padding-inline: 5px;
+  }
+  [data-slot='table-head'] {
+    padding-block: 6px;
+    vertical-align: bottom;
+    line-height: 1.25;
+    white-space: normal;
+  }
+  [data-slot='table-cell'] {
+    white-space: nowrap;
+  }
+  [data-slot='table-cell'].print-wrap {
+    white-space: normal;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tr {
+    break-inside: avoid;
+  }
+}
+
+/* ───────── motion ───────── */
+
+/* Charts grow into place once, when they first appear: columns from the baseline, bars from the left. */
+@keyframes chart-grow-y {
+  from { transform: scaleY(0); }
+}
+@keyframes chart-grow-x {
+  from { transform: scaleX(0); }
+}
+@keyframes chart-fade {
+  from { opacity: 0; }
+}
+.chart-columns path {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: chart-grow-y 0.6s var(--ease-smooth) both;
+}
+.chart-bars rect,
+.chart-bars path {
+  transform-box: fill-box;
+  transform-origin: 0 50%;
+  animation: chart-grow-x 0.6s var(--ease-smooth) both;
+}
+.chart-line path,
+.chart-line circle {
+  animation: chart-fade 0.5s var(--ease-smooth) both;
+}
+
+/* Switching theme fades colours over a quarter second instead of snapping (the class is set briefly by theme.ts). */
+:root.theme-switching,
+:root.theme-switching *,
+:root.theme-switching *::before,
+:root.theme-switching *::after {
+  transition:
+    background-color 250ms var(--ease-smooth),
+    border-color 250ms var(--ease-smooth),
+    color 250ms var(--ease-smooth),
+    fill 250ms var(--ease-smooth),
+    box-shadow 250ms var(--ease-smooth) !important;
+}
+
+/* ───────── depth and reveal ───────── */
+
+/* A row of widgets arrives one after another: each rises a few pixels and fades in, 60ms apart. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+.stagger > * {
+  animation: rise-in 0.5s var(--ease-smooth) both;
+}
+.stagger > :nth-child(2) { animation-delay: 60ms; }
+.stagger > :nth-child(3) { animation-delay: 120ms; }
+.stagger > :nth-child(4) { animation-delay: 180ms; }
+.stagger > :nth-child(5) { animation-delay: 240ms; }
+.stagger > :nth-child(6) { animation-delay: 300ms; }
+.stagger > :nth-child(n + 7) { animation-delay: 360ms; }
+
+/* Sections further down fade and rise as they scroll into view (components/depth.tsx sets data-shown). */
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 0.6s var(--ease-smooth),
+    transform 0.6s var(--ease-smooth);
+}
+.reveal[data-shown] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Decorative preview panels drift a few pixels, slowly (sign-in screen only). */
+@keyframes drift {
+  from { transform: translate3d(0, 0, var(--z, 0)); }
+  to { transform: translate3d(0, -7px, var(--z, 0)); }
+}
+.drift {
+  animation: drift 6s ease-in-out infinite alternate;
+}
+.drift-slow {
+  animation: drift 8s ease-in-out -3s infinite alternate;
+}
+
+/* Paper shows everything, still. */
+@media print {
+  .reveal { opacity: 1; transform: none; }
+  .stagger > *, .drift, .drift-slow, [data-slot='table-body'] > [data-slot='table-row'] { animation: none; }
+}
+
+/*
+ * Inside an overlay (side panel, dialog, phone menu) the overlay itself is what floats: the cards,
+ * tables and widgets in it sit flat, edged by a border only, and don't lift on hover.
+ * Unlayered, so it outranks the shadow utilities.
+ */
+:is([data-slot='sheet-content'], [data-slot='dialog-content'], [data-slot='alert-dialog-content'])
+  :is([data-slot='card'], .shadow-card, .shadow-table, .shadow-widget, .shadow-lift, .hover-lift) {
+  box-shadow: 0 0 0 1px var(--border);
+}
+:is([data-slot='sheet-content'], [data-slot='dialog-content'], [data-slot='alert-dialog-content']) .hover-lift:hover {
+  transform: none;
 }
