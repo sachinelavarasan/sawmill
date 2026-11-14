@@ -1,10 +1,13 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './auth';
 import { ConfirmProvider } from './components/confirm';
+import { ToastProvider } from './components/toast';
 import { I18nProvider } from './i18n';
+import { queryClient } from './lib/query';
 import { initTheme } from './theme';
 // Fonts ship with the app (no Google Fonts call): works on a weak connection and keeps a strict CSP.
 // Each file declares unicode-range subsets, so the browser only downloads the scripts a page uses.
@@ -22,14 +25,18 @@ initTheme();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <I18nProvider>
-      <ConfirmProvider>
-        <AuthProvider>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
-        </AuthProvider>
-      </ConfirmProvider>
-    </I18nProvider>
+    <QueryClientProvider client={queryClient}>
+      <I18nProvider>
+        <ConfirmProvider>
+          <ToastProvider>
+            <AuthProvider>
+              <BrowserRouter>
+                <App />
+              </BrowserRouter>
+            </AuthProvider>
+          </ToastProvider>
+        </ConfirmProvider>
+      </I18nProvider>
+    </QueryClientProvider>
   </React.StrictMode>,
 );

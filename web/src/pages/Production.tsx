@@ -1,16 +1,16 @@
 import { PlusIcon } from 'lucide-react';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
-import { num3, useLoad } from '../components/common';
+import { num3, useApi, useLoad } from '../components/common';
+import { type Column, DataTable, IdCell } from '../components/data-table';
 import { StatusBadge } from '../components/status-badge';
-import { Field, FormActions, FormCard, FormGrid, LinkRow, LoadState, Notice, numCell, Page, PageHeader, SearchBox, StatusFilter, TableCard, Toolbar, usePaging, wide } from '../components/page';
+import { Field, FormActions, FormCard, FormGrid, LoadState, Notice, Page, PageHeader, SearchBox, StatusFilter, Toolbar, usePaging } from '../components/page';
 import { useI18n } from '../i18n';
 import { fromLocalInput, toLocalInput } from './Imports';
 
@@ -76,10 +76,38 @@ export function ProductionPage() {
   const [q, setQ] = useState('');
   const paging = usePaging();
   const query = `take=${paging.take}&skip=${paging.skip}${status ? `&status=${status}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}`;
-  const { data, loading, error, reload } = useLoad(
-    () => api<{ items: ProductionSummary[]; total: number }>(`/production?${query}`),
-    [query],
-  );
+  const { data, loading, error, reload } = useApi<{ items: ProductionSummary[]; total: number }>(`/production?${query}`);
+
+  const columns = useMemo(() => {
+    const cols: Column<ProductionSummary>[] = [
+      {
+        id: 'code',
+        header: t('productionId'),
+        cell: (r) => (
+          <IdCell sub={`${r.importCode} · ${r.woodType}`}>
+            <Link className="text-primary hover:underline" to={`/production/${r.id}`}>
+              {r.code}
+            </Link>
+          </IdCell>
+        ),
+      },
+      { id: 'date', header: t('date'), from: 'md', className: 'text-muted-foreground', cell: (r) => dateOnly(r.productionDate) },
+      { id: 'import', header: t('importId'), from: 'md', cell: (r) => r.importCode },
+      { id: 'wood', header: t('woodType'), from: 'md', cell: (r) => r.woodType },
+      { id: 'input', header: t('inputCft'), from: 'md', numeric: true, cell: (r) => (r.inputCft != null ? num3(r.inputCft) : '—') },
+      { id: 'output', header: t('outputCft'), numeric: true, className: 'font-semibold', cell: (r) => num3(r.outputCft) },
+      {
+        id: 'waste',
+        header: t('wasteCft'),
+        from: 'md',
+        numeric: true,
+        cell: (r) => <span className={cn(r.wasteCft != null && r.wasteCft < 0 && 'font-semibold text-destructive')}>{r.wasteCft != null ? num3(r.wasteCft) : '—'}</span>,
+      },
+      { id: 'status', header: t('status'), cell: (r) => <StatusBadge status={r.status} /> },
+    ];
+    if (isOwner) cols.push({ id: 'by', header: t('createdBy'), from: 'md', cell: (r) => r.createdByName });
+    return cols;
+  }, [t, isOwner]);
 
   return (
     <Page>
@@ -118,51 +146,15 @@ export function ProductionPage() {
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
 
       {data && (
-        <>
-          <TableCard empty={data.items.length === 0} emptyText={q ? t('noMatches', { q }) : t('noProduction')} pager={paging.pager(data.total)} className={cn(loading && 'opacity-60')}>
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="pl-4">{t('productionId')}</TableHead>
-                  <TableHead className={wide}>{t('date')}</TableHead>
-                  <TableHead className={wide}>{t('importId')}</TableHead>
-                  <TableHead className={wide}>{t('woodType')}</TableHead>
-                  <TableHead className={cn(numCell, wide)}>{t('inputCft')}</TableHead>
-                  <TableHead className={numCell}>{t('outputCft')}</TableHead>
-                  <TableHead className={cn(numCell, wide)}>{t('wasteCft')}</TableHead>
-                  <TableHead className={cn(!isOwner && 'pr-4', isOwner && 'max-md:pr-4')}>{t('status')}</TableHead>
-                  {isOwner && <TableHead className={cn(wide, 'pr-4')}>{t('createdBy')}</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.items.map((r) => (
-                  <LinkRow key={r.id} to={`/production/${r.id}`}>
-                    <TableCell className="pl-4 font-medium">
-                      <Link className="text-primary hover:underline" to={`/production/${r.id}`}>
-                        {r.code}
-                      </Link>
-                      <div className="text-xs font-normal text-muted-foreground md:hidden">
-                        {r.importCode} · {r.woodType}
-                      </div>
-                    </TableCell>
-                    <TableCell className={cn(wide, 'text-muted-foreground')}>{dateOnly(r.productionDate)}</TableCell>
-                    <TableCell className={wide}>{r.importCode}</TableCell>
-                    <TableCell className={wide}>{r.woodType}</TableCell>
-                    <TableCell className={cn(numCell, wide)}>{r.inputCft != null ? num3(r.inputCft) : '—'}</TableCell>
-                    <TableCell className={cn(numCell, 'font-semibold')}>{num3(r.outputCft)}</TableCell>
-                    <TableCell className={cn(numCell, wide, r.wasteCft != null && r.wasteCft < 0 && 'font-semibold text-destructive')}>
-                      {r.wasteCft != null ? num3(r.wasteCft) : '—'}
-                    </TableCell>
-                    <TableCell className={cn(!isOwner && 'pr-4', isOwner && 'max-md:pr-4')}>
-                      <StatusBadge status={r.status} />
-                    </TableCell>
-                    {isOwner && <TableCell className={cn(wide, 'pr-4')}>{r.createdByName}</TableCell>}
-                  </LinkRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableCard>
-        </>
+        <DataTable
+          data={data.items}
+          columns={columns}
+          rowKey={(r) => r.id}
+          rowTo={(r) => `/production/${r.id}`}
+          empty={q ? t('noMatches', { q }) : t('noProduction')}
+          pager={paging.pager(data.total)}
+          busy={loading}
+        />
       )}
     </Page>
   );

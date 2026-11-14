@@ -16,6 +16,7 @@ import { ALL, EntryField, EntryRow, Field, FigureStrip, FormActions, FormCard, F
 import { StatusBadge } from '../components/status-badge';
 import { WorkflowBar } from '../components/workflow';
 import { useConfirmDelete } from '../components/confirm';
+import { useToast } from '../components/toast';
 import { useI18n } from '../i18n';
 import { ExportFields, ExportForm, exportBody, FinishedStockRow } from './Exports';
 import { toLocalInput } from './Imports';
@@ -505,6 +506,7 @@ function SaleSection({ exp, canPickClient }: { exp: ExportDetail; canPickClient:
   const clients = useLoad(() => (canPickClient ? api<{ id: string; name: string }[]>('/clients') : Promise.resolve([])), [canPickClient]);
   const [form, setForm] = useState<Record<'clientId' | 'rate' | 'amount' | 'received' | 'notes', string> | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     if (data)
@@ -534,7 +536,8 @@ function SaleSection({ exp, canPickClient }: { exp: ExportDetail; canPickClient:
           notes: form.notes,
         }),
       });
-      setMessage({ kind: 'ok', text: t('saved') });
+      setMessage(null);
+      toast(t('saved'));
       reload();
     } catch (err) {
       setMessage({ kind: 'error', text: errorText(err) });

@@ -1,4 +1,4 @@
-import { ChevronsLeftIcon, ChevronsRightIcon, LogOutIcon, MenuIcon, MoonIcon, SunIcon } from 'lucide-react';
+import { ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, LogOutIcon, MenuIcon, MoonIcon, SunIcon } from 'lucide-react';
 import { Permission } from '@sawmill/shared';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
@@ -21,6 +21,7 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { Lang, useI18n } from '../i18n';
 import { NAV_ITEMS } from '../nav';
+import { LogoMark } from './brand';
 import { QuickJump } from './quick-jump';
 import { useTheme } from '../theme';
 
@@ -48,7 +49,7 @@ function useSidebarCollapsed() {
   return { collapsed, toggle };
 }
 
-/** The app frame: collapsible light sidebar (a slide-in sheet on phones) + top bar + page. */
+/** The app frame: collapsible dark sidebar (a slide-in sheet on phones) + a glass top bar + page. */
 export function Layout({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -58,15 +59,15 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="flex min-h-svh">
       <aside
         className={cn(
-          'sticky top-0 hidden h-svh shrink-0 border-r bg-card transition-[width] duration-200 ease-out lg:block print:hidden',
-          collapsed ? 'w-[4.75rem]' : 'w-64',
+          'sticky top-0 hidden h-svh shrink-0 bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-out lg:block print:hidden',
+          collapsed ? 'w-[4.75rem]' : 'w-[17rem]',
         )}
       >
         <SidebarNav collapsed={collapsed} onToggle={toggle} />
       </aside>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="left" className="w-72 bg-card p-0">
+        <SheetContent side="left" className="w-72 border-0 bg-sidebar p-0 text-sidebar-foreground">
           <SheetTitle className="sr-only">{t('menu')}</SheetTitle>
           <SheetDescription className="sr-only">SAWMILL PRO</SheetDescription>
           <SidebarNav onNavigate={() => setOpen(false)} />
@@ -74,19 +75,45 @@ export function Layout({ children }: { children: ReactNode }) {
       </Sheet>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b bg-card/95 px-4 shadow-card backdrop-blur sm:px-6 print:hidden">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-border/60 bg-background/75 px-4 backdrop-blur-xl backdrop-saturate-150 sm:px-6 lg:px-8 print:hidden">
           <Button variant="outline" size="icon" className="lg:hidden" aria-label={t('menu')} onClick={() => setOpen(true)}>
             <MenuIcon />
           </Button>
-          <QuickJump />
+          <Crumbs />
           <div className="flex-1" />
+          <QuickJump />
           <ThemeToggle />
           <LangToggle />
           <UserMenu />
         </header>
-        <main className="flex-1 p-4 sm:p-6 lg:p-7 print:p-0">{children}</main>
+        <main className="flex-1 px-4 pt-5 pb-10 sm:px-6 sm:pt-7 lg:px-8 print:p-0">{children}</main>
       </div>
     </div>
+  );
+}
+
+/** Where you are, in the top bar: the mill, then the open section (the page's own heading names the record). */
+function Crumbs() {
+  const { user } = useAuth();
+  const { t } = useI18n();
+  const { pathname } = useLocation();
+  const item = NAV_ITEMS.find((n) => (n.path === '/' ? pathname === '/' : pathname === n.path || pathname.startsWith(`${n.path}/`)));
+  if (!item) return null;
+  return (
+    <nav aria-label={t('menu')} className="hidden min-w-0 items-center gap-2 text-sm sm:flex">
+      <span className="truncate text-muted-foreground max-md:hidden">{user?.mill.name}</span>
+      <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground max-md:hidden" aria-hidden />
+      {/* on a record or form inside the section, the section name leads back to its list */}
+      {pathname === item.path ? (
+        <span className="truncate font-semibold" aria-current="page">
+          {t(item.labelKey)}
+        </span>
+      ) : (
+        <NavLink to={item.path} className="truncate rounded-sm font-semibold outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">
+          {t(item.labelKey)}
+        </NavLink>
+      )}
+    </nav>
   );
 }
 
@@ -135,18 +162,27 @@ function SidebarNav({ onNavigate, collapsed = false, onToggle }: { onNavigate?: 
         onClick={onNavigate}
         aria-label={collapsed ? (badge ? `${label} (${badge})` : label) : undefined}
         className={cn(
-          'relative flex shrink-0 items-center rounded-xl text-sm transition-all duration-200 ease-out active:scale-[0.98]',
+          'relative flex shrink-0 items-center rounded-lg text-sm transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-accent',
           collapsed ? 'size-11 justify-center' : 'min-h-11 gap-3 px-3 lg:min-h-10',
-          isActive ? 'bg-primary font-semibold text-primary-foreground shadow-sm dark:bg-primary-soft dark:text-foreground dark:shadow-none' : 'font-medium text-muted-foreground hover:bg-muted hover:text-foreground',
+          isActive ? 'bg-sidebar-active font-semibold text-white' : 'font-medium text-sidebar-muted hover:bg-white/[0.06] hover:text-white',
         )}
       >
-        <n.icon className="size-[1.125rem] shrink-0" strokeWidth={1.75} />
+        {/* the marker of the open page */}
+        <span
+          aria-hidden
+          className={cn(
+            'absolute top-1/2 left-0 h-5 w-[3px] -translate-x-3 -translate-y-1/2 rounded-full bg-sidebar-accent',
+            !isActive && 'hidden',
+            collapsed && '-translate-x-4',
+          )}
+        />
+        <n.icon className={cn('size-[1.125rem] shrink-0', isActive && 'text-sidebar-accent')} strokeWidth={1.75} />
         {!collapsed && <span className="flex-1 truncate">{label}</span>}
         {badge &&
           (collapsed ? (
-            <span className="absolute top-2 right-2 size-2.5 rounded-full border-2 border-card bg-warning" aria-hidden="true" />
+            <span className="absolute top-2 right-2 size-2.5 rounded-full border-2 border-sidebar bg-sidebar-accent" aria-hidden="true" />
           ) : (
-            <span className="min-w-5 rounded-full bg-warning-soft px-1.5 text-center text-xs leading-5 font-semibold text-warning tabular-nums">{badge}</span>
+            <span className="min-w-5 rounded-full bg-sidebar-accent px-1.5 text-center text-xs leading-5 font-bold text-hero tabular-nums">{badge}</span>
           ))}
       </NavLink>
     );
@@ -167,29 +203,29 @@ function SidebarNav({ onNavigate, collapsed = false, onToggle }: { onNavigate?: 
   return (
     <TooltipProvider delayDuration={150}>
       <div className="flex h-full flex-col">
-        <div className={cn('flex h-16 shrink-0 items-center gap-3 border-b', collapsed ? 'justify-center' : 'px-4')}>
-          <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-xs font-bold text-primary-foreground">SP</div>
+        <div className={cn('flex h-16 shrink-0 items-center gap-3', collapsed ? 'justify-center' : 'px-5')}>
+          <LogoMark />
           {!collapsed && (
             <div className="min-w-0 leading-tight">
-              <div className="text-sm font-semibold">Sawmill Pro</div>
-              <div className="truncate text-xs text-muted-foreground">{user?.mill.name}</div>
+              <div className="text-[0.9375rem] font-bold tracking-tight text-white">Sawmill Pro</div>
+              <div className="truncate text-xs text-sidebar-muted">{user?.mill.name}</div>
             </div>
           )}
         </div>
 
-        <nav aria-label={t('menu')} className={cn('flex flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto p-3', collapsed && 'items-center')}>
+        <nav aria-label={t('menu')} className={cn('scroll-quiet flex flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto px-3 py-2', collapsed && 'items-center')}>
           {items.filter((n) => n.section === 'main').map(link)}
           {isOwner &&
             (collapsed ? (
-              <div className="my-2 w-8 shrink-0 border-t" />
+              <div className="my-2 w-8 shrink-0 border-t border-white/10" />
             ) : (
-              <div className="px-3 pt-4 pb-1 text-xs font-medium text-muted-foreground">{t('ownerOnly')}</div>
+              <div className="px-3 pt-5 pb-1.5 text-[0.6875rem] font-semibold tracking-wider text-sidebar-muted uppercase">{t('ownerOnly')}</div>
             ))}
           {items.filter((n) => n.section === 'owner').map(link)}
         </nav>
 
         {onToggle && (
-          <div className={cn('flex shrink-0 border-t p-3', collapsed && 'justify-center')}>
+          <div className={cn('flex shrink-0 border-t border-white/10 p-3', collapsed && 'justify-center')}>
             <button
               type="button"
               onClick={onToggle}
@@ -197,7 +233,7 @@ function SidebarNav({ onNavigate, collapsed = false, onToggle }: { onNavigate?: 
               aria-expanded={!collapsed}
               title={collapsed ? toggleLabel : undefined}
               className={cn(
-                'flex items-center rounded-xl text-sm font-medium text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
+                'flex items-center rounded-lg text-sm font-medium text-sidebar-muted transition-colors outline-none hover:bg-white/[0.06] hover:text-white focus-visible:ring-2 focus-visible:ring-sidebar-accent',
                 collapsed ? 'size-11 justify-center' : 'min-h-10 w-full gap-3 px-3',
               )}
             >
@@ -253,7 +289,7 @@ function UserMenu() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-11 gap-2.5 px-1.5 sm:px-2" aria-label={user?.name}>
           <Avatar className="size-9">
-            <AvatarFallback className="bg-primary-soft font-bold text-primary">{initial}</AvatarFallback>
+            <AvatarFallback className="bg-primary font-bold text-primary-foreground">{initial}</AvatarFallback>
           </Avatar>
           <div className="hidden text-left sm:block">
             <div className="text-sm leading-tight font-semibold">{user?.name}</div>

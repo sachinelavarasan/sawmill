@@ -1,13 +1,12 @@
 import { PencilIcon, PlusIcon } from 'lucide-react';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
 import { api } from '../api';
-import { useLoad } from '../components/common';
-import { Field, FormGrid, LoadState, Notice, Page, PageHeader, TableCard, useClientPaging, wide } from '../components/page';
+import { useApi } from '../components/common';
+import { type Column, DataTable } from '../components/data-table';
+import { Field, FormGrid, LoadState, Notice, Page, PageHeader, SearchBox, Toolbar } from '../components/page';
 import { TKey, useI18n } from '../i18n';
 
 interface Party {
@@ -38,8 +37,13 @@ export const ClientsPage = () => <PartiesPage path="/clients" titleKey="clients"
 /** The mill's suppliers or clients: same fields, same rules. */
 function PartiesPage({ path, titleKey, addKey, emptyKey }: PartyPageProps) {
   const { t } = useI18n();
-  const { data, loading, error, reload } = useLoad(() => api<Party[]>(path), [path]);
-  const paged = useClientPaging(data ?? []);
+  const { data, loading, error, reload } = useApi<Party[]>(path);
+  // the whole list is loaded, so it is searched and sorted right here
+  const [q, setQ] = useState('');
+  const shown = useMemo(() => {
+    const needle = q.toLowerCase();
+    return needle ? (data ?? []).filter((s) => [s.name, s.phone, s.address, s.gstNumber, s.notes].some((v) => v?.toLowerCase().includes(needle))) : data;
+  }, [data, q]);
   // `id: null` = adding a new one
   const [editing, setEditing] = useState<{ id: string | null; form: Form } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -71,6 +75,49 @@ function PartiesPage({ path, titleKey, addKey, emptyKey }: PartyPageProps) {
       setBusy(false);
     }
   }
+
+  const columns = useMemo(
+    (): Column<Party>[] => [
+      {
+        id: 'name',
+        header: t('name'),
+        sort: (s) => s.name.toLowerCase(),
+        className: 'whitespace-normal',
+        cell: (s) => (
+          <>
+            <div className="font-semibold">{s.name}</div>
+            {s.notes && <div className="text-xs text-muted-foreground">{s.notes}</div>}
+            <div className="text-xs text-muted-foreground md:hidden">{[s.phone, s.address, s.gstNumber].filter(Boolean).join(' · ')}</div>
+          </>
+        ),
+      },
+      { id: 'phone', header: t('mobile'), from: 'md', cell: (s) => s.phone ?? '—' },
+      { id: 'address', header: t('address'), from: 'md', sort: (s) => s.address?.toLowerCase(), className: 'max-w-64 whitespace-normal', cell: (s) => s.address ?? '—' },
+      { id: 'gst', header: t('gstNumber'), from: 'md', cell: (s) => s.gstNumber ?? '—' },
+      {
+        id: 'edit',
+        className: 'text-right',
+        cell: (s) => (
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label={t('edit')}
+            onClick={() => {
+              setFormError(null);
+              setEditing({
+                id: s.id,
+                form: { name: s.name, phone: s.phone ?? '', address: s.address ?? '', gstNumber: s.gstNumber ?? '', notes: s.notes ?? '' },
+              });
+            }}
+          >
+            <PencilIcon />
+            <span className="max-md:sr-only">{t('edit')}</span>
+          </Button>
+        ),
+      },
+    ],
+    [t],
+  );
 
   return (
     <Page>
@@ -124,50 +171,14 @@ function PartiesPage({ path, titleKey, addKey, emptyKey }: PartyPageProps) {
       </Dialog>
 
       {data && (
-        <TableCard empty={data.length === 0} emptyText={t(emptyKey)} pager={paged.pager}>
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="pl-4">{t('name')}</TableHead>
-                <TableHead className={wide}>{t('mobile')}</TableHead>
-                <TableHead className={wide}>{t('address')}</TableHead>
-                <TableHead className={wide}>{t('gstNumber')}</TableHead>
-                <TableHead className="pr-4" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paged.rows.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell className="pl-4 whitespace-normal">
-                    <div className="font-semibold">{s.name}</div>
-                    {s.notes && <div className="text-xs text-muted-foreground">{s.notes}</div>}
-                    <div className="text-xs text-muted-foreground md:hidden">{[s.phone, s.address, s.gstNumber].filter(Boolean).join(' · ')}</div>
-                  </TableCell>
-                  <TableCell className={wide}>{s.phone ?? '—'}</TableCell>
-                  <TableCell className={cn(wide, 'max-w-64 whitespace-normal')}>{s.address ?? '—'}</TableCell>
-                  <TableCell className={wide}>{s.gstNumber ?? '—'}</TableCell>
-                  <TableCell className="pr-4 text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      aria-label={t('edit')}
-                      onClick={() => {
-                        setFormError(null);
-                        setEditing({
-                          id: s.id,
-                          form: { name: s.name, phone: s.phone ?? '', address: s.address ?? '', gstNumber: s.gstNumber ?? '', notes: s.notes ?? '' },
-                        });
-                      }}
-                    >
-                      <PencilIcon />
-                      <span className="max-md:sr-only">{t('edit')}</span>
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableCard>
+        <>
+          {data.length > 0 && (
+            <Toolbar>
+              <SearchBox value={q} onChange={setQ} placeholder={t('search')} />
+            </Toolbar>
+          )}
+          <DataTable data={shown} columns={columns} rowKey={(s) => s.id} empty={q ? t('noMatches', { q }) : t(emptyKey)} busy={loading} />
+        </>
       )}
     </Page>
   );

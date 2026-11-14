@@ -1,5 +1,5 @@
 import { Permission } from '@sawmill/shared';
-import { ArrowDownToLineIcon, ArrowUpFromLineIcon, FactoryIcon, RulerIcon } from 'lucide-react';
+import { ArrowDownToLineIcon, ArrowRightIcon, ArrowUpFromLineIcon, FactoryIcon, RulerIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { useI18n } from '../i18n';
@@ -21,10 +21,13 @@ export function QuickActions() {
         <Link
           key={a.to}
           to={a.to}
-          className="flex min-h-14 items-center gap-3 rounded-xl border bg-card px-4 py-2 text-sm font-semibold shadow-card transition-all duration-200 ease-out outline-none hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lift active:translate-y-0 active:shadow-card focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="group flex min-h-14 items-center gap-3 rounded-xl bg-card py-2 pr-3 pl-3 text-sm font-semibold shadow-card transition-shadow duration-200 outline-none hover:shadow-lift focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary [&_svg]:size-[1.125rem]">{a.icon}</span>
-          <span className="min-w-0 leading-snug">{a.label}</span>
+          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary [&_svg]:size-[1.125rem]">
+            {a.icon}
+          </span>
+          <span className="min-w-0 flex-1 leading-snug">{a.label}</span>
+          <ArrowRightIcon className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity duration-200 group-hover:opacity-100 max-sm:hidden" aria-hidden />
         </Link>
       ))}
     </div>

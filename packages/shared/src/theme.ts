@@ -19,6 +19,9 @@ export interface ThemeColors {
   okSoft: string;
   bad: string;
   badSoft: string;
+  /** Information (neither good nor bad): soft blue. */
+  info: string;
+  infoSoft: string;
   /** Brand band behind the app bar / login hero — dark slate in both themes. */
   hero: string;
   heroText: string;
@@ -45,6 +48,8 @@ export const THEMES: Record<ThemeName, ThemeColors> = {
     okSoft: '#E0F2E7',
     bad: '#A32D22',
     badSoft: '#FBE6E3',
+    info: '#1A5A9E',
+    infoSoft: '#E4EEFA',
     hero: '#1E262E',
     heroText: '#FFFFFF',
     heroMuted: '#DBE1E6',
@@ -66,6 +71,8 @@ export const THEMES: Record<ThemeName, ThemeColors> = {
     okSoft: '#173526',
     bad: '#F2958B',
     badSoft: '#3D1D19',
+    info: '#8FBDF3',
+    infoSoft: '#172A40',
     hero: '#1A2128',
     heroText: '#FFFFFF',
     heroMuted: '#DBE1E6',

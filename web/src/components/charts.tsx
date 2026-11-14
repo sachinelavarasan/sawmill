@@ -87,8 +87,8 @@ export function ChartCard({
   const { t } = useI18n();
   const [asTable, setAsTable] = useState(false);
   return (
-    <Card className={cn('gap-3 py-4', className)}>
-      <CardHeader className="flex flex-row items-start justify-between gap-3 px-4">
+    <Card className={cn('gap-3 py-5', className)}>
+      <CardHeader className="flex flex-row items-start justify-between gap-3 px-5">
         <div className="min-w-0">
           <CardTitle className="text-base">{title}</CardTitle>
           {subtitle && <CardDescription className="mt-0.5 text-xs">{subtitle}</CardDescription>}
@@ -99,7 +99,7 @@ export function ChartCard({
           </Button>
         )}
       </CardHeader>
-      <CardContent className="px-4">
+      <CardContent className="px-5">
         {series && series.length > 1 && !asTable && !empty && (
           <ul className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
             {series.map((s) => (

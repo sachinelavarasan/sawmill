@@ -31,7 +31,7 @@ export function PeriodPicker({ value, onChange, className }: { value: PeriodValu
   const same = (a: PeriodValue) => a.from === value.from && a.to === value.to;
   return (
     <div className={cn('flex flex-wrap items-center gap-2', className)}>
-      <div className="flex items-center gap-1.5 rounded-md border bg-card px-2 shadow-xs">
+      <div className="flex h-10 items-center gap-1.5 rounded-lg border bg-card pr-2 pl-3 shadow-xs transition-colors hover:border-foreground/25 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
         <CalendarRangeIcon className="size-4 text-muted-foreground" />
         <Input
           type="date"
@@ -39,7 +39,7 @@ export function PeriodPicker({ value, onChange, className }: { value: PeriodValu
           value={value.from}
           max={value.to}
           onChange={(e) => e.target.value && onChange({ ...value, from: e.target.value })}
-          className="h-8 w-[8.5rem] border-0 px-1 shadow-none focus-visible:ring-0"
+          className="h-8 w-[8.5rem] border-0 bg-transparent px-1 shadow-none focus-visible:ring-0"
         />
         <span className="text-muted-foreground">–</span>
         <Input
@@ -48,11 +48,11 @@ export function PeriodPicker({ value, onChange, className }: { value: PeriodValu
           value={value.to}
           min={value.from}
           onChange={(e) => e.target.value && onChange({ ...value, to: e.target.value })}
-          className="h-8 w-[8.5rem] border-0 px-1 shadow-none focus-visible:ring-0"
+          className="h-8 w-[8.5rem] border-0 bg-transparent px-1 shadow-none focus-visible:ring-0"
         />
       </div>
       {(['thisMonth', 'lastMonth', 'thisYear'] as const).map((k) => (
-        <Button key={k} type="button" size="sm" variant={same(p[k]) ? 'secondary' : 'ghost'} onClick={() => onChange(p[k])}>
+        <Button key={k} type="button" size="sm" variant={same(p[k]) ? 'default' : 'outline'} className="h-10" aria-pressed={same(p[k])} onClick={() => onChange(p[k])}>
           {t(k)}
         </Button>
       ))}

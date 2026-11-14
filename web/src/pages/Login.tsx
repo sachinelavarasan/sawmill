@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '../api';
 import { useAuth } from '../auth';
+import { GrowthRings, LogoMark } from '../components/brand';
 import { LangToggle, ThemeToggle } from '../components/Layout';
 import { Field, Notice } from '../components/page';
 import { useI18n } from '../i18n';
@@ -36,21 +37,12 @@ export function LoginPage() {
     <div className="grid min-h-svh bg-background lg:grid-cols-2">
       <div className="relative flex flex-col items-center justify-center gap-3 overflow-hidden bg-hero px-6 py-12 text-center text-white lg:py-0">
         {/* growth rings of a sawn log */}
-        <svg
-          className="pointer-events-none absolute top-1/2 left-1/2 size-[560px] -translate-x-1/2 -translate-y-1/2 opacity-10"
-          aria-hidden
-          viewBox="0 0 420 420"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.2"
-        >
-          {[30, 62, 96, 132, 168, 204].map((r) => (
-            <circle key={r} cx="210" cy="210" r={r} />
-          ))}
-        </svg>
-        <div className="relative grid size-14 place-items-center rounded-2xl bg-white text-lg font-extrabold text-primary shadow-lg lg:size-20 lg:text-2xl">SP</div>
-        <h1 className="relative text-2xl font-extrabold tracking-wide lg:text-4xl">SAWMILL PRO</h1>
-        <p className="relative max-w-sm text-sm opacity-80 lg:text-base">{t('appTagline')}</p>
+        <div className="pointer-events-none absolute top-1/2 left-1/2 size-[640px] -translate-x-1/2 -translate-y-1/2 opacity-10" aria-hidden>
+          <GrowthRings className="inset-0 size-full" />
+        </div>
+        <LogoMark className="relative size-14 rounded-2xl lg:size-20" />
+        <h1 className="relative mt-2 text-2xl font-extrabold tracking-[0.08em] lg:text-4xl">SAWMILL PRO</h1>
+        <p className="relative max-w-sm text-sm text-balance opacity-80 lg:text-base">{t('appTagline')}</p>
         <ul className="relative mt-8 hidden max-w-xs flex-col gap-3 text-left text-sm lg:flex">
           {(
             [
@@ -60,7 +52,7 @@ export function LoginPage() {
             ] as const
           ).map(([Icon, key]) => (
             <li key={key} className="flex items-center gap-3">
-              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white/10">
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/10 ring-1 ring-white/10">
                 <Icon className="size-4" />
               </span>
               <span className="opacity-90">{t(key)}</span>
@@ -70,7 +62,7 @@ export function LoginPage() {
       </div>
 
       <div className="flex items-start justify-center px-4 py-8 lg:items-center lg:py-12">
-        <Card className="w-full max-w-sm py-6">
+        <Card className="w-full max-w-sm py-7">
           <CardHeader className="flex flex-row items-center justify-between gap-2 px-6">
             <CardTitle className="text-xl">{t('login')}</CardTitle>
             <div className="flex items-center gap-2">

@@ -1,15 +1,14 @@
 import { PlusIcon } from 'lucide-react';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
-import { num3, useLoad } from '../components/common';
-import { ALL, Field, FormActions, FormCard, FormGrid, LinkRow, LoadState, Notice, numCell, Page, PageHeader, SearchBox, StatusFilter, TableCard, Toolbar, usePaging, wide } from '../components/page';
+import { num3, useApi, useLoad } from '../components/common';
+import { type Column, DataTable, IdCell } from '../components/data-table';
+import { ALL, Field, FormActions, FormCard, FormGrid, LoadState, Notice, Page, PageHeader, SearchBox, StatusFilter, Toolbar, usePaging } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
 import { useI18n } from '../i18n';
 import { fromLocalInput } from './Imports';
@@ -84,7 +83,31 @@ export function ExportsPage() {
   const [q, setQ] = useState('');
   const paging = usePaging();
   const query = `take=${paging.take}&skip=${paging.skip}${status ? `&status=${status}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}`;
-  const { data, loading, error, reload } = useLoad(() => api<{ items: ExportSummary[]; total: number }>(`/exports?${query}`), [query]);
+  const { data, loading, error, reload } = useApi<{ items: ExportSummary[]; total: number }>(`/exports?${query}`);
+
+  const columns = useMemo(() => {
+    const cols: Column<ExportSummary>[] = [
+      {
+        id: 'code',
+        header: t('exportId'),
+        cell: (e) => (
+          <IdCell sub={`${e.lorryNumber} · ${e.woodType}`}>
+            <Link className="text-primary hover:underline" to={`/exports/${e.id}`}>
+              {e.code}
+            </Link>
+          </IdCell>
+        ),
+      },
+      { id: 'date', header: t('date'), from: 'md', className: 'text-muted-foreground', cell: (e) => dateOnly(e.exportDate) },
+      { id: 'lorry', header: t('lorry'), from: 'md', cell: (e) => e.lorryNumber },
+      { id: 'wood', header: t('woodType'), from: 'md', cell: (e) => e.woodType },
+      { id: 'pieces', header: t('pieces'), from: 'md', numeric: true, cell: (e) => e.totalPieces },
+      { id: 'cft', header: t('totalCft'), numeric: true, className: 'font-semibold', cell: (e) => num3(e.totalCft) },
+      { id: 'status', header: t('status'), cell: (e) => <StatusBadge status={e.status} /> },
+    ];
+    if (isOwner) cols.push({ id: 'by', header: t('createdBy'), from: 'md', cell: (e) => e.createdByName });
+    return cols;
+  }, [t, isOwner]);
 
   return (
     <Page>
@@ -123,47 +146,15 @@ export function ExportsPage() {
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
 
       {data && (
-        <>
-          <TableCard empty={data.items.length === 0} emptyText={q ? t('noMatches', { q }) : t('noExports')} pager={paging.pager(data.total)} className={cn(loading && 'opacity-60')}>
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="pl-4">{t('exportId')}</TableHead>
-                  <TableHead className={wide}>{t('date')}</TableHead>
-                  <TableHead className={wide}>{t('lorry')}</TableHead>
-                  <TableHead className={wide}>{t('woodType')}</TableHead>
-                  <TableHead className={cn(numCell, wide)}>{t('pieces')}</TableHead>
-                  <TableHead className={numCell}>{t('totalCft')}</TableHead>
-                  <TableHead className={cn(!isOwner && 'pr-4', isOwner && 'max-md:pr-4')}>{t('status')}</TableHead>
-                  {isOwner && <TableHead className={cn(wide, 'pr-4')}>{t('createdBy')}</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.items.map((e) => (
-                  <LinkRow key={e.id} to={`/exports/${e.id}`}>
-                    <TableCell className="pl-4 font-medium">
-                      <Link className="text-primary hover:underline" to={`/exports/${e.id}`}>
-                        {e.code}
-                      </Link>
-                      <div className="text-xs text-muted-foreground md:hidden">
-                        {e.lorryNumber} · {e.woodType}
-                      </div>
-                    </TableCell>
-                    <TableCell className={cn(wide, 'text-muted-foreground')}>{dateOnly(e.exportDate)}</TableCell>
-                    <TableCell className={wide}>{e.lorryNumber}</TableCell>
-                    <TableCell className={wide}>{e.woodType}</TableCell>
-                    <TableCell className={cn(numCell, wide)}>{e.totalPieces}</TableCell>
-                    <TableCell className={cn(numCell, 'font-semibold')}>{num3(e.totalCft)}</TableCell>
-                    <TableCell className={cn(!isOwner && 'pr-4', isOwner && 'max-md:pr-4')}>
-                      <StatusBadge status={e.status} />
-                    </TableCell>
-                    {isOwner && <TableCell className={cn(wide, 'pr-4')}>{e.createdByName}</TableCell>}
-                  </LinkRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableCard>
-        </>
+        <DataTable
+          data={data.items}
+          columns={columns}
+          rowKey={(e) => e.id}
+          rowTo={(e) => `/exports/${e.id}`}
+          empty={q ? t('noMatches', { q }) : t('noExports')}
+          pager={paging.pager(data.total)}
+          busy={loading}
+        />
       )}
     </Page>
   );

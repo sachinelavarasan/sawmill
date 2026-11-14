@@ -9,12 +9,13 @@ const STATUS: Record<string, { key: TKey; className: string }> = {
   REJECTED: { key: 'rejected', className: 'bg-destructive-soft text-destructive' },
 };
 
-/** Approval status as a soft coloured pill (shadcn Badge). */
+/** Approval status as a soft coloured pill with a status dot (shadcn Badge). */
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
   const { t } = useI18n();
   const s = STATUS[status];
   return (
-    <Badge variant="secondary" className={cn('rounded-full border-transparent font-semibold', s?.className, className)}>
+    <Badge variant="secondary" className={cn('gap-1.5 rounded-full border-transparent py-1 pr-2.5 pl-2 font-semibold', s?.className, className)}>
+      <span className="size-1.5 rounded-full bg-current" aria-hidden />
       {s ? t(s.key) : status}
     </Badge>
   );

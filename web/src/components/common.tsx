@@ -1,32 +1,45 @@
 /**
- * Data loading and number/date formatting shared by all pages.
- * UI components live in components/ui (shadcn) and components/page.tsx.
+ * Data loading (TanStack Query) and number/date formatting shared by all pages.
+ * UI components live in components/ui (shadcn), components/page.tsx and components/data-table.tsx.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useCallback, useId } from 'react';
+import { api } from '../api';
+import { useAuth } from '../auth';
+import { API_KEY } from '../lib/query';
 
-/** Tiny data loader with loading / error / retry states. */
-export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []) {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+interface Loaded<T> {
+  data: T | null;
+  error: string | null;
+  /** a request is in flight (first load or refresh) */
+  loading: boolean;
+  reload: () => void;
+}
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const run = useCallback(fn, deps);
-  // Only the newest request may update the screen: while someone types in a search box,
-  // an older, slower response must not replace the results of a newer one.
-  const latest = useRef(0);
-  const reload = useCallback(() => {
-    const id = ++latest.current;
-    setLoading(true);
-    setError(null);
-    run()
-      .then((d) => id === latest.current && setData(d))
-      .catch((e: Error) => id === latest.current && setError(e.message))
-      .finally(() => id === latest.current && setLoading(false));
-  }, [run]);
+/**
+ * Loads with any async function; re-runs when `deps` change. While the next result is
+ * on its way the previous one stays on screen (no flash of skeletons when filtering or paging),
+ * and only the newest request may update the screen. Private to the calling component.
+ */
+export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []): Loaded<T> {
+  const id = useId();
+  const q = useQuery({ queryKey: ['load', id, ...deps], queryFn: fn, placeholderData: keepPreviousData, gcTime: 0, staleTime: 0 });
+  const { refetch } = q;
+  const reload = useCallback(() => void refetch(), [refetch]);
+  return { data: q.data ?? null, error: q.error ? q.error.message : null, loading: q.isFetching, reload };
+}
 
-  useEffect(reload, [reload]);
-  return { data, error, loading, reload };
+/**
+ * GET an API path, cached by that path and shared between pages: a list opened before
+ * shows instantly and is refreshed every time it is opened. Pass `null` to load nothing yet.
+ */
+export function useApi<T>(path: string | null): Loaded<T> {
+  // keyed by who is signed in: one person's cached lists are never shown to the next
+  const userId = useAuth().user?.id ?? null;
+  const q = useQuery({ queryKey: [API_KEY, userId, path], queryFn: () => api<T>(path!), enabled: path !== null, placeholderData: keepPreviousData });
+  const { refetch } = q;
+  const reload = useCallback(() => void refetch(), [refetch]);
+  return { data: q.data ?? null, error: q.error ? q.error.message : null, loading: q.isFetching, reload };
 }
 
 const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });

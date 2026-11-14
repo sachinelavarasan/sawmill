@@ -21,11 +21,15 @@
   --ok-soft: #e0f2e7;
   --bad: #a32d22;
   --bad-soft: #fbe6e3;
+  --info: #1a5a9e;
+  --info-soft: #e4eefa;
   --hero: #1e262e;
   --side: #1e262e;
   --side-text: #dbe1e6;
   --side-muted: #a4afb9;
   --side-active: #36424f;
+  /* the saffron marker of the open page in the sidebar (the dark-theme accent, same in both themes) */
+  --side-accent: #f0a04b;
   --shadow: 0 1px 2px rgba(26, 31, 36, 0.05);
   /* chart series (validated: dataviz validator, light on #ffffff) */
   --chart-1: #2a78d6;
@@ -61,11 +65,14 @@
   --ok-soft: #173526;
   --bad: #f2958b;
   --bad-soft: #3d1d19;
+  --info: #8fbdf3;
+  --info-soft: #172a40;
   --hero: #1a2128;
   --side: #0d1013;
   --side-text: #dbe1e6;
   --side-muted: #a4afb9;
   --side-active: #2a333c;
+  --side-accent: #f0a04b;
   --shadow: none;
   /* chart series: 4.6:1 and 4.3:1 on the #1a1f24 card, above the 3:1 needed for chart marks */
   --chart-1: #3987e5;
@@ -92,11 +99,14 @@
     --ok-soft: #173526;
     --bad: #f2958b;
     --bad-soft: #3d1d19;
+    --info: #8fbdf3;
+    --info-soft: #172a40;
     --hero: #1a2128;
     --side: #0d1013;
     --side-text: #dbe1e6;
     --side-muted: #a4afb9;
     --side-active: #2a333c;
+    --side-accent: #f0a04b;
     --shadow: none;
     --chart-1: #3987e5;
     --chart-2: #d95926;
@@ -128,6 +138,8 @@ body { margin: 0; background: var(--bg); color: var(--text); }
     --ok-soft: #e0f2e7;
     --bad: #a32d22;
     --bad-soft: #fbe6e3;
+    --info: #1a5a9e;
+    --info-soft: #e4eefa;
     --shadow: 0 1px 2px rgba(26, 31, 36, 0.05);
     --chart-1: #2a78d6;
     --chart-2: #eb6834;

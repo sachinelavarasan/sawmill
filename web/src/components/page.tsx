@@ -2,7 +2,7 @@
  * App-level building blocks on top of shadcn/ui (src/components/ui).
  * Pages compose these + shadcn components + Tailwind classes; nothing else.
  */
-import { ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, InboxIcon, LockIcon, SearchIcon, XIcon } from 'lucide-react';
+import { AlertTriangleIcon, CheckCircle2Icon, ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, InboxIcon, InfoIcon, LockIcon, SearchIcon, XCircleIcon, XIcon } from 'lucide-react';
 import { MouseEvent, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -25,8 +25,8 @@ export const ALL = 'all';
 // ───────── page frame ─────────
 
 export function Page({ children, className }: { children: ReactNode; className?: string }) {
-  // each page fades and rises in as it opens
-  return <div className={cn('mx-auto flex w-full min-w-0 max-w-6xl animate-in flex-col gap-5 duration-300 ease-out fade-in-0 slide-in-from-bottom-2', className)}>{children}</div>;
+  // a short fade as the page opens; nothing moves
+  return <div className={cn('mx-auto flex w-full min-w-0 max-w-6xl animate-in flex-col gap-5 duration-200 fade-in-0', className)}>{children}</div>;
 }
 
 export function PageHeader({
@@ -45,19 +45,22 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
       <div className="min-w-0">
         {back && (
-          <Link to={back.to} className="mb-2 -ml-2 inline-flex min-h-8 items-center gap-1 rounded-full px-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+          <Link
+            to={back.to}
+            className="mb-1.5 -ml-2 inline-flex min-h-8 items-center gap-1 rounded-md px-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
             <ChevronLeftIcon className="size-4" />
             {back.label}
           </Link>
         )}
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-[1.7rem] leading-tight font-bold tracking-tight">{title}</h1>
+          <h1 className="text-2xl leading-tight font-bold tracking-tight text-balance">{title}</h1>
           {badge}
         </div>
-        {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
+        {subtitle && <p className="mt-1.5 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
@@ -68,8 +71,8 @@ export function PageHeader({
 export function Section({ title, tools, children, id, className }: { title: ReactNode; tools?: ReactNode; children: ReactNode; id?: string; className?: string }) {
   return (
     <section id={id} className={cn('flex scroll-mt-20 flex-col gap-3', className)}>
-      <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
-        <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">{title}</h2>
+      <div className="flex min-h-9 flex-wrap items-center justify-between gap-2 pt-1">
+        <h2 className="flex items-center gap-2 text-[1.0625rem] font-semibold tracking-tight">{title}</h2>
         {tools}
       </div>
       {children}
@@ -120,25 +123,33 @@ export function Stat({
   return (
     <Card
       className={cn(
-        'gap-2 py-5',
-        hero && 'col-span-2 border-transparent shadow-lift',
+        'gap-3 py-5',
+        hero && 'col-span-2',
         // in dark mode --primary is a light grey, too bright for a large block: use the soft slate instead
         hero && (tone === 'bad' ? 'bg-destructive-soft text-destructive' : 'bg-primary text-primary-foreground dark:bg-primary-soft dark:text-foreground'),
         className,
       )}
     >
-      {/* kept plain: a label and a number. Only the hero card shows its icon; a toned card gets a dot. */}
       <CardHeader className="flex flex-row items-center gap-2 px-5">
         {tone && !hero && <span className={cn('size-2 shrink-0 rounded-full bg-current', toneText[tone])} />}
         <CardDescription className={cn('flex-1 font-medium', hero && 'text-current opacity-85')}>{label}</CardDescription>
-        {icon && hero && <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/15 [&_svg]:size-[1.125rem]">{icon}</span>}
+        {icon && (
+          <span
+            className={cn(
+              'grid size-9 shrink-0 place-items-center rounded-xl [&_svg]:size-[1.125rem]',
+              hero ? 'bg-current/15' : 'bg-primary-soft text-primary',
+            )}
+          >
+            {icon}
+          </span>
+        )}
       </CardHeader>
       <CardContent className="px-5">
-        <div className={cn('leading-tight font-bold tracking-tight tabular-nums', hero ? 'text-3xl sm:text-4xl' : 'text-2xl sm:text-[1.7rem]', tone && !hero && toneText[tone])}>
+        <div className={cn('leading-tight font-bold tracking-[-0.02em] tabular-nums', hero ? 'text-3xl sm:text-4xl' : 'text-2xl sm:text-[1.7rem]', tone && !hero && toneText[tone])}>
           {value}
-          {unit && <span className={cn('ml-1 text-sm font-medium', hero ? 'opacity-80' : 'text-muted-foreground')}>{unit}</span>}
+          {unit && <span className={cn('ml-1.5 text-sm font-medium tracking-normal', hero ? 'opacity-80' : 'text-muted-foreground')}>{unit}</span>}
         </div>
-        {hint && <div className={cn('mt-0.5 text-sm', hero ? 'opacity-80' : 'text-muted-foreground')}>{hint}</div>}
+        {hint && <div className={cn('mt-1 text-sm', hero ? 'opacity-80' : 'text-muted-foreground')}>{hint}</div>}
       </CardContent>
     </Card>
   );
@@ -149,9 +160,9 @@ export function FigureStrip({ items, className }: { items: { label: ReactNode; v
   return (
     <Card className={cn('grid grid-cols-2 gap-px overflow-hidden bg-border py-0 lg:grid-cols-4', className)}>
       {items.map((it, i) => (
-        <div key={i} className="bg-card px-5 py-4">
+        <div key={i} className="bg-card px-5 py-4 transition-colors duration-200 hover:bg-muted/40">
           <div className="text-sm text-muted-foreground">{it.label}</div>
-          <div className={cn('text-xl leading-tight font-bold tabular-nums', it.tone && toneText[it.tone])}>{it.value}</div>
+          <div className={cn('mt-0.5 text-xl leading-tight font-bold tracking-tight tabular-nums', it.tone && toneText[it.tone])}>{it.value}</div>
         </div>
       ))}
     </Card>
@@ -161,16 +172,25 @@ export function FigureStrip({ items, className }: { items: { label: ReactNode; v
 // ───────── feedback ─────────
 
 const noticeTone = {
-  info: 'bg-muted text-muted-foreground',
+  // neutral: a plain remark (e.g. "this record is locked"); info: something worth knowing
+  neutral: 'bg-muted text-muted-foreground',
+  info: 'bg-info-soft text-info',
   ok: 'bg-success-soft text-success',
   warn: 'bg-warning-soft text-warning',
   error: 'bg-destructive-soft text-destructive',
 } as const;
 
-/** One-line message strip. */
-export function Notice({ tone = 'info', children, className }: { tone?: keyof typeof noticeTone; children: ReactNode; className?: string }) {
+const noticeIcon = { neutral: InfoIcon, info: InfoIcon, ok: CheckCircle2Icon, warn: AlertTriangleIcon, error: XCircleIcon } as const;
+
+/** One-line message strip, with an icon for its tone. */
+export function Notice({ tone = 'neutral', children, className }: { tone?: keyof typeof noticeTone; children: ReactNode; className?: string }) {
+  const Icon = noticeIcon[tone];
   return (
-    <div role={tone === 'error' ? 'alert' : 'status'} className={cn('flex flex-wrap items-center gap-3 rounded-xl border border-current/15 px-4 py-2.5 text-sm', noticeTone[tone], className)}>
+    <div
+      role={tone === 'error' ? 'alert' : 'status'}
+      className={cn('flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-current/15 py-2.5 pr-4 pl-3.5 text-sm', noticeTone[tone], className)}
+    >
+      <Icon className="size-4 shrink-0" aria-hidden />
       {children}
     </div>
   );
@@ -190,9 +210,22 @@ export function LoadState({ loading, error, onRetry }: { loading: boolean; error
     );
   if (loading)
     return (
-      <div className="flex flex-col gap-3" aria-label={t('loading')}>
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-48 w-full" />
+      <div className="flex flex-col gap-4" role="status" aria-label={t('loading')}>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Skeleton className="col-span-2 h-28" />
+          <Skeleton className="h-28" />
+          <Skeleton className="h-28" />
+        </div>
+        <div className="overflow-hidden rounded-xl bg-card shadow-card">
+          <Skeleton className="h-10 rounded-none" />
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex items-center gap-4 border-t border-border/70 px-4 py-4">
+              <Skeleton className="h-4 w-24 rounded-md" />
+              <Skeleton className="h-4 flex-1 rounded-md" style={{ maxWidth: `${14 - i * 1.5}rem` }} />
+              <Skeleton className="ml-auto h-4 w-16 rounded-md" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   return null;
@@ -209,6 +242,7 @@ export function TableCard({
   children,
   className,
   pager,
+  busy,
 }: {
   empty?: boolean;
   emptyText?: ReactNode;
@@ -220,23 +254,30 @@ export function TableCard({
   className?: string;
   /** page controls shown as the card's footer (from usePaging / useClientPaging) */
   pager?: PagerProps;
+  /** a refresh is in flight: a progress line runs along the top and the rows dim */
+  busy?: boolean;
 }) {
   return (
-    <Card className={cn('gap-0 overflow-hidden py-0', className)}>
+    <Card className={cn('relative gap-0 overflow-hidden py-0', className)} aria-busy={busy || undefined}>
+      {busy && (
+        <div className="absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden print:hidden" aria-hidden>
+          <div className="h-full w-full origin-left animate-progress bg-primary" />
+        </div>
+      )}
       {empty && compactEmpty ? (
         <div className="flex items-center gap-2.5 px-4 py-4 text-sm text-muted-foreground [&_svg]:size-4 [&_svg]:shrink-0">
           {emptyIcon ?? <InboxIcon />}
           {emptyText}
         </div>
       ) : empty ? (
-        <div className="flex flex-col items-center gap-3 px-4 py-14 text-center text-sm text-muted-foreground">
-          <span className="grid size-12 place-items-center rounded-2xl bg-muted [&_svg]:size-6">{emptyIcon ?? <InboxIcon />}</span>
-          {emptyText}
+        <div className="flex flex-col items-center gap-4 px-4 py-14 text-center text-sm text-muted-foreground">
+          <span className="grid size-12 place-items-center rounded-xl bg-muted [&_svg]:size-5">{emptyIcon ?? <InboxIcon />}</span>
+          <span className="max-w-xs text-balance">{emptyText}</span>
         </div>
       ) : (
         <>
-          {children}
-          {pager && <Pager {...pager} className="border-t bg-muted/30 px-4 py-2" />}
+          <div className={cn('transition-opacity duration-200', busy && 'opacity-55')}>{children}</div>
+          {pager && <Pager {...pager} className="border-t border-border/70 px-4 py-2.5" />}
         </>
       )}
     </Card>
@@ -247,7 +288,7 @@ export function TableCard({
 
 /** The row above a list: search on the left, filters on the right. */
 export function Toolbar({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('flex flex-wrap items-center gap-2 print:hidden', className)}>{children}</div>;
+  return <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-2 print:hidden', className)}>{children}</div>;
 }
 
 /**
@@ -266,8 +307,8 @@ export function SearchBox({ value, onChange, placeholder, className }: { value: 
     return () => clearTimeout(id);
   }, [text, value]);
   return (
-    <div className={cn('relative w-full sm:w-72', className)}>
-      <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+    <div className={cn('group/search relative w-full sm:w-72', className)}>
+      <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         type="search"
         value={text}
@@ -276,14 +317,14 @@ export function SearchBox({ value, onChange, placeholder, className }: { value: 
         placeholder={placeholder}
         aria-label={t('search')}
         maxLength={60}
-        className="bg-card pr-8 pl-8 [&::-webkit-search-cancel-button]:hidden"
+        className="pr-9 pl-9 [&::-webkit-search-cancel-button]:hidden"
       />
       {text && (
         <button
           type="button"
           onClick={() => setText('')}
           aria-label={t('clear')}
-          className="absolute top-1/2 right-1.5 grid size-6 -translate-y-1/2 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="absolute top-1/2 right-2 grid size-6 -translate-y-1/2 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <XIcon className="size-3.5" />
         </button>
@@ -334,7 +375,7 @@ export function Pager({ skip, page, total, onSkip, onPageSize, className }: Page
   const current = Math.floor(skip / page) + 1;
   const go = (n: number) => onSkip((Math.min(Math.max(n, 1), pages) - 1) * page);
   const nav = (label: string, icon: ReactNode, target: number, disabled: boolean, extra?: string) => (
-    <Button variant="outline" size="icon-sm" className={cn('bg-card', extra)} disabled={disabled} onClick={() => go(target)} aria-label={label} title={label}>
+    <Button variant="ghost" size="icon-sm" className={extra} disabled={disabled} onClick={() => go(target)} aria-label={label} title={label}>
       {icon}
     </Button>
   );
@@ -345,7 +386,7 @@ export function Pager({ skip, page, total, onSkip, onPageSize, className }: Page
           <div className="flex items-center gap-2">
             <span className="max-sm:hidden">{t('rowsPerPage')}</span>
             <Select value={String(page)} onValueChange={(v) => onPageSize(Number(v))}>
-              <SelectTrigger size="sm" className="w-[4.5rem] bg-card" aria-label={t('rowsPerPage')}>
+              <SelectTrigger size="sm" className="w-[4.5rem]" aria-label={t('rowsPerPage')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -360,10 +401,10 @@ export function Pager({ skip, page, total, onSkip, onPageSize, className }: Page
         )}
         <span className="tabular-nums">{t('rangeOf', { from: skip + 1, to: Math.min(skip + page, total), total })}</span>
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5">
         {nav(t('firstPage'), <ChevronsLeftIcon />, 1, current <= 1, 'max-sm:hidden')}
         {nav(t('previous'), <ChevronLeftIcon />, current - 1, current <= 1)}
-        <span className="px-2 tabular-nums text-muted-foreground" aria-live="polite">
+        <span className="px-2 text-muted-foreground tabular-nums" aria-live="polite">
           {t('pageOf', { page: current, pages })}
         </span>
         {nav(t('next'), <ChevronRightIcon />, current + 1, current >= pages)}
@@ -409,23 +450,62 @@ const STATUSES: [string, TKey][] = [
   ['REJECTED', 'rejected'],
 ];
 
-/** Approval-status filter for list pages. `value` '' = all. */
+const STATUS_DOT: Record<string, string> = { DRAFT: 'bg-muted-foreground', SUBMITTED: 'bg-warning', APPROVED: 'bg-success', REJECTED: 'bg-destructive' };
+
+/** A row of filter chips: one is always chosen. Scrolls sideways on a narrow screen. */
+export function FilterChips<V extends string>({
+  value,
+  onChange,
+  options,
+  label,
+  className,
+}: {
+  value: V;
+  onChange: (v: V) => void;
+  options: { value: V; label: ReactNode; dot?: string; count?: number }[];
+  /** what the chips filter by, for screen readers */
+  label: string;
+  className?: string;
+}) {
+  return (
+    <div role="group" aria-label={label} className={cn('scroll-quiet -mx-1 flex max-w-full items-center gap-1.5 overflow-x-auto px-1 py-1', className)}>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onChange(o.value)}
+            className={cn(
+              'inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border px-3 text-sm font-medium whitespace-nowrap transition-colors duration-150 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+              on ? 'border-transparent bg-primary text-primary-foreground' : 'bg-card text-muted-foreground shadow-xs hover:border-foreground/20 hover:text-foreground',
+            )}
+          >
+            {o.dot && <span className={cn('size-2 rounded-full', o.dot, on && 'ring-2 ring-primary-foreground/40')} />}
+            {o.label}
+            {o.count != null && (
+              <span className={cn('-mr-1 min-w-5 rounded-full px-1.5 text-center text-xs leading-5 font-semibold tabular-nums', on ? 'bg-primary-foreground/20' : o.count ? 'bg-warning-soft text-warning' : 'bg-muted')}>
+                {o.count}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Approval-status filter for list pages, as chips. `value` '' = all. */
 export function StatusFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { t } = useI18n();
   return (
-    <Select value={value || ALL} onValueChange={(v) => onChange(v === ALL ? '' : v)}>
-      <SelectTrigger className="w-40 bg-card" aria-label={t('status')}>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={ALL}>{t('allStatuses')}</SelectItem>
-        {STATUSES.map(([v, k]) => (
-          <SelectItem key={v} value={v}>
-            {t(k)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <FilterChips
+      label={t('status')}
+      value={value}
+      onChange={onChange}
+      options={[{ value: '', label: t('all') }, ...STATUSES.map(([v, k]) => ({ value: v, label: t(k), dot: STATUS_DOT[v] }))]}
+    />
   );
 }
 
@@ -435,7 +515,7 @@ export function StatusFilter({ value, onChange }: { value: string; onChange: (v:
 export function Field({ id, label, hint, className, children }: { id?: string; label: ReactNode; hint?: ReactNode; className?: string; children: ReactNode }) {
   return (
     <div className={cn('grid min-w-0 content-start gap-1.5', className)}>
-      <Label htmlFor={id} className="text-muted-foreground">
+      <Label htmlFor={id} className="text-[0.8125rem] text-muted-foreground">
         {label}
       </Label>
       {children}
@@ -462,9 +542,9 @@ export function FormActions({ summary, children }: { summary?: ReactNode; childr
 /** A form inside a card. */
 export function FormCard({ title, children, onSubmit, className }: { title?: ReactNode; children: ReactNode; onSubmit: (e: React.FormEvent) => void; className?: string }) {
   return (
-    <Card className={cn('py-5', className)}>
-      <CardContent className="px-5">
-        <form onSubmit={onSubmit} className="grid gap-4">
+    <Card className={cn('py-6', className)}>
+      <CardContent className="px-5 sm:px-6">
+        <form onSubmit={onSubmit} className="grid gap-5">
           {title && <h3 className="text-base font-semibold">{title}</h3>}
           {children}
         </form>

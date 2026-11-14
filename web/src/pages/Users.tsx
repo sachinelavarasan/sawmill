@@ -1,17 +1,19 @@
 import { KeyRoundIcon, PlusIcon } from 'lucide-react';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
-import { dateTime, useLoad } from '../components/common';
-import { Field, FormGrid, LoadState, Notice, Page, PageHeader, TableCard, useClientPaging, wide } from '../components/page';
+import { dateTime, useApi } from '../components/common';
+import { type Column, DataTable } from '../components/data-table';
+import { Field, FormGrid, LoadState, Notice, Page, PageHeader } from '../components/page';
+import { useToast } from '../components/toast';
 import { useI18n } from '../i18n';
 
 interface UserRow {
@@ -29,11 +31,11 @@ const pill = 'rounded-full border-transparent font-semibold';
 export function UsersPage() {
   const { t } = useI18n();
   const { user: me } = useAuth();
-  const { data, loading, error, reload } = useLoad(() => api<UserRow[]>('/users'));
-  const paged = useClientPaging(data ?? []);
+  const { data, loading, error, reload } = useApi<UserRow[]>('/users');
   const [showForm, setShowForm] = useState(false);
   const [resetFor, setResetFor] = useState<UserRow | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const toast = useToast();
 
   async function toggleActive(u: UserRow) {
     setMessage(null);
@@ -44,6 +46,75 @@ export function UsersPage() {
       setMessage({ kind: 'error', text: (e as Error).message });
     }
   }
+
+  const meId = me?.id;
+  const columns = useMemo((): Column<UserRow>[] => {
+    const roleBadge = (u: UserRow) => (
+      <Badge variant="secondary" className={cn(pill, u.role === 'OWNER' ? 'bg-primary-soft text-primary' : 'bg-muted text-muted-foreground')}>
+        {u.role === 'OWNER' ? t('owner') : t('accountant')}
+      </Badge>
+    );
+    return [
+      {
+        id: 'name',
+        header: t('name'),
+        sort: (u) => u.name.toLowerCase(),
+        cell: (u) => (
+          <div className="flex items-center gap-3">
+            <Avatar size="sm" className="max-sm:hidden">
+              <AvatarFallback className="bg-primary-soft text-xs font-semibold text-primary">{u.name.charAt(0).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="font-semibold">{u.name}</div>
+              <div className="text-xs text-muted-foreground md:hidden">
+                {u.username}
+                {u.phone && ` · ${u.phone}`}
+              </div>
+              <div className="mt-1 sm:hidden">{roleBadge(u)}</div>
+            </div>
+          </div>
+        ),
+      },
+      { id: 'username', header: t('username'), from: 'md', sort: (u) => u.username.toLowerCase(), cell: (u) => u.username },
+      { id: 'phone', header: t('mobile'), from: 'md', cell: (u) => u.phone ?? '—' },
+      { id: 'role', header: t('role'), from: 'sm', sort: (u) => u.role, cell: roleBadge },
+      {
+        id: 'status',
+        header: t('status'),
+        cell: (u) => (
+          <div className="inline-flex items-center gap-2">
+            {u.id !== meId && (
+              <Switch checked={u.isActive} onCheckedChange={() => toggleActive(u)} aria-label={u.isActive ? t('disable') : t('enable')} title={u.isActive ? t('disable') : t('enable')} />
+            )}
+            <Badge variant="secondary" className={cn(pill, u.isActive ? 'bg-success-soft text-success' : 'bg-destructive-soft text-destructive')}>
+              {u.isActive ? t('active') : t('disabled')}
+            </Badge>
+          </div>
+        ),
+      },
+      {
+        id: 'lastLogin',
+        header: t('lastLogin'),
+        from: 'md',
+        sort: (u) => (u.lastLoginAt ? Date.parse(u.lastLoginAt) : null),
+        className: 'text-muted-foreground',
+        cell: (u) => (u.lastLoginAt ? dateTime(u.lastLoginAt) : t('never')),
+      },
+      {
+        id: 'reset',
+        className: 'text-right',
+        cell: (u) =>
+          u.id !== meId && (
+            <Button variant="outline" size="sm" onClick={() => setResetFor(u)} aria-label={t('resetPassword')}>
+              <KeyRoundIcon />
+              <span className="max-md:sr-only">{t('resetPassword')}</span>
+            </Button>
+          ),
+      },
+    ];
+    // toggleActive only reads its argument and stable setters
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t, meId]);
 
   return (
     <Page>
@@ -65,7 +136,8 @@ export function UsersPage() {
             onDone={(ok) => {
               setShowForm(false);
               if (ok) {
-                setMessage({ kind: 'ok', text: t('saved') });
+                setMessage(null);
+                toast(t('saved'));
                 reload();
               }
             }}
@@ -78,81 +150,16 @@ export function UsersPage() {
             user={resetFor}
             onDone={(ok) => {
               setResetFor(null);
-              if (ok) setMessage({ kind: 'ok', text: t('saved') });
+              if (ok) {
+                setMessage(null);
+                toast(t('saved'));
+              }
             }}
           />
         )}
       </Dialog>
 
-      {data && (
-        <TableCard pager={paged.pager}>
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="pl-4">{t('name')}</TableHead>
-                <TableHead className={wide}>{t('username')}</TableHead>
-                <TableHead className={wide}>{t('mobile')}</TableHead>
-                <TableHead className="hidden sm:table-cell">{t('role')}</TableHead>
-                <TableHead>{t('status')}</TableHead>
-                <TableHead className={wide}>{t('lastLogin')}</TableHead>
-                <TableHead className="pr-4" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paged.rows.map((u) => {
-                const self = u.id === me?.id;
-                const roleBadge = (
-                  <Badge variant="secondary" className={cn(pill, u.role === 'OWNER' ? 'bg-primary-soft text-primary' : 'bg-muted text-muted-foreground')}>
-                    {u.role === 'OWNER' ? t('owner') : t('accountant')}
-                  </Badge>
-                );
-                return (
-                  <TableRow key={u.id}>
-                    <TableCell className="pl-4">
-                      <div className="font-medium">{u.name}</div>
-                      <div className="text-xs text-muted-foreground md:hidden">
-                        {u.username}
-                        {u.phone && ` · ${u.phone}`}
-                      </div>
-                      <div className="mt-1 sm:hidden">{roleBadge}</div>
-                    </TableCell>
-                    <TableCell className={wide}>{u.username}</TableCell>
-                    <TableCell className={wide}>{u.phone ?? '—'}</TableCell>
-                    <TableCell className="hidden sm:table-cell">{roleBadge}</TableCell>
-                    <TableCell>
-                      <div className="inline-flex items-center gap-2">
-                        {!self && (
-                          <Switch
-                            checked={u.isActive}
-                            onCheckedChange={() => toggleActive(u)}
-                            aria-label={u.isActive ? t('disable') : t('enable')}
-                            title={u.isActive ? t('disable') : t('enable')}
-                          />
-                        )}
-                        <Badge
-                          variant="secondary"
-                          className={cn(pill, u.isActive ? 'bg-success-soft text-success' : 'bg-destructive-soft text-destructive')}
-                        >
-                          {u.isActive ? t('active') : t('disabled')}
-                        </Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell className={cn(wide, 'text-muted-foreground')}>{u.lastLoginAt ? dateTime(u.lastLoginAt) : t('never')}</TableCell>
-                    <TableCell className="pr-4 text-right">
-                      {!self && (
-                        <Button variant="outline" size="sm" onClick={() => setResetFor(u)} aria-label={t('resetPassword')}>
-                          <KeyRoundIcon />
-                          <span className="max-md:sr-only">{t('resetPassword')}</span>
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableCard>
-      )}
+      {data && <DataTable data={data} columns={columns} rowKey={(u) => u.id} empty={t('noData')} busy={loading} />}
     </Page>
   );
 }

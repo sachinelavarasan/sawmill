@@ -16,6 +16,7 @@ import { useConfirmDelete } from '../components/confirm';
 import { EntryField, EntryFigure, EntryRow, Field, FigureStrip, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, TableCard, useClientPaging, wide } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
 import { WorkflowBar } from '../components/workflow';
+import { useToast } from '../components/toast';
 import { useI18n } from '../i18n';
 import { fromLocalInput, ImportFields, ImportForm, importFormBody, ImportSummary, toLocalInput } from './Imports';
 
@@ -396,6 +397,7 @@ function PurchaseSection({ load, canPickSupplier }: { load: ImportDetail; canPic
   const suppliers = useLoad(() => (canPickSupplier ? api<{ id: string; name: string }[]>('/suppliers') : Promise.resolve([])), [canPickSupplier]);
   const [form, setForm] = useState<Record<'supplierId' | 'rate' | 'amount' | 'transport' | 'paid' | 'notes', string> | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     if (data)
@@ -428,7 +430,8 @@ function PurchaseSection({ load, canPickSupplier }: { load: ImportDetail; canPic
           notes: form.notes,
         }),
       });
-      setMessage({ kind: 'ok', text: t('saved') });
+      setMessage(null);
+      toast(t('saved'));
       reload();
     } catch (err) {
       setMessage({ kind: 'error', text: errorText(err) });

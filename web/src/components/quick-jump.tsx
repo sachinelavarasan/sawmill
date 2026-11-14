@@ -112,7 +112,7 @@ export function QuickJump() {
       <Button
         variant="outline"
         onClick={() => setOpen(true)}
-        className="hidden w-64 justify-start gap-2 bg-background px-3 font-normal text-muted-foreground shadow-none md:flex lg:w-80"
+        className="hidden w-56 justify-start gap-2 px-3 font-normal text-muted-foreground md:flex xl:w-72"
       >
         <SearchIcon />
         <span className="flex-1 truncate text-left">{t('quickJump')}</span>
