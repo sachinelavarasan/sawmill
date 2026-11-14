@@ -6,6 +6,7 @@ import { useAuth } from '../auth';
 import { ChartCard, ColumnChart } from '../components/charts';
 import { num3, useLoad } from '../components/common';
 import { LoadState, numCell, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging, wide } from '../components/page';
+import { QuickActions } from '../components/quick-actions';
 import { StatusBadge } from '../components/status-badge';
 import { useI18n } from '../i18n';
 import { shortDay } from './OwnerDashboard';
@@ -44,6 +45,7 @@ export function AccountantDashboard() {
   return (
     <Page>
       <PageHeader title={t('dashboard')} subtitle={`${t('welcome')}, ${user?.name ?? ''}`} />
+      <QuickActions />
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
 
       {k && (

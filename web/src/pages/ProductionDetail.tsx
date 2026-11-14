@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { dateTime, num3, useLoad } from '../components/common';
 import { StatusBadge } from '../components/status-badge';
-import { EntryField, EntryRow, FormActions, FormCard, LoadState, Notice, numCell, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging } from '../components/page';
+import { EntryField, EntryRow, FigureStrip, FormActions, FormCard, LoadState, Notice, numCell, Page, PageHeader, Section, TableCard, useClientPaging } from '../components/page';
 import { WorkflowBar } from '../components/workflow';
 import { useConfirmDelete } from '../components/confirm';
 import { useI18n } from '../i18n';
@@ -95,17 +95,14 @@ export function ProductionDetailPage() {
           {!run.editable && run.status !== 'SUBMITTED' && <Notice>{t('lockedRecord')}</Notice>}
           {run.rejectionReason && <Notice tone="error">{run.rejectionReason}</Notice>}
 
-          <StatGrid>
-            <Stat label={t('inputCft')} value={run.inputCft != null ? num3(run.inputCft) : '—'} unit={run.inputCft != null ? 'CFT' : undefined} />
-            <Stat label={t('outputCft')} value={num3(run.outputCft)} unit="CFT" />
-            <Stat
-              label={t('wasteCft')}
-              value={run.wasteCft != null ? num3(run.wasteCft) : '—'}
-              unit={run.wasteCft != null ? 'CFT' : undefined}
-              tone={run.wasteCft != null && run.wasteCft < 0 ? 'bad' : undefined}
-            />
-            <Stat label={t('recovery')} value={run.recoveryPercent != null ? `${run.recoveryPercent}%` : '—'} />
-          </StatGrid>
+          <FigureStrip
+            items={[
+              { label: t('inputCft'), value: run.inputCft != null ? `${num3(run.inputCft)} CFT` : '—' },
+              { label: t('outputCft'), value: `${num3(run.outputCft)} CFT` },
+              { label: t('wasteCft'), value: run.wasteCft != null ? `${num3(run.wasteCft)} CFT` : '—', tone: run.wasteCft != null && run.wasteCft < 0 ? 'bad' : undefined },
+              { label: t('recovery'), value: run.recoveryPercent != null ? `${run.recoveryPercent}%` : '—' },
+            ]}
+          />
           {run.wasteCft != null && run.wasteCft < 0 && <Notice tone="error">{t('outputExceedsInput')}</Notice>}
 
           <WorkflowBar
@@ -323,7 +320,7 @@ function OutputsSection({ run, onChanged }: { run: ProductionDetail; onChanged: 
       )}
       {error && <Notice tone="error">{error}</Notice>}
 
-      <TableCard empty={run.outputs.length === 0} emptyText={t('noOutputs')} pager={outputs.pager}>
+      <TableCard compactEmpty empty={run.outputs.length === 0} emptyText={t('noOutputs')} pager={outputs.pager}>
         <form onSubmit={saveEdit}>
           <Table>
             <TableHeader>

@@ -12,7 +12,7 @@ import { LoadState, Notice, numCell, Page, PageHeader, TableCard, useClientPagin
 import { ReviewActions } from '../components/review';
 import { TKey, useI18n } from '../i18n';
 
-type Kind = 'IMPORT' | 'PRODUCTION' | 'EXPORT' | 'ADJUSTMENT';
+export type Kind = 'IMPORT' | 'PRODUCTION' | 'EXPORT' | 'ADJUSTMENT';
 interface Base {
   id: string;
   code: string;
@@ -20,7 +20,7 @@ interface Base {
   createdByName: string;
   woodType: string;
 }
-type Item =
+export type ApprovalItem =
   | (Base & { type: 'IMPORT'; lorryNumber: string; totalLogs: number; totalCft: number })
   | (Base & { type: 'PRODUCTION'; importCode: string; inputCft: number | null; outputCft: number; wasteCft: number | null })
   | (Base & { type: 'EXPORT'; lorryNumber: string; totalPieces: number; totalCft: number })
@@ -35,19 +35,22 @@ type Item =
       cftDelta: number;
       reason: string;
     });
-interface Queue {
+export interface ApprovalQueue {
   counts: Record<Kind, number> & { total: number };
-  items: Item[];
+  items: ApprovalItem[];
 }
 
-const KINDS: [Kind, TKey][] = [
+type Item = ApprovalItem;
+type Queue = ApprovalQueue;
+
+export const KINDS: [Kind, TKey][] = [
   ['IMPORT', 'imports'],
   ['PRODUCTION', 'production'],
   ['EXPORT', 'exports'],
   ['ADJUSTMENT', 'adjustments'],
 ];
 /** where the record opens, and its API path for approve/reject */
-const PAGE_PATH: Record<Kind, (id: string) => string> = {
+export const PAGE_PATH: Record<Kind, (id: string) => string> = {
   IMPORT: (id) => `/imports/${id}`,
   PRODUCTION: (id) => `/production/${id}`,
   EXPORT: (id) => `/exports/${id}`,

@@ -1,5 +1,5 @@
 import { formatDuration, importLogCft, Permission } from '@sawmill/shared';
-import { CheckIcon, ClockIcon, HashIcon, PencilIcon, PlusIcon, RulerIcon, Trash2Icon, WalletIcon, XIcon } from 'lucide-react';
+import { CheckIcon, ClockIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,7 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { dateTime, money, num3, useLoad } from '../components/common';
 import { useConfirmDelete } from '../components/confirm';
-import { EntryField, EntryFigure, EntryRow, Field, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging, wide } from '../components/page';
+import { EntryField, EntryFigure, EntryRow, Field, FigureStrip, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, TableCard, useClientPaging, wide } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
 import { WorkflowBar } from '../components/workflow';
 import { useI18n } from '../i18n';
@@ -96,11 +96,14 @@ export function ImportDetailPage() {
           {!load.editable && load.status !== 'SUBMITTED' && <Notice>{t('lockedRecord')}</Notice>}
           {load.rejectionReason && <Notice tone="error">{load.rejectionReason}</Notice>}
 
-          <StatGrid className="lg:grid-cols-3">
-            <Stat icon={<HashIcon />} label={t('logsMeasured')} value={load.totalLogs} />
-            <Stat icon={<RulerIcon />} label={t('totalCft')} value={num3(load.totalCft)} unit="CFT" />
-            <Stat icon={<WalletIcon />} label={t('totalUnloadingCharges')} value={money(unloadingTotal)} className="max-lg:col-span-2" />
-          </StatGrid>
+          <FigureStrip
+            className="grid-cols-1 sm:grid-cols-3 lg:grid-cols-3"
+            items={[
+              { label: t('logsMeasured'), value: load.totalLogs },
+              { label: t('totalCft'), value: `${num3(load.totalCft)} CFT` },
+              { label: t('totalUnloadingCharges'), value: money(unloadingTotal) },
+            ]}
+          />
 
           <WorkflowBar
             base={`/imports/${load.id}`}
@@ -310,7 +313,7 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
           </FormActions>
         </FormCard>
       )}
-      <TableCard empty={load.unloadings.length === 0} emptyText={t('noUnloading')} pager={unloadings.pager}>
+      <TableCard compactEmpty empty={load.unloadings.length === 0} emptyText={t('noUnloading')} pager={unloadings.pager}>
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
@@ -617,7 +620,7 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
       )}
       {error && <Notice tone="error">{error}</Notice>}
 
-      <TableCard empty={load.logs.length === 0} emptyText={t('noLogs')} pager={logs.pager}>
+      <TableCard compactEmpty empty={load.logs.length === 0} emptyText={t('noLogs')} pager={logs.pager}>
         <form onSubmit={saveEdit}>
           <Table>
             <TableHeader>

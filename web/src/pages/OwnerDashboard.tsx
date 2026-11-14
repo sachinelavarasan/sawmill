@@ -1,14 +1,8 @@
 import {
-  ArrowDownLeftIcon,
-  ArrowDownToLineIcon,
-  ArrowUpFromLineIcon,
-  ArrowUpRightIcon,
   BellIcon,
-  ClipboardCheckIcon,
   LayersIcon,
   PackageIcon,
   TrendingUpIcon,
-  TruckIcon,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -20,8 +14,10 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { ChartCard, ColumnChart, StackedBars } from '../components/charts';
 import { dateTime, money, num3, useLoad } from '../components/common';
-import { LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging, wide } from '../components/page';
+import { FigureStrip, LinkRow, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging, wide } from '../components/page';
+import { QuickActions } from '../components/quick-actions';
 import { useI18n } from '../i18n';
+import { type ApprovalItem, type ApprovalQueue, KINDS, PAGE_PATH } from './Approvals';
 
 interface OwnerDashboardData {
   kpis: {
@@ -60,6 +56,12 @@ interface OwnerCharts {
 
 export const shortDay = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 const shortMonth = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+/** How many waiting records the dashboard previews before sending the owner to the full queue. */
+const QUEUE_PREVIEW = 5;
+const kindKey = Object.fromEntries(KINDS);
+/** The one CFT figure that sums a waiting record up. */
+const queueCft = (i: ApprovalItem) => (i.type === 'PRODUCTION' ? i.outputCft : i.type === 'ADJUSTMENT' ? i.cftDelta : i.totalCft);
+
 const rupeesCompact = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', notation: 'compact', maximumFractionDigits: 1 });
 
 export function OwnerDashboard() {
@@ -67,6 +69,8 @@ export function OwnerDashboard() {
   const { user } = useAuth();
   const { data, loading, error, reload } = useLoad(() => api<OwnerDashboardData>('/dashboard/owner'));
   const charts = useLoad(() => api<OwnerCharts>('/dashboard/owner/charts'));
+  const queue = useLoad(() => api<ApprovalQueue>('/approvals'));
+  const waiting = queue.data?.items ?? [];
   const k = data?.kpis;
   const c = charts.data;
   const activity = useClientPaging(data?.accountantActivity ?? [], 10);
@@ -82,7 +86,10 @@ export function OwnerDashboard() {
     <Page>
       <PageHeader title={t('dashboard')} subtitle={`${t('welcome')}, ${user?.name ?? ''}`} />
 
-      {!!k?.pendingApprovals && (
+      <QuickActions />
+
+      {/* until the queue itself has loaded (or if it fails), a one-line reminder */}
+      {!!k?.pendingApprovals && waiting.length === 0 && (
         <Notice tone="warn" className="justify-between">
           <span className="flex items-center gap-2 font-medium">
             <BellIcon className="size-4" />
@@ -111,6 +118,49 @@ export function OwnerDashboard() {
             <Stat icon={<LayersIcon />} label={t('rawStock')} value={num3(k.rawStockCft)} unit="CFT" />
             <Stat icon={<PackageIcon />} label={t('finishedStock')} value={num3(k.finishedStockCft)} unit="CFT" />
           </StatGrid>
+
+          {/* what is waiting for the owner, oldest first */}
+          {waiting.length > 0 && (
+            <Section
+              title={
+                <>
+                  {t('pendingApprovals')}
+                  <span className="min-w-6 rounded-full bg-warning-soft px-2 text-center text-xs leading-6 font-bold text-warning tabular-nums">{queue.data!.counts.total}</span>
+                </>
+              }
+              tools={
+                <Button asChild size="sm">
+                  <Link to="/approvals">{t('review')}</Link>
+                </Button>
+              }
+            >
+              <TableCard>
+                <Table>
+                  <TableBody>
+                    {waiting.slice(0, QUEUE_PREVIEW).map((i) => (
+                      <LinkRow key={`${i.type}-${i.id}`} to={PAGE_PATH[i.type](i.id)}>
+                        <TableCell className="pl-4">
+                          <Link className="font-semibold text-primary hover:underline" to={PAGE_PATH[i.type](i.id)}>
+                            {i.code}
+                          </Link>
+                          <div className="text-xs text-muted-foreground">
+                            {i.createdByName} · {dateTime(i.submittedAt)}
+                          </div>
+                        </TableCell>
+                        <TableCell className={wide}>
+                          <Badge variant="secondary">{t(kindKey[i.type])}</Badge>
+                        </TableCell>
+                        <TableCell className={wide}>{i.woodType}</TableCell>
+                        <TableCell className={cn(numCell, 'pr-4 font-semibold')}>
+                          {num3(queueCft(i))} <span className="text-xs font-medium text-muted-foreground">CFT</span>
+                        </TableCell>
+                      </LinkRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableCard>
+            </Section>
+          )}
 
           {/* charts */}
           <div className="grid gap-4 lg:grid-cols-5">
@@ -145,13 +195,15 @@ export function OwnerDashboard() {
           </div>
 
           <Section title={t('operations')}>
-            <StatGrid className="lg:grid-cols-5">
-              <Stat icon={<ArrowDownToLineIcon />} label={t('totalImportLoads')} value={k.totalImportLoads} />
-              <Stat icon={<ArrowUpFromLineIcon />} label={t('totalExportLoads')} value={k.totalExportLoads} />
-              <Stat icon={<TruckIcon />} label={t('todayImports')} value={k.todayImports} />
-              <Stat icon={<TruckIcon />} label={t('todayExports')} value={k.todayExports} />
-              <Stat icon={<ClipboardCheckIcon />} label={t('pendingApprovals')} value={k.pendingApprovals} tone={k.pendingApprovals > 0 ? 'warn' : 'good'} />
-            </StatGrid>
+            {/* pending approvals has its own section above, so it isn't repeated here */}
+            <FigureStrip
+              items={[
+                { label: t('todayImports'), value: k.todayImports },
+                { label: t('todayExports'), value: k.todayExports },
+                { label: t('totalImportLoads'), value: k.totalImportLoads },
+                { label: t('totalExportLoads'), value: k.totalExportLoads },
+              ]}
+            />
           </Section>
 
           <Section
@@ -182,11 +234,10 @@ export function OwnerDashboard() {
                   />
                 )}
               </ChartCard>
-              <div className="grid grid-cols-2 content-start gap-3 lg:col-span-2">
-                <Stat label={t('totalSales')} value={money(k.totalSales)} />
-                <Stat label={t('totalExpenses')} value={money(k.totalExpenses)} />
-                <Stat icon={<ArrowDownLeftIcon />} label={t('pendingReceivables')} value={money(k.pendingReceivables)} tone={k.pendingReceivables > 0 ? 'warn' : undefined} />
-                <Stat icon={<ArrowUpRightIcon />} label={t('pendingPayables')} value={money(k.pendingPayables)} tone={k.pendingPayables > 0 ? 'warn' : undefined} />
+              {/* total sales and expenses are already on the profit card at the top */}
+              <div className="grid grid-cols-2 content-start gap-3 lg:col-span-2 lg:grid-cols-1">
+                <Stat label={t('pendingReceivables')} value={money(k.pendingReceivables)} tone={k.pendingReceivables > 0 ? 'warn' : undefined} />
+                <Stat label={t('pendingPayables')} value={money(k.pendingPayables)} tone={k.pendingPayables > 0 ? 'warn' : undefined} />
               </div>
             </div>
           </Section>

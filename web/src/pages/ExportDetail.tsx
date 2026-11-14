@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { dateTime, money, num3, useLoad } from '../components/common';
-import { ALL, EntryField, EntryRow, Field, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging } from '../components/page';
+import { ALL, EntryField, EntryRow, Field, FigureStrip, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, TableCard, useClientPaging } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
 import { WorkflowBar } from '../components/workflow';
 import { useConfirmDelete } from '../components/confirm';
@@ -104,10 +104,13 @@ export function ExportDetailPage() {
           {!exp.editable && exp.status !== 'SUBMITTED' && <Notice>{t('lockedRecord')}</Notice>}
           {exp.rejectionReason && <Notice tone="error">{exp.rejectionReason}</Notice>}
 
-          <StatGrid className="lg:grid-cols-2">
-            <Stat label={t('totalPieces')} value={exp.totalPieces} />
-            <Stat label={t('totalCft')} value={num3(exp.totalCft)} unit="CFT" />
-          </StatGrid>
+          <FigureStrip
+            className="lg:grid-cols-2"
+            items={[
+              { label: t('totalPieces'), value: exp.totalPieces },
+              { label: t('totalCft'), value: `${num3(exp.totalCft)} CFT` },
+            ]}
+          />
 
           <WorkflowBar
             base={`/exports/${exp.id}`}
@@ -384,7 +387,7 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
       )}
       {error && <Notice tone="error">{error}</Notice>}
 
-      <TableCard empty={exp.lines.length === 0} emptyText={t('noLines')} pager={lines.pager}>
+      <TableCard compactEmpty empty={exp.lines.length === 0} emptyText={t('noLines')} pager={lines.pager}>
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">

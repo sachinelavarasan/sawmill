@@ -43,7 +43,7 @@ function Root() {
 
   return (
     <LangCtx.Provider value={{ lang, setLang }}>
-      {/* the app bar is dark green in both themes, so status-bar icons stay light */}
+      {/* the app bar is dark slate in both themes, so status-bar icons stay light */}
       <StatusBar style="light" />
       {booting ? (
         <View style={[s.fill, s.center, { backgroundColor: c.hero }]}>

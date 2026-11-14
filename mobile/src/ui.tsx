@@ -27,7 +27,7 @@ export const timeOnly = (s: string | null | undefined) =>
 
 // ───────── components ─────────
 
-/** `onHero` = sitting on the dark green app bar rather than on a card. */
+/** `onHero` = sitting on the dark slate app bar rather than on a card. */
 export function LangToggle({ onHero }: { onHero?: boolean }) {
   const { lang, setLang } = useContext(LangCtx);
   const s = useStyles();
@@ -70,7 +70,7 @@ export function ThemeToggle({ onHero }: { onHero?: boolean }) {
   );
 }
 
-/** Green bar with a back arrow, used by every pushed screen. */
+/** Slate bar with a back arrow, used by every pushed screen. */
 export function BackBar({ title, subtitle, onBack, right }: { title: string; subtitle?: string; onBack: () => void; right?: ReactNode }) {
   const { c } = useTheme();
   const t = useT();
@@ -217,11 +217,11 @@ export const makeStyles = (c: ThemeColors) =>
     row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
 
-    // login: green hero on top, form as a sheet rising from the bottom
+    // login: slate hero on top, form as a sheet rising from the bottom
     loginScroll: { flexGrow: 1 },
     loginHero: { flexGrow: 1, minHeight: 220, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 6 },
     brandMarkLarge: { width: 76, height: 76, borderRadius: 20, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-    brandMarkLargeText: { color: '#1B4332', fontSize: 28, fontWeight: '700', letterSpacing: 0.5 },
+    brandMarkLargeText: { color: '#1E262E', fontSize: 28, fontWeight: '700', letterSpacing: 0.5 },
     loginTitle: { color: c.heroText, fontSize: 30, fontWeight: '700', letterSpacing: 0.5 },
     loginTagline: { color: c.heroMuted, fontSize: 15 },
     loginCard: {
@@ -258,7 +258,7 @@ export const makeStyles = (c: ThemeColors) =>
     langText: { fontSize: 13, fontWeight: '600', color: c.muted },
     langTextHero: { color: c.heroMuted },
     langTextOn: { color: c.onPrimary },
-    langTextOnHero: { color: '#1B4332' },
+    langTextOnHero: { color: '#1E262E' },
 
     iconBtn: {
       width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
@@ -269,7 +269,7 @@ export const makeStyles = (c: ThemeColors) =>
     // app bar
     header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 8, paddingRight: 8, paddingVertical: 10, backgroundColor: c.hero, minHeight: 60 },
     brandMark: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginLeft: 8, marginRight: 4 },
-    brandMarkText: { color: '#1B4332', fontSize: 15, fontWeight: '700' },
+    brandMarkText: { color: '#1E262E', fontSize: 15, fontWeight: '700' },
     headerTitle: { color: c.heroText, fontWeight: '700', fontSize: 16 },
     headerSub: { color: c.heroMuted, fontSize: 12 },
 

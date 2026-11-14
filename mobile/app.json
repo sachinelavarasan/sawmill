@@ -5,10 +5,10 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "backgroundColor": "#1b4332",
+    "backgroundColor": "#1e262e",
     "android": {
       "package": "com.sawmillpro.app",
-      "adaptiveIcon": { "backgroundColor": "#1b4332" }
+      "adaptiveIcon": { "backgroundColor": "#1e262e" }
     },
     "plugins": ["expo-secure-store"]
   }

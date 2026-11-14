@@ -25,7 +25,8 @@ export const ALL = 'all';
 // ───────── page frame ─────────
 
 export function Page({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-5', className)}>{children}</div>;
+  // each page fades and rises in as it opens
+  return <div className={cn('mx-auto flex w-full min-w-0 max-w-6xl animate-in flex-col gap-5 duration-300 ease-out fade-in-0 slide-in-from-bottom-2', className)}>{children}</div>;
 }
 
 export function PageHeader({
@@ -47,13 +48,13 @@ export function PageHeader({
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
         {back && (
-          <Link to={back.to} className="mb-1 inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground">
+          <Link to={back.to} className="mb-2 -ml-2 inline-flex min-h-8 items-center gap-1 rounded-full px-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
             <ChevronLeftIcon className="size-4" />
             {back.label}
           </Link>
         )}
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+          <h1 className="text-[1.7rem] leading-tight font-bold tracking-tight">{title}</h1>
           {badge}
         </div>
         {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
@@ -68,7 +69,7 @@ export function Section({ title, tools, children, id, className }: { title: Reac
   return (
     <section id={id} className={cn('flex scroll-mt-20 flex-col gap-3', className)}>
       <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">{title}</h2>
+        <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">{title}</h2>
         {tools}
       </div>
       {children}
@@ -91,7 +92,6 @@ export function OwnerOnly() {
 
 export type Tone = 'good' | 'warn' | 'bad';
 const toneText: Record<Tone, string> = { good: 'text-success', warn: 'text-warning', bad: 'text-destructive' };
-const toneTile: Record<Tone, string> = { good: 'bg-success-soft text-success', warn: 'bg-warning-soft text-warning', bad: 'bg-destructive-soft text-destructive' };
 
 export function StatGrid({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn('grid grid-cols-2 gap-3 lg:grid-cols-4', className)}>{children}</div>;
@@ -120,26 +120,40 @@ export function Stat({
   return (
     <Card
       className={cn(
-        'gap-1.5 py-4',
-        hero && 'col-span-2 border-transparent',
-        hero && (tone === 'bad' ? 'bg-destructive-soft text-destructive' : 'bg-primary text-primary-foreground'),
+        'gap-2 py-5',
+        hero && 'col-span-2 border-transparent shadow-lift',
+        // in dark mode --primary is a light grey, too bright for a large block: use the soft slate instead
+        hero && (tone === 'bad' ? 'bg-destructive-soft text-destructive' : 'bg-primary text-primary-foreground dark:bg-primary-soft dark:text-foreground'),
         className,
       )}
     >
-      <CardHeader className="flex flex-row items-center gap-2 px-4">
-        {icon && (
-          <span className={cn('grid size-7 shrink-0 place-items-center rounded-md [&_svg]:size-4', hero ? 'bg-white/15' : tone ? toneTile[tone] : 'bg-primary-soft text-primary')}>{icon}</span>
-        )}
-        {tone && !hero && !icon && <span className={cn('size-2 shrink-0 rounded-full bg-current', toneText[tone])} />}
-        <CardDescription className={cn('font-medium', hero && 'text-current opacity-85')}>{label}</CardDescription>
+      {/* kept plain: a label and a number. Only the hero card shows its icon; a toned card gets a dot. */}
+      <CardHeader className="flex flex-row items-center gap-2 px-5">
+        {tone && !hero && <span className={cn('size-2 shrink-0 rounded-full bg-current', toneText[tone])} />}
+        <CardDescription className={cn('flex-1 font-medium', hero && 'text-current opacity-85')}>{label}</CardDescription>
+        {icon && hero && <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/15 [&_svg]:size-[1.125rem]">{icon}</span>}
       </CardHeader>
-      <CardContent className="px-4">
-        <div className={cn('font-bold tracking-tight', hero ? 'text-4xl' : 'text-2xl', tone && !hero && toneText[tone])}>
+      <CardContent className="px-5">
+        <div className={cn('leading-tight font-bold tracking-tight tabular-nums', hero ? 'text-3xl sm:text-4xl' : 'text-2xl sm:text-[1.7rem]', tone && !hero && toneText[tone])}>
           {value}
           {unit && <span className={cn('ml-1 text-sm font-medium', hero ? 'opacity-80' : 'text-muted-foreground')}>{unit}</span>}
         </div>
         {hint && <div className={cn('mt-0.5 text-sm', hero ? 'opacity-80' : 'text-muted-foreground')}>{hint}</div>}
       </CardContent>
+    </Card>
+  );
+}
+
+/** Several small figures in one card, side by side — for numbers that don't each need a card. */
+export function FigureStrip({ items, className }: { items: { label: ReactNode; value: ReactNode; tone?: Tone }[]; className?: string }) {
+  return (
+    <Card className={cn('grid grid-cols-2 gap-px overflow-hidden bg-border py-0 lg:grid-cols-4', className)}>
+      {items.map((it, i) => (
+        <div key={i} className="bg-card px-5 py-4">
+          <div className="text-sm text-muted-foreground">{it.label}</div>
+          <div className={cn('text-xl leading-tight font-bold tabular-nums', it.tone && toneText[it.tone])}>{it.value}</div>
+        </div>
+      ))}
     </Card>
   );
 }
@@ -156,7 +170,7 @@ const noticeTone = {
 /** One-line message strip. */
 export function Notice({ tone = 'info', children, className }: { tone?: keyof typeof noticeTone; children: ReactNode; className?: string }) {
   return (
-    <div role={tone === 'error' ? 'alert' : 'status'} className={cn('flex flex-wrap items-center gap-3 rounded-md px-3 py-2 text-sm', noticeTone[tone], className)}>
+    <div role={tone === 'error' ? 'alert' : 'status'} className={cn('flex flex-wrap items-center gap-3 rounded-xl border border-current/15 px-4 py-2.5 text-sm', noticeTone[tone], className)}>
       {children}
     </div>
   );
@@ -191,6 +205,7 @@ export function TableCard({
   empty,
   emptyText,
   emptyIcon,
+  compactEmpty,
   children,
   className,
   pager,
@@ -199,6 +214,8 @@ export function TableCard({
   emptyText?: ReactNode;
   /** defaults to an inbox */
   emptyIcon?: ReactNode;
+  /** one quiet line instead of the big empty box — for a section inside a longer page */
+  compactEmpty?: boolean;
   children: ReactNode;
   className?: string;
   /** page controls shown as the card's footer (from usePaging / useClientPaging) */
@@ -206,9 +223,14 @@ export function TableCard({
 }) {
   return (
     <Card className={cn('gap-0 overflow-hidden py-0', className)}>
-      {empty ? (
-        <div className="flex flex-col items-center gap-2 px-4 py-10 text-center text-sm text-muted-foreground">
-          <span className="grid size-10 place-items-center rounded-full bg-muted [&_svg]:size-5">{emptyIcon ?? <InboxIcon />}</span>
+      {empty && compactEmpty ? (
+        <div className="flex items-center gap-2.5 px-4 py-4 text-sm text-muted-foreground [&_svg]:size-4 [&_svg]:shrink-0">
+          {emptyIcon ?? <InboxIcon />}
+          {emptyText}
+        </div>
+      ) : empty ? (
+        <div className="flex flex-col items-center gap-3 px-4 py-14 text-center text-sm text-muted-foreground">
+          <span className="grid size-12 place-items-center rounded-2xl bg-muted [&_svg]:size-6">{emptyIcon ?? <InboxIcon />}</span>
           {emptyText}
         </div>
       ) : (
