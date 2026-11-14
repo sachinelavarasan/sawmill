@@ -415,15 +415,15 @@ export function OwnerDashboard() {
       hours >= 24
         ? new Intl.NumberFormat(locale, { style: 'unit', unit: 'day', unitDisplay: 'long' }).format(Math.floor(hours / 24))
         : new Intl.NumberFormat(locale, { style: 'unit', unit: 'hour', unitDisplay: 'long' }).format(Math.max(1, Math.floor(hours)));
-    alerts.push({ key: 'approvals', tone: 'warn', icon: ClipboardCheckIcon, title: t('alertApprovals', { n: pending }), sub: oldest ? t('alertApprovalsSub', { age }) : '', to: '/approvals' });
+    alerts.push({ key: 'approvals', tone: 'warn', icon: ClipboardCheckIcon, title: t(pending === 1 ? 'alertApprovalsOne' : 'alertApprovals', { n: pending }), sub: oldest ? t('alertApprovalsSub', { age }) : '', to: '/approvals' });
   }
-  if ((measuring.data ?? 0) > 0) alerts.push({ key: 'measuring', tone: 'info', icon: RulerIcon, title: t('alertMeasuring', { n: measuring.data! }), sub: t('alertMeasuringSub'), to: '/measurement' });
+  if ((measuring.data ?? 0) > 0) alerts.push({ key: 'measuring', tone: 'info', icon: RulerIcon, title: t(measuring.data === 1 ? 'alertMeasuringOne' : 'alertMeasuring', { n: measuring.data! }), sub: t('alertMeasuringSub'), to: '/measurement' });
   const incomplete = (drafts.data ?? []).filter((r) => r.inputCft == null || r.outputCft === 0);
-  if (incomplete.length) alerts.push({ key: 'incomplete', tone: 'info', icon: FactoryIcon, title: t('alertIncomplete', { n: incomplete.length }), sub: t('alertIncompleteSub'), to: '/production' });
+  if (incomplete.length) alerts.push({ key: 'incomplete', tone: 'info', icon: FactoryIcon, title: t(incomplete.length === 1 ? 'alertIncompleteOne' : 'alertIncomplete', { n: incomplete.length }), sub: t('alertIncompleteSub'), to: '/production' });
   const over = [...(runs.data ?? []).filter((r) => r.productionDate >= weeks[0]), ...(drafts.data ?? [])].filter((r) => r.wasteCft != null && r.wasteCft < 0);
-  if (over.length) alerts.push({ key: 'over', tone: 'bad', icon: AlertTriangleIcon, title: t('alertOverRecovery', { n: over.length }), sub: t('alertOverRecoverySub'), to: '/production' });
+  if (over.length) alerts.push({ key: 'over', tone: 'bad', icon: AlertTriangleIcon, title: t(over.length === 1 ? 'alertOverRecoveryOne' : 'alertOverRecovery', { n: over.length }), sub: t('alertOverRecoverySub'), to: '/production' });
   const adjustments = queue.data?.counts.ADJUSTMENT ?? 0;
-  if (adjustments > 0) alerts.push({ key: 'adjustments', tone: 'warn', icon: SlidersHorizontalIcon, title: t('alertAdjustments', { n: adjustments }), sub: t('alertAdjustmentsSub'), to: '/stock?tab=adjustments' });
+  if (adjustments > 0) alerts.push({ key: 'adjustments', tone: 'warn', icon: SlidersHorizontalIcon, title: t(adjustments === 1 ? 'alertAdjustmentsOne' : 'alertAdjustments', { n: adjustments }), sub: t('alertAdjustmentsSub'), to: '/stock?tab=adjustments' });
   if (canFinance && k && k.pendingPayables > 0) alerts.push({ key: 'payables', tone: 'warn', icon: ArrowUpRightIcon, title: t('alertPayables', { amount: money(k.pendingPayables) }), sub: t('alertBalancesSub'), to: '/accounts' });
   if (canFinance && k && k.pendingReceivables > 0) alerts.push({ key: 'receivables', tone: 'info', icon: ArrowDownLeftIcon, title: t('alertReceivables', { amount: money(k.pendingReceivables) }), sub: t('alertBalancesSub'), to: '/accounts' });
 

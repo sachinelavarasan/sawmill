@@ -70,8 +70,18 @@ function useMedia(query: string) {
  */
 export function Layout({ children }: { children: ReactNode }) {
   const { t } = useI18n();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const { collapsed, toggle } = useSidebarCollapsed();
+  // the browser tab carries the company's name while signed in
+  const mill = user?.mill.name;
+  useEffect(() => {
+    if (!mill) return;
+    document.title = `${mill} · TimberTrail`;
+    return () => {
+      document.title = 'TimberTrail';
+    };
+  }, [mill]);
   const desktop = useMedia('(min-width: 1024px)');
   // on a tablet there is room for the rail, not for the full sidebar
   const rail = collapsed || !desktop;
@@ -93,7 +103,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="w-[17.5rem] border-0 bg-sidebar p-0 text-sidebar-foreground">
           <SheetTitle className="sr-only">{t('menu')}</SheetTitle>
-          <SheetDescription className="sr-only">SAWMILL PRO</SheetDescription>
+          <SheetDescription className="sr-only">{user?.mill.name ?? 'TimberTrail'}</SheetDescription>
           <SidebarNav onNavigate={() => setOpen(false)} touch />
         </SheetContent>
       </Sheet>
@@ -129,7 +139,6 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-1.5 sm:gap-2">
             <QuickJump />
             <CreateMenu />
-            <ApprovalsShortcut />
             <Notifications />
             <ThemeToggle className="max-sm:hidden" />
             <LangToggle className="max-md:hidden" />
@@ -254,7 +263,7 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
         aria-label={collapsed ? (badge ? `${label} (${badge})` : label) : undefined}
         className={cn(
           'group/nav relative flex shrink-0 items-center rounded-xl text-[0.8125rem] transition-[background-color,color,box-shadow] duration-200 ease-smooth outline-none focus-visible:ring-2 focus-visible:ring-sidebar-accent',
-          collapsed ? 'size-11 justify-center' : cn('gap-3 px-3', touch ? 'min-h-12' : 'min-h-10'),
+          collapsed ? 'size-10 justify-center' : cn('gap-3 px-3', touch ? 'min-h-12' : 'min-h-9'),
           isActive
             ? // the open page floats: a lighter slate surface, a lit top edge, a soft drop and a faint saffron wash from the left
               'bg-sidebar-active bg-[linear-gradient(90deg,rgb(229_160_0/0.14),transparent_60%)] font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.08),0_0_0_1px_rgb(255_255_255/0.05),0_8px_18px_-8px_rgb(0_0_0/0.6)]'
@@ -308,19 +317,22 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
       <div className="flex h-full flex-col">
         {/* brand: the logo on a raised tile, the product name, the mill */}
         <div className={cn('flex h-16 shrink-0 items-center gap-3 border-b border-white/[0.08]', collapsed ? 'justify-center' : 'px-4')}>
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/[0.06] shadow-[inset_0_1px_0_rgb(255_255_255/0.1),0_0_0_1px_rgb(255_255_255/0.06),0_6px_14px_-6px_rgb(0_0_0/0.6)]">
-            <LogoMark className="size-8" />
+          <span className="size-10 shrink-0 rounded-[25%] shadow-[0_0_0_1px_rgb(255_255_255/0.1),0_6px_14px_-6px_rgb(0_0_0/0.6)]">
+            <LogoMark className="size-full" />
           </span>
           {!collapsed && (
             <div className="min-w-0 animate-in leading-tight duration-300 fade-in-0">
-              <div className="text-[0.9375rem] font-bold tracking-[0.06em] text-white">SAWMILL PRO</div>
-              <div className="mt-0.5 truncate text-xs text-sidebar-muted">{user?.mill.name}</div>
+              {/* inside the app the company's own name leads; the product is the small print */}
+              <div className="truncate text-[0.9375rem] font-bold text-white" title={user?.mill.name}>
+                {user?.mill.name}
+              </div>
+              <div className="mt-0.5 truncate text-xs text-sidebar-muted">TimberTrail</div>
             </div>
           )}
         </div>
 
         {/* navigation scrolls on its own; the brand and the profile stay put */}
-        <nav aria-label={t('menu')} className={cn('scroll-quiet flex flex-1 flex-col overflow-x-hidden overflow-y-auto px-3 py-3', collapsed && 'items-center')}>
+        <nav aria-label={t('menu')} className={cn('scroll-quiet flex flex-1 flex-col overflow-x-hidden overflow-y-auto px-3', touch ? 'py-3' : 'py-2', collapsed && 'items-center')}>
           {groups.map((g, i) => {
             const holdsActive = g.items.some((n) => activeOf(n.path));
             // a group folds away only when expanded; the one holding the open page always stays open
@@ -333,17 +345,20 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
                     onClick={() => !holdsActive && toggle(g.id)}
                     aria-expanded={open}
                     disabled={holdsActive}
-                    className="group/head mt-4 mb-1 flex shrink-0 animate-in items-center gap-2 rounded-md px-3 py-1 text-left text-[0.6875rem] font-semibold tracking-[0.08em] text-sidebar-muted/65 uppercase transition-colors duration-200 fade-in-0 outline-none hover:text-sidebar-muted focus-visible:ring-2 focus-visible:ring-sidebar-accent disabled:cursor-default disabled:hover:text-sidebar-muted/65"
+                    className={cn(
+                      touch ? 'mt-4 mb-1 py-1' : 'mt-3 mb-0.5 py-0.5',
+                      'group/head flex shrink-0 animate-in items-center gap-2 rounded-md px-3 text-left text-[0.6875rem] font-semibold tracking-[0.08em] text-sidebar-muted/65 uppercase transition-colors duration-200 fade-in-0 outline-none hover:text-sidebar-muted focus-visible:ring-2 focus-visible:ring-sidebar-accent disabled:cursor-default disabled:hover:text-sidebar-muted/65',
+                    )}
                   >
                     <span className="flex-1 truncate">{t(g.labelKey)}</span>
                     {!holdsActive && <ChevronDownIcon className={cn('size-3.5 transition-transform duration-300 ease-smooth', !open && '-rotate-90')} aria-hidden />}
                   </button>
                 ) : (
-                  i > 0 && <div className={cn('my-3 shrink-0 border-t border-white/[0.08]', collapsed ? 'mx-auto w-8' : 'mx-3')} />
+                  i > 0 && <div className={cn('shrink-0 border-t border-white/[0.08]', touch ? 'my-3' : 'my-2', collapsed ? 'mx-auto w-8' : 'mx-3')} />
                 )}
                 {/* the group's items slide open and closed; folded items are out of the tab order */}
                 <div className={cn('grid transition-[grid-template-rows] duration-300 ease-smooth', open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')} inert={!open}>
-                  <div className={cn('flex min-h-0 flex-col gap-1 overflow-hidden', collapsed && 'items-center')}>{g.items.map(link)}</div>
+                  <div className={cn('flex min-h-0 flex-col overflow-hidden', touch ? 'gap-1' : 'gap-0.5', collapsed && 'items-center')}>{g.items.map(link)}</div>
                 </div>
               </div>
             );
@@ -358,31 +373,6 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
         </div>
       </div>
     </TooltipProvider>
-  );
-}
-
-/** The owner's shortcut to the approval queue, with its count. Hidden for anyone who can't approve. */
-function ApprovalsShortcut() {
-  const pending = usePendingApprovals();
-  const { can } = useAuth();
-  const { t } = useI18n();
-  if (!can(Permission.OPERATIONS_APPROVE)) return null;
-  return (
-    <Button asChild variant="outline" className="h-11 gap-2 px-3 max-lg:hidden">
-      <Link to="/approvals" aria-label={pending ? `${t('approvals')} (${pending})` : t('approvals')}>
-        <CheckCheckIcon className={pending ? 'text-warning' : 'text-muted-foreground'} />
-        <span className="max-xl:sr-only">{t('approvals')}</span>
-        <span
-          key={pending}
-          className={cn(
-            'min-w-5 animate-in rounded-full px-1.5 text-center text-xs leading-5 font-bold tabular-nums duration-300 zoom-in-75 fade-in-0',
-            pending ? 'bg-brand text-brand-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.35)]' : 'bg-muted text-muted-foreground',
-          )}
-        >
-          {pending}
-        </span>
-      </Link>
-    </Button>
   );
 }
 

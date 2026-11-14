@@ -1,6 +1,6 @@
-# SAWMILL PRO — Technical Implementation Plan
+# TimberTrail — Technical Implementation Plan
 
-Status: Phases 1–8 built for the web (UAT pending) · Source: *SAWMILL PRO Project Kickoff & Software Requirements*
+Status: Phases 1–8 built for the web (UAT pending) · Source: *TimberTrail Project Kickoff & Software Requirements*
 
 ## 1. Architecture
 

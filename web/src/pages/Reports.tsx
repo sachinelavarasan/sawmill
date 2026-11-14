@@ -26,6 +26,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { api, download } from '../api';
 import { dateTime, money2, num3, useLoad } from '../components/common';
+import { Wordmark } from '../components/brand';
 import { FigureStrip, LoadState, Notice, OwnerOnly, Page, PageHeader, TableCard, useClientPaging } from '../components/page';
 import { PeriodPicker, periodQuery, PeriodValue, presets } from '../components/period';
 import { TKey, useI18n } from '../i18n';
@@ -349,7 +350,10 @@ export function ReportsPage() {
               </Table>
             </TableCard>
             <footer className="hidden justify-between pt-3 text-[10px] text-muted-foreground print:flex">
-              <span>SAWMILL PRO · {r.millName}</span>
+              <span className="flex items-center gap-2">
+                <Wordmark variant="light" className="h-4" />
+                {r.millName}
+              </span>
               <span className="tabular-nums">{dateTime(r.generatedAt)}</span>
             </footer>
           </article>

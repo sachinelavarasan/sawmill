@@ -468,9 +468,9 @@ export function StackedBars({
  */
 export function Sparkline({ values, color = 'var(--chart-1)', className }: { values: number[]; color?: string; className?: string }) {
   const [ref, width] = useWidth<HTMLDivElement>();
-  const H = 32;
+  const H = 24;
   const pts = values.filter((v) => Number.isFinite(v));
-  if (pts.length < 2) return <div ref={ref} className={cn('h-8', className)} aria-hidden />;
+  if (pts.length < 2) return <div ref={ref} className={cn('h-6', className)} aria-hidden />;
   const min = Math.min(...pts);
   const max = Math.max(...pts);
   const span = max - min || 1;
@@ -479,7 +479,7 @@ export function Sparkline({ values, color = 'var(--chart-1)', className }: { val
   const line = pts.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
   const area = `${line}L${x(pts.length - 1).toFixed(1)},${H}L${x(0).toFixed(1)},${H}Z`;
   return (
-    <div ref={ref} className={cn('h-8', className)} aria-hidden>
+    <div ref={ref} className={cn('h-6', className)} aria-hidden>
       {width > 0 && (
         <svg width={width} height={H} className="chart-line block overflow-visible">
           <path d={area} style={{ fill: color }} opacity={0.12} />

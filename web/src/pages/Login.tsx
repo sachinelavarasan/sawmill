@@ -1,11 +1,11 @@
-import { ArrowRightIcon, BellIcon, LayersIcon, LayoutDashboardIcon, LogInIcon, PackageIcon, RulerIcon } from 'lucide-react';
+import { ArrowBigUpIcon, ArrowRightIcon, BellIcon, EyeIcon, EyeOffIcon, LayersIcon, LayoutDashboardIcon, LockIcon, LogInIcon, PackageIcon, RulerIcon, UserIcon } from 'lucide-react';
 import { FormEvent, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '../api';
 import { useAuth } from '../auth';
-import { GrowthRings, LogoMark } from '../components/brand';
+import { GrowthRings, LogoMark, Wordmark, Wordmark3D } from '../components/brand';
 import { Tilt } from '../components/depth';
 import { LangToggle, ThemeToggle } from '../components/Layout';
 import { Field, Notice } from '../components/page';
@@ -18,6 +18,8 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+  const [caps, setCaps] = useState(false);
   const userRef = useRef<HTMLInputElement>(null);
 
   async function submit(e: FormEvent) {
@@ -43,7 +45,7 @@ export function LoginPage() {
 
   return (
     <div className="grid min-h-svh bg-background lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-      {/* ── the hero: what SAWMILL PRO is, and the product itself ── */}
+      {/* ── the hero: what TimberTrail is, and the product itself ── */}
       <section className="relative isolate flex flex-col overflow-hidden bg-hero px-6 pt-10 pb-12 text-white sm:px-10 lg:min-h-svh lg:px-14 lg:pt-12 lg:pb-0">
         {/* growth rings of a sawn log, faint, behind everything */}
         <div className="pointer-events-none absolute -top-40 -left-40 -z-10 size-[720px] opacity-[0.07]" aria-hidden>
@@ -52,10 +54,15 @@ export function LoginPage() {
         {/* a soft saffron glow where the preview sits */}
         <div className="pointer-events-none absolute right-[-10%] bottom-[-20%] -z-10 hidden size-[640px] rounded-full bg-brand/20 blur-3xl lg:block" aria-hidden />
 
-        <div className="flex items-center gap-3">
-          <LogoMark className="size-10 rounded-xl" />
-          <span className="text-lg font-bold tracking-[0.06em]">SAWMILL PRO</span>
-        </div>
+        {/* the name leans toward the pointer like the preview below; the wordmark floats in front of the logo */}
+        <Tilt className="w-fit" rest={{ x: 0, y: 0 }} max={9}>
+          <div className="flex items-center gap-4 pb-3" style={{ transformStyle: 'preserve-3d' }}>
+            <LogoMark className="size-14 shadow-[0_0_0_1px_rgb(255_255_255/0.1),0_12px_24px_-8px_rgb(0_0_0/0.65)] sm:size-16" />
+            <span style={{ transform: 'translateZ(36px)' }}>
+              <Wordmark3D className="text-4xl sm:text-5xl" />
+            </span>
+          </div>
+        </Tilt>
 
         <div className="mt-10 max-w-xl animate-in duration-500 ease-smooth fade-in-0 slide-in-from-bottom-2 lg:mt-16">
           <p className="text-xs font-semibold tracking-[0.18em] text-brand uppercase">{t('heroEyebrow')}</p>
@@ -76,48 +83,116 @@ export function LoginPage() {
       </section>
 
       {/* ── signing in ── */}
-      <div className="flex items-start justify-center px-4 py-10 lg:items-center lg:py-12">
-        <Card className="w-full max-w-sm animate-in py-8 shadow-widget duration-500 ease-smooth fade-in-0 slide-in-from-bottom-3">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 px-7">
-            <CardTitle className="text-xl">{t('login')}</CardTitle>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <LangToggle />
-            </div>
-          </CardHeader>
-          <CardContent className="px-7">
-            <form onSubmit={submit} className="grid gap-5">
-              <Field id="login-username" label={t('username')}>
-                <Input
-                  ref={userRef}
-                  id="login-username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  autoComplete="username"
-                  autoCapitalize="none"
-                  autoFocus
-                  required
-                />
-              </Field>
-              <Field id="login-password" label={t('password')}>
-                <Input
-                  id="login-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                  required
-                />
-              </Field>
-              {error && <Notice tone="error">{error}</Notice>}
-              <Button type="submit" size="lg" className="w-full" disabled={busy}>
-                <LogInIcon />
-                {busy ? t('signingIn') : t('signIn')}
-              </Button>
-              {import.meta.env.DEV && <p className="text-xs text-muted-foreground">Dev accounts: owner / Owner@123 · accountant / Accountant@123</p>}
-            </form>
-          </CardContent>
-        </Card>
+      <div className="relative isolate flex flex-col overflow-hidden px-4 py-6 sm:px-8 lg:min-h-svh">
+        {/* the same growth rings as the hero, very faint, in the far corner */}
+        <div className="pointer-events-none absolute -right-48 -bottom-48 -z-10 size-[620px] text-foreground opacity-[0.045]" aria-hidden>
+          <GrowthRings className="inset-0 size-full" />
+        </div>
+
+        {/* page-level choices sit in the corner, out of the form's way */}
+        <div className="flex items-center justify-end gap-2">
+          <ThemeToggle />
+          <LangToggle />
+        </div>
+
+        <div className="flex flex-1 items-start justify-center py-8 lg:items-center">
+          <div className="w-full max-w-[26rem] animate-in duration-500 ease-smooth fade-in-0 slide-in-from-bottom-3">
+            <Card className="gap-0 overflow-hidden py-0 shadow-widget">
+              {/* a saffron hairline ties the form to the brand */}
+              <div className="h-1 bg-[linear-gradient(90deg,var(--saffron),color-mix(in_oklab,var(--saffron),transparent_70%))]" aria-hidden />
+              <div className="px-7 pt-8 pb-8 sm:px-9 sm:pt-9">
+                <LogoMark variant="auto" className="size-14 shadow-[0_0_0_1px_rgb(15_23_42/0.06),0_8px_18px_-8px_rgb(15_23_42/0.35)]" />
+                <h2 className="mt-5 text-2xl font-semibold tracking-[-0.02em]">{t('loginWelcome')}</h2>
+                <p className="mt-1.5 text-sm text-muted-foreground">{t('loginSub')}</p>
+
+                <form onSubmit={submit} className="mt-7 grid gap-5">
+                  <Field id="login-username" label={t('username')}>
+                    <div className="relative">
+                      <UserIcon className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                      <Input
+                        ref={userRef}
+                        id="login-username"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        autoComplete="username"
+                        autoCapitalize="none"
+                        autoFocus
+                        required
+                        className="h-12 pl-10"
+                      />
+                    </div>
+                  </Field>
+                  <Field id="login-password" label={t('password')}>
+                    <div className="relative">
+                      <LockIcon className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                      <Input
+                        id="login-password"
+                        type={showPw ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        onKeyUp={(e) => setCaps(e.getModifierState('CapsLock'))}
+                        onBlur={() => setCaps(false)}
+                        autoComplete="current-password"
+                        required
+                        className="h-12 px-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPw((v) => !v)}
+                        aria-label={showPw ? t('hidePassword') : t('showPassword')}
+                        title={showPw ? t('hidePassword') : t('showPassword')}
+                        aria-pressed={showPw}
+                        className="absolute top-1/2 right-1.5 grid size-9 -translate-y-1/2 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        {showPw ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+                      </button>
+                    </div>
+                    {caps && (
+                      <p className="flex items-center gap-1.5 text-xs font-medium text-warning" role="status">
+                        <ArrowBigUpIcon className="size-3.5" aria-hidden />
+                        {t('capsLockOn')}
+                      </p>
+                    )}
+                  </Field>
+                  {error && <Notice tone="error">{error}</Notice>}
+                  <Button type="submit" size="lg" className="mt-1 h-12 w-full text-[0.9375rem]" disabled={busy}>
+                    <LogInIcon />
+                    {busy ? t('signingIn') : t('signIn')}
+                  </Button>
+                </form>
+              </div>
+
+              {/* development only: fill in a seeded account with one click */}
+              {import.meta.env.DEV && (
+                <div className="flex flex-wrap items-center gap-2 border-t bg-muted/60 px-7 py-3.5 text-xs text-muted-foreground sm:px-9">
+                  <span className="font-medium">Dev accounts</span>
+                  {(
+                    [
+                      ['owner', 'Owner@123'],
+                      ['accountant', 'Accountant@123'],
+                    ] as const
+                  ).map(([u, p]) => (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => {
+                        setUsername(u);
+                        setPassword(p);
+                      }}
+                      className="rounded-full border bg-card px-2.5 py-1 font-medium text-foreground shadow-xs transition-colors outline-none hover:border-foreground/30 focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {u}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+        </div>
+
+        <div className="flex justify-center opacity-80">
+          <Wordmark className="h-8" />
+        </div>
       </div>
     </div>
   );
@@ -155,12 +230,12 @@ function HeroPreview() {
             <span className="size-2.5 rounded-full bg-[#ef6b5f]" />
             <span className="size-2.5 rounded-full bg-[#f3be4f]" />
             <span className="size-2.5 rounded-full bg-[#5fc463]" />
-            <span className="ml-3 text-[0.6875rem] font-medium text-muted-foreground">sawmill.pro / {t('dashboard')}</span>
+            <span className="ml-3 text-[0.6875rem] font-medium text-muted-foreground">TimberTrail / {t('dashboard')}</span>
           </div>
           <div className="flex">
             {/* the sidebar, as an icon rail */}
             <div className="flex w-12 shrink-0 flex-col items-center gap-3 bg-sidebar py-4 text-sidebar-muted">
-              <LogoMark className="size-7 rounded-lg" />
+              <LogoMark className="size-7" />
               <span className="mt-2 grid size-7 place-items-center rounded-md bg-sidebar-active text-sidebar-accent">
                 <LayoutDashboardIcon className="size-3.5" />
               </span>

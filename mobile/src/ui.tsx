@@ -220,8 +220,7 @@ export const makeStyles = (c: ThemeColors) =>
     // login: slate hero on top, form as a sheet rising from the bottom
     loginScroll: { flexGrow: 1 },
     loginHero: { flexGrow: 1, minHeight: 220, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 6 },
-    brandMarkLarge: { width: 76, height: 76, borderRadius: 20, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-    brandMarkLargeText: { color: '#1E262E', fontSize: 28, fontWeight: '700', letterSpacing: 0.5 },
+    brandMarkLarge: { width: 84, height: 84, marginBottom: 10 },
     loginTitle: { color: c.heroText, fontSize: 30, fontWeight: '700', letterSpacing: 0.5 },
     loginTagline: { color: c.heroMuted, fontSize: 15 },
     loginCard: {
@@ -268,8 +267,7 @@ export const makeStyles = (c: ThemeColors) =>
 
     // app bar
     header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 8, paddingRight: 8, paddingVertical: 10, backgroundColor: c.hero, minHeight: 60 },
-    brandMark: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', marginLeft: 8, marginRight: 4 },
-    brandMarkText: { color: '#1E262E', fontSize: 15, fontWeight: '700' },
+    brandMark: { width: 40, height: 40, marginLeft: 8, marginRight: 4 },
     headerTitle: { color: c.heroText, fontWeight: '700', fontSize: 16 },
     headerSub: { color: c.heroMuted, fontSize: 12 },
 

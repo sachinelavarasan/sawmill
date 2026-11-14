@@ -1,9 +1,9 @@
-# SAWMILL PRO API as a system service.
+# TimberTrail API as a system service.
 #   sudo cp deploy/systemd/sawmill-api.service /etc/systemd/system/
 #   sudo systemctl daemon-reload && sudo systemctl enable --now sawmill-api
 #   journalctl -u sawmill-api -f        # logs
 [Unit]
-Description=SAWMILL PRO API
+Description=TimberTrail API
 After=network-online.target postgresql.service
 Wants=network-online.target
 

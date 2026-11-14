@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { Permission, type Lang } from '@sawmill/shared';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { auth, Profile, setSessionLostHandler } from './api';
 import { NavProvider, Tab, useNav } from './nav';
@@ -109,9 +109,7 @@ function Shell({ user, onLogout }: { user: Profile; onLogout: () => void }) {
   return (
     <SafeAreaView style={[s.fill, { backgroundColor: c.hero }]} edges={['top']}>
       <View style={s.header}>
-        <View style={s.brandMark}>
-          <Text style={s.brandMarkText}>SP</Text>
-        </View>
+        <Image source={require('../assets/icon-dark.png')} style={s.brandMark} accessible={false} />
         <View style={s.fill}>
           <Text style={s.headerTitle} numberOfLines={1}>
             {user.mill.name}

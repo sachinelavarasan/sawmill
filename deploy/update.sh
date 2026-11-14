@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SAWMILL PRO — install a new release on the server. Run from /opt/sawmill after the new
+# TimberTrail — install a new release on the server. Run from /opt/sawmill after the new
 # code is in place (git pull, or files copied over):
 #   sudo -u sawmill ./deploy/update.sh
 # (the sawmill user may restart the service: see "sudoers" in docs/DEPLOYMENT.md)

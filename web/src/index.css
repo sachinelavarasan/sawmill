@@ -1,5 +1,5 @@
 /*
- * Stylesheet entry: Tailwind v4 + shadcn/ui on the SAWMILL PRO theme.
+ * Stylesheet entry: Tailwind v4 + shadcn/ui on the TimberTrail theme.
  * Colours are defined once in tokens.css (light + dark) and mapped to Tailwind /
  * shadcn colour names below. Components: src/components/ui (shadcn) and
  * src/components/page.tsx (app building blocks).
@@ -205,10 +205,10 @@
   --elev-md: 0 1px 3px rgb(15 23 42 / 0.05), 0 6px 16px -4px rgb(15 23 42 / 0.09);
   --elev-lg: 0 2px 6px rgb(15 23 42 / 0.05), 0 14px 32px -8px rgb(15 23 42 / 0.14);
   --elev-xl: 0 4px 10px rgb(15 23 42 / 0.06), 0 28px 64px -16px rgb(15 23 42 / 0.24);
-  --elev-card: 0 0 0 1px rgb(15 23 42 / 0.09), 0 0 4px rgb(15 23 42 / 0.07), 0 0 24px rgb(15 23 42 / 0.12);
-  --elev-table: 0 0 0 1px rgb(15 23 42 / 0.1), 0 0 6px rgb(15 23 42 / 0.08), 0 0 32px rgb(15 23 42 / 0.16);
-  --elev-lift: 0 0 0 1px rgb(15 23 42 / 0.12), 0 0 8px rgb(15 23 42 / 0.09), 0 0 40px rgb(15 23 42 / 0.2);
-  --elev-widget: 0 0 0 1px rgb(15 23 42 / 0.11), 0 0 8px rgb(15 23 42 / 0.09), 0 0 44px rgb(15 23 42 / 0.22);
+  --elev-card: 0 0 0 1px rgb(15 23 42 / 0.07), 0 0 3px rgb(15 23 42 / 0.05), 0 0 16px rgb(15 23 42 / 0.06);
+  --elev-table: 0 0 0 1px rgb(15 23 42 / 0.08), 0 0 4px rgb(15 23 42 / 0.05), 0 0 20px rgb(15 23 42 / 0.08);
+  --elev-lift: 0 0 0 1px rgb(15 23 42 / 0.1), 0 0 6px rgb(15 23 42 / 0.07), 0 0 30px rgb(15 23 42 / 0.13);
+  --elev-widget: 0 0 0 1px rgb(15 23 42 / 0.09), 0 0 6px rgb(15 23 42 / 0.07), 0 0 32px rgb(15 23 42 / 0.13);
   --elev-float: 0 0 0 1px rgb(15 23 42 / 0.07), var(--elev-lg);
   --elev-pop: 0 0 0 1px rgb(15 23 42 / 0.08), var(--elev-xl);
   --elev-inset: inset 0 1px 1px rgb(15 23 42 / 0.04);
@@ -385,6 +385,48 @@
 }
 .drift-slow {
   animation: drift 8s ease-in-out -3s infinite alternate;
+}
+
+/*
+ * The raised product name on the sign-in screen. Each letter is extruded downwards in six crisp
+ * steps (--d is the step) over one soft contact shadow. --p (0…1) is how far a letter has risen
+ * toward the pointer; brand.tsx sets it every frame, already eased, so there are no transitions here.
+ */
+.wordmark-3d {
+  display: inline-flex;
+  cursor: default;
+  line-height: 1.1;
+  /* room above and below, so the pointer stays on the name while letters rise */
+  padding-block: 0.2em;
+  margin-block: -0.2em;
+}
+.wordmark-3d > span {
+  --p: 0;
+  --d: calc(0.5px + var(--p) * 0.9px);
+  display: inline-block;
+  pointer-events: none;
+  transform: translate3d(0, calc(var(--p) * -6px), 0);
+  will-change: transform;
+  text-shadow:
+    0 calc(var(--d) * 1) 0 var(--s1),
+    0 calc(var(--d) * 2) 0 var(--s1),
+    0 calc(var(--d) * 3) 0 var(--s2),
+    0 calc(var(--d) * 4) 0 var(--s2),
+    0 calc(var(--d) * 5) 0 var(--s3),
+    0 calc(var(--d) * 6) 0 var(--s3),
+    0 calc(var(--d) * 6 + 4px) 8px rgb(0 0 0 / 0.35);
+}
+.wordmark-3d > .wm-light {
+  color: #fff;
+  --s1: #cbd5e1;
+  --s2: #94a3b8;
+  --s3: #64748b;
+}
+.wordmark-3d > .wm-brand {
+  color: var(--saffron);
+  --s1: #b88000;
+  --s2: #8f6400;
+  --s3: #664700;
 }
 
 /* Paper shows everything, still. */

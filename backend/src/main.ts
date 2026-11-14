@@ -34,6 +34,6 @@ async function bootstrap() {
   // HOST=127.0.0.1 in production so only nginx on the same server can reach the API.
   const host = process.env.HOST ?? '0.0.0.0';
   await app.listen(port, host);
-  new Logger('Bootstrap').log(`SAWMILL PRO API listening on http://${host}:${port}/api (${process.env.NODE_ENV ?? 'development'})`);
+  new Logger('Bootstrap').log(`TimberTrail API listening on http://${host}:${port}/api (${process.env.NODE_ENV ?? 'development'})`);
 }
 bootstrap();

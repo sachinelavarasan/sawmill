@@ -180,7 +180,8 @@ export function Stat({
             {hint}
           </div>
         )}
-        {spark && <div className="mt-3 -mb-1">{spark}</div>}
+        {/* the trend line sits low in the card's foot padding, so cards without one are left with little empty space */}
+        {spark && <div className="mt-2 -mb-3">{spark}</div>}
       </CardContent>
     </Card>
   );

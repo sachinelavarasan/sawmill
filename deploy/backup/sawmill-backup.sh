@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SAWMILL PRO — database backup. Run daily from cron (see docs/DEPLOYMENT.md):
+# TimberTrail — database backup. Run daily from cron (see docs/DEPLOYMENT.md):
 #   15 1 * * *  sawmill  /opt/sawmill/deploy/backup/sawmill-backup.sh >> /var/log/sawmill/backup.log 2>&1
 #
 # What it does:

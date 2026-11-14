@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { auth, Profile } from '../api';
 import { useTheme } from '../theme';
@@ -34,10 +34,8 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: (p: Profile) => void }
       <KeyboardAvoidingView style={s.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={s.loginScroll} keyboardShouldPersistTaps="handled">
           <View style={s.loginHero}>
-            <View style={s.brandMarkLarge}>
-              <Text style={s.brandMarkLargeText}>SP</Text>
-            </View>
-            <Text style={s.loginTitle}>SAWMILL PRO</Text>
+            <Image source={require('../../assets/icon-dark.png')} style={s.brandMarkLarge} accessible={false} />
+            <Text style={s.loginTitle}>TimberTrail</Text>
             <Text style={s.loginTagline}>{t('appTagline')}</Text>
           </View>
 

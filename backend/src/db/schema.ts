@@ -1,5 +1,5 @@
 /**
- * SAWMILL PRO — complete database architecture (Drizzle ORM, PostgreSQL).
+ * TimberTrail — complete database architecture (Drizzle ORM, PostgreSQL).
  *
  * Every business table carries millId (multi-sawmill). Tables marked
  * [OWNER-ONLY] hold restricted data and are never read by accountant endpoints.

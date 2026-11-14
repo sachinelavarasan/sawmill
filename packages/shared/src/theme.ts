@@ -1,5 +1,5 @@
 /**
- * Colour tokens for SAWMILL PRO — Slate & Saffron: neutral graphite, white and one saffron accent.
+ * Colour tokens for TimberTrail — Slate & Saffron: neutral graphite, white and one saffron accent.
  * The Android app reads these directly; the web app mirrors them as CSS variables
  * in `web/src/tokens.css`. Change both together.
  */

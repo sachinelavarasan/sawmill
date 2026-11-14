@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import { TKey, useI18n } from '../i18n';
 
 const STATUS: Record<string, { key: TKey; className: string }> = {
-  DRAFT: { key: 'draft', className: 'bg-muted text-foreground/75' },
+  DRAFT: { key: 'draft', className: 'bg-muted-foreground/15 text-foreground/85' },
   SUBMITTED: { key: 'pending', className: 'bg-warning-soft text-warning' },
   APPROVED: { key: 'approved', className: 'bg-success-soft text-success' },
   REJECTED: { key: 'rejected', className: 'bg-destructive-soft text-destructive' },

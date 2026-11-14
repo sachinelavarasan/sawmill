@@ -352,7 +352,7 @@ export class ReportsService {
     }
     const t = (k: TKey) => translate(q.lang ?? 'en', k);
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'SAWMILL PRO';
+    wb.creator = 'TimberTrail';
     wb.created = new Date();
     const ws = wb.addWorksheet(r.title.slice(0, 31), { views: [{ state: 'frozen', ySplit: 5 }] });
 

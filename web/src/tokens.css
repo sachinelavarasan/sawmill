@@ -1,6 +1,6 @@
 
 /*
- * SAWMILL PRO — Slate & Saffron Theme
+ * TimberTrail — Slate & Saffron Theme
  *
  * Design direction: Modern Minimal, Professional Business Software
  * Primary: Slate
@@ -21,15 +21,15 @@
 
 :root {
   /* Base surfaces */
-  --bg: #ffffff;
+  --bg: #f8fafc;
   --surface: #ffffff;
-  --surface-2: #f8fafc;
+  --surface-2: #f1f5f9;
   --border: #e8ecf1;
   --input: #cbd5e1;
 
   /* Dedicated layout surfaces */
   --topbar: #ffffff;
-  --content-bg: #ffffff;
+  --content-bg: #f8fafc;
 
   /* Typography */
   --text: #1e293b;

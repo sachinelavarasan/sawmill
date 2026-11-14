@@ -1,4 +1,4 @@
-# SAWMILL PRO
+# TimberTrail
 
 Timber mill management: an Android app plus a web dashboard, with Owner and Accountant roles.
 

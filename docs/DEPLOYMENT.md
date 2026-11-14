@@ -1,6 +1,6 @@
 # Deployment, backups and operations
 
-How to run SAWMILL PRO (API + web app) on one Linux server, keep it updated, and keep the
+How to run TimberTrail (API + web app) on one Linux server, keep it updated, and keep the
 data safe. Written for Ubuntu 22.04/24.04; any systemd Linux works with small changes.
 
 ```

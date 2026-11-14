@@ -1,4 +1,4 @@
-# SAWMILL PRO — Acceptance test checklist (web app)
+# TimberTrail — Acceptance test checklist (web app)
 
 For the mill owner and the accountant to check the web app before it goes live.
 Use the **test site** with real-looking entries — not the live site. Each test says what

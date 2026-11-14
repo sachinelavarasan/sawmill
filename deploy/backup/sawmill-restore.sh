@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SAWMILL PRO — restore a backup.
+# TimberTrail — restore a backup.
 #
 #   sawmill-restore.sh <file.dump>                 restore into a NEW database (safe; for checking a backup)
 #   sawmill-restore.sh <file.dump> --replace       replace the live database (stops the API first)
