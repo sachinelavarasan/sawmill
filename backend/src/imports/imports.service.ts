@@ -41,6 +41,8 @@ const SUMMARY = {
   code: importLoads.code,
   arrivalAt: importLoads.arrivalAt,
   lorryNumber: importLoads.lorryNumber,
+  driverName: importLoads.driverName,
+  originLocation: importLoads.originLocation,
   woodType: importLoads.woodType,
   totalLogs: importLoads.totalLogs,
   totalCft: importLoads.totalCft,
@@ -129,7 +131,17 @@ export class ImportsService {
         .offset(q.skip),
       this.db.select({ total: count() }).from(importLoads).where(where),
     ]);
-    return { items: rows.map((r) => ({ ...r, totalCft: Number(r.totalCft) })), total, take: q.take, skip: q.skip };
+    // The supplier is part of the purchase record, so only people who may see finance get it.
+    const supplierOf = new Map<string, string>();
+    if (rows.length && hasPermission(actor.role, Permission.FINANCE_VIEW)) {
+      const named = await this.db
+        .select({ loadId: importFinancials.importLoadId, name: suppliers.name })
+        .from(importFinancials)
+        .innerJoin(suppliers, eq(suppliers.id, importFinancials.supplierId))
+        .where(inArray(importFinancials.importLoadId, rows.map((r) => r.id)));
+      for (const n of named) supplierOf.set(n.loadId, n.name);
+    }
+    return { items: rows.map((r) => ({ ...r, totalCft: Number(r.totalCft), supplierName: supplierOf.get(r.id) ?? null })), total, take: q.take, skip: q.skip };
   }
 
   async create(actor: AuthUser, dto: CreateImportDto) {

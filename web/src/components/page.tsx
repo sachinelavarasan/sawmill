@@ -31,12 +31,15 @@ export function Page({ children, className }: { children: ReactNode; className?:
 
 export function PageHeader({
   title,
+  eyebrow,
   back,
   subtitle,
   badge,
   actions,
 }: {
   title: ReactNode;
+  /** small label above the title, e.g. the page name when the title is the mill's name */
+  eyebrow?: ReactNode;
   /** small "← Imports" link above the title */
   back?: { to: string; label: string };
   subtitle?: ReactNode;
@@ -56,6 +59,7 @@ export function PageHeader({
             {back.label}
           </Link>
         )}
+        {eyebrow && <div className="mb-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">{eyebrow}</div>}
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl leading-tight font-bold tracking-tight text-balance">{title}</h1>
           {badge}
@@ -109,6 +113,7 @@ export function Stat({
   icon,
   tone,
   hero,
+  to,
   className,
 }: {
   label: ReactNode;
@@ -118,21 +123,22 @@ export function Stat({
   icon?: ReactNode;
   tone?: Tone;
   hero?: boolean;
+  /** makes the whole card a link to the page behind the number */
+  to?: string;
   className?: string;
 }) {
-  return (
+  const card = (
     <Card
       className={cn(
-        'gap-3 py-5',
+        'h-full gap-3 py-5',
+        to && 'transition-shadow duration-200 group-hover/stat:shadow-lift',
         hero && 'col-span-2',
         // in dark mode --primary is a light grey, too bright for a large block: use the soft slate instead
         hero && (tone === 'bad' ? 'bg-destructive-soft text-destructive' : 'bg-primary text-primary-foreground dark:bg-primary-soft dark:text-foreground'),
         className,
       )}
     >
-      <CardHeader className="flex flex-row items-center gap-2 px-5">
-        {tone && !hero && <span className={cn('size-2 shrink-0 rounded-full bg-current', toneText[tone])} />}
-        <CardDescription className={cn('flex-1 font-medium', hero && 'text-current opacity-85')}>{label}</CardDescription>
+      <CardHeader className="flex flex-row items-center gap-3 px-5">
         {icon && (
           <span
             className={cn(
@@ -143,6 +149,8 @@ export function Stat({
             {icon}
           </span>
         )}
+        <CardDescription className={cn('min-w-0 flex-1 font-medium', hero && 'text-current opacity-85')}>{label}</CardDescription>
+        {tone && !hero && <span className={cn('size-2 shrink-0 rounded-full bg-current', toneText[tone])} />}
       </CardHeader>
       <CardContent className="px-5">
         <div className={cn('leading-tight font-bold tracking-[-0.02em] tabular-nums', hero ? 'text-3xl sm:text-4xl' : 'text-2xl sm:text-[1.7rem]', tone && !hero && toneText[tone])}>
@@ -152,6 +160,12 @@ export function Stat({
         {hint && <div className={cn('mt-1 text-sm', hero ? 'opacity-80' : 'text-muted-foreground')}>{hint}</div>}
       </CardContent>
     </Card>
+  );
+  if (!to) return card;
+  return (
+    <Link to={to} className={cn('group/stat min-w-0 rounded-xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50', hero && 'col-span-2')}>
+      {card}
+    </Link>
   );
 }
 
@@ -212,9 +226,9 @@ export function LoadState({ loading, error, onRetry }: { loading: boolean; error
     return (
       <div className="flex flex-col gap-4" role="status" aria-label={t('loading')}>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Skeleton className="col-span-2 h-28" />
-          <Skeleton className="h-28" />
-          <Skeleton className="h-28" />
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-28" />
+          ))}
         </div>
         <div className="overflow-hidden rounded-xl bg-card shadow-card">
           <Skeleton className="h-10 rounded-none" />
@@ -462,7 +476,8 @@ export function FilterChips<V extends string>({
 }: {
   value: V;
   onChange: (v: V) => void;
-  options: { value: V; label: ReactNode; dot?: string; count?: number }[];
+  /** `quiet`: the count is plain information, not something waiting (no amber) */
+  options: { value: V; label: ReactNode; dot?: string; count?: number; quiet?: boolean }[];
   /** what the chips filter by, for screen readers */
   label: string;
   className?: string;
@@ -485,7 +500,7 @@ export function FilterChips<V extends string>({
             {o.dot && <span className={cn('size-2 rounded-full', o.dot, on && 'ring-2 ring-primary-foreground/40')} />}
             {o.label}
             {o.count != null && (
-              <span className={cn('-mr-1 min-w-5 rounded-full px-1.5 text-center text-xs leading-5 font-semibold tabular-nums', on ? 'bg-primary-foreground/20' : o.count ? 'bg-warning-soft text-warning' : 'bg-muted')}>
+              <span className={cn('-mr-1 min-w-5 rounded-full px-1.5 text-center text-xs leading-5 font-semibold tabular-nums', on ? 'bg-primary-foreground/20' : o.count && !o.quiet ? 'bg-warning-soft text-warning' : 'bg-muted')}>
                 {o.count}
               </span>
             )}
@@ -497,14 +512,14 @@ export function FilterChips<V extends string>({
 }
 
 /** Approval-status filter for list pages, as chips. `value` '' = all. */
-export function StatusFilter({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function StatusFilter({ value, onChange, counts }: { value: string; onChange: (v: string) => void; /** records per status ('' = all), shown in the chips */ counts?: Record<string, number | undefined> }) {
   const { t } = useI18n();
   return (
     <FilterChips
       label={t('status')}
       value={value}
       onChange={onChange}
-      options={[{ value: '', label: t('all') }, ...STATUSES.map(([v, k]) => ({ value: v, label: t(k), dot: STATUS_DOT[v] }))]}
+      options={[{ value: '', label: t('all'), count: counts?.[''], quiet: true }, ...STATUSES.map(([v, k]) => ({ value: v, label: t(k), dot: STATUS_DOT[v], count: counts?.[v], quiet: true }))]}
     />
   );
 }

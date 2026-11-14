@@ -369,6 +369,28 @@ const en = {
   loginFeature1: 'Measure every log, see CFT instantly',
   loginFeature2: 'Owner approval before stock changes',
   loginFeature3: 'Stock, sales and profit in one place',
+  // owner dashboard
+  today: 'Today',
+  refresh: 'Refresh',
+  viewAll: 'View all',
+  recentActivity: 'Recent Activity',
+  pendingPayments: 'Pending Payments',
+  nothingToApprove: 'Nothing is waiting for your approval.',
+  moreWaiting: '+{n} more waiting',
+  last30Days: 'Last 30 days',
+  woodTypesCount: '{n} wood types',
+  dashboardSub: "Here's what's happening at your mill today.",
+  chartExpensesTitle: 'Expenses by category',
+  // accountant dashboard
+  accountantDashSub: 'Your entries, and what needs doing today.',
+  entryStatus: 'Entry Status',
+  recentEntries: 'Recent Entries',
+  // list pages
+  view: 'View',
+  clearFilters: 'Clear filters',
+  importsSub: 'Every lorry load received at the mill, from arrival to approval.',
+  measurementSub: 'Loads still open for measuring. Pick one to add its logs.',
+  noImportsForStatus: 'No import entries with this status.',
 };
 
 export type Dict = typeof en;
@@ -742,6 +764,28 @@ const ta: Dict = {
   loginFeature1: 'ஒவ்வொரு கட்டையையும் அளந்து உடனே CFT பாருங்கள்',
   loginFeature2: 'இருப்பு மாறும் முன் உரிமையாளர் ஒப்புதல்',
   loginFeature3: 'இருப்பு, விற்பனை, லாபம் — ஒரே இடத்தில்',
+  // owner dashboard
+  today: 'இன்று',
+  refresh: 'புதுப்பி',
+  viewAll: 'அனைத்தையும் காண்க',
+  recentActivity: 'சமீபத்திய செயல்பாடுகள்',
+  pendingPayments: 'நிலுவைத் தொகைகள்',
+  nothingToApprove: 'உங்கள் ஒப்புதலுக்காக எதுவும் காத்திருக்கவில்லை.',
+  moreWaiting: 'மேலும் {n} காத்திருக்கின்றன',
+  last30Days: 'கடந்த 30 நாட்கள்',
+  woodTypesCount: '{n} மர வகைகள்',
+  dashboardSub: 'இன்று உங்கள் ஆலையில் நடப்பவை இதோ.',
+  chartExpensesTitle: 'வகை வாரியான செலவுகள்',
+  // accountant dashboard
+  accountantDashSub: 'உங்கள் பதிவுகளும், இன்று செய்ய வேண்டியவையும்.',
+  entryStatus: 'பதிவுகளின் நிலை',
+  recentEntries: 'சமீபத்திய பதிவுகள்',
+  // list pages
+  view: 'காண்க',
+  clearFilters: 'வடிகட்டிகளை நீக்கு',
+  importsSub: 'ஆலைக்கு வந்த ஒவ்வொரு லாரி லோடும் — வருகை முதல் ஒப்புதல் வரை.',
+  measurementSub: 'அளவீட்டிற்காகத் திறந்துள்ள லோடுகள். கட்டைகளைச் சேர்க்க ஒன்றைத் தேர்ந்தெடுக்கவும்.',
+  noImportsForStatus: 'இந்த நிலையில் இறக்குமதிப் பதிவுகள் இல்லை.',
 };
 
 export type Lang = 'en' | 'ta';

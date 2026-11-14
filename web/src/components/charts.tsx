@@ -401,7 +401,7 @@ export function StackedBars({
   const [hover, setHover] = useState<{ row: number; key: string; x: number; y: number } | null>(null);
   const BAR = 20;
   const ROW = 36;
-  const labelW = Math.min(110, Math.max(70, width * 0.28));
+  const labelW = Math.min(110, Math.max(70, width * 0.31));
   // room for the total printed after each bar (≈6.2px per character at 11px)
   const valueW = 12 + 6.2 * Math.max(...rows.map((r) => formatValue(series.reduce((a, s) => a + Math.max(0, r.values[s.key] ?? 0), 0)).length), 4);
   const plotW = Math.max(width - labelW - valueW, 10);
