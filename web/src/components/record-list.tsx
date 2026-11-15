@@ -178,12 +178,12 @@ export function ListToolbar<T>({ list, columns, searchPlaceholder }: { list: Rec
 
       <div className="ml-auto flex items-center gap-2">
         {pager && pager.total > 0 && (
-          <div className="flex items-center gap-1 text-[0.8125rem]">
-            <span className="px-1 text-muted-foreground tabular-nums">{t('rangeOf', { from: pager.skip + 1, to: Math.min(pager.skip + pager.page, pager.total), total: pager.total })}</span>
-            <Button variant="ghost" size="icon-sm" disabled={pager.skip <= 0} onClick={() => pager.onSkip(Math.max(0, pager.skip - pager.page))} aria-label={t('previous')} title={t('previous')}>
+          <div className="flex items-center gap-1.5 text-[0.8125rem]">
+            <span className="px-1.5 text-muted-foreground tabular-nums">{t('rangeOf', { from: pager.skip + 1, to: Math.min(pager.skip + pager.page, pager.total), total: pager.total })}</span>
+            <Button variant="outline" size="icon" className="size-9 rounded-full" disabled={pager.skip <= 0} onClick={() => pager.onSkip(Math.max(0, pager.skip - pager.page))} aria-label={t('previous')} title={t('previous')}>
               <ChevronLeftIcon />
             </Button>
-            <Button variant="ghost" size="icon-sm" disabled={pager.skip + pager.page >= pager.total} onClick={() => pager.onSkip(pager.skip + pager.page)} aria-label={t('next')} title={t('next')}>
+            <Button variant="outline" size="icon" className="size-9 rounded-full" disabled={pager.skip + pager.page >= pager.total} onClick={() => pager.onSkip(pager.skip + pager.page)} aria-label={t('next')} title={t('next')}>
               <ChevronRightIcon />
             </Button>
           </div>

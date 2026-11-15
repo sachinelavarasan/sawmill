@@ -2,11 +2,11 @@
  * App-level building blocks on top of shadcn/ui (src/components/ui).
  * Pages compose these + shadcn components + Tailwind classes; nothing else.
  */
-import { AlertTriangleIcon, ArrowDownRightIcon, ArrowRightIcon, ArrowUpRightIcon, CheckCircle2Icon, ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, InboxIcon, InfoIcon, LockIcon, SearchIcon, XCircleIcon, XIcon } from 'lucide-react';
+import { AlertTriangleIcon, ArrowUpRightIcon, Building2Icon, CheckCircle2Icon, ChevronLeftIcon, ChevronRightIcon, InboxIcon, InfoIcon, LockIcon, SearchIcon, XCircleIcon, XIcon } from 'lucide-react';
 import { MouseEvent, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { TKey, useI18n } from '../i18n';
+import { LogoMark } from './brand';
 
 /** Table column shown only from the md breakpoint up. */
 export const wide = 'hidden md:table-cell';
@@ -68,6 +69,101 @@ export function PageHeader({
         {subtitle && <p className="mt-2 text-sm text-pretty text-muted-foreground">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+// ───────── home hero (as on Android) ─────────
+
+const greetingKey = (): TKey => {
+  const h = new Date().getHours();
+  return h < 12 ? 'goodMorning' : h < 17 ? 'goodAfternoon' : 'goodEvening';
+};
+
+/**
+ * The dashboard's navy band, as on the Android home screen: the logo, a greeting with the person's name,
+ * the mill on a chip, tools on the right, and (as children) the one figure that matters most.
+ * Tools placed here sit on navy: give them the `heroControl` classes.
+ */
+export function HomeHero({ name, mill, actions, children }: { name: ReactNode; mill?: ReactNode; actions?: ReactNode; children?: ReactNode }) {
+  const { t } = useI18n();
+  return (
+    <section className="flex flex-col gap-6 rounded-3xl bg-hero p-5 text-hero-foreground shadow-card sm:p-7">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-4">
+        <LogoMark variant="auto" className="size-11 rounded-xl" />
+        <div className="min-w-0 flex-1">
+          <div className="text-[0.8125rem] text-hero-muted">{t(greetingKey())},</div>
+          <h1 className="truncate text-xl leading-tight font-bold tracking-tight sm:text-2xl font-display">{name}</h1>
+        </div>
+        {actions && <div className="flex flex-wrap items-center gap-2 print:hidden">{actions}</div>}
+      </div>
+      {mill && (
+        <div className="-mt-2 inline-flex w-fit max-w-full items-center gap-2 rounded-full bg-hero-chip py-1.5 pr-3.5 pl-2.5 text-[0.8125rem] font-medium">
+          <Building2Icon className="size-3.5 shrink-0 text-saffron" aria-hidden />
+          <span className="truncate">{mill}</span>
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+
+/** Classes for a control (select trigger, icon button) placed on the navy hero. */
+export const heroControl = 'rounded-full border-transparent bg-hero-chip text-hero-foreground shadow-none hover:bg-hero-border hover:text-hero-foreground [&_svg]:text-hero-muted';
+
+/** The headline figure inside a HomeHero: a label, a big number, a line under it, and an optional chart. */
+export function HeroFigure({ label, value, unit, sub, to, children }: { label: ReactNode; value: ReactNode; unit?: string; sub?: ReactNode; to?: string; children?: ReactNode }) {
+  const body = (
+    <>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[0.8125rem] font-medium text-hero-muted">{label}</span>
+        {to && <ChevronRightIcon className="size-4 text-hero-muted transition-transform duration-200 group-hover/hero:translate-x-0.5" aria-hidden />}
+      </div>
+      <div className="text-[2.25rem] leading-none font-bold tracking-[-0.03em] tabular-nums sm:text-[2.75rem] font-display">
+        <CountUp value={value} />
+        {unit && <span className="ml-2 text-base font-semibold tracking-normal text-hero-muted">{unit}</span>}
+      </div>
+      {sub && <div className="text-[0.8125rem] text-hero-muted">{sub}</div>}
+      {children && <div className="mt-2">{children}</div>}
+    </>
+  );
+  const cls = 'flex flex-col gap-2 border-t border-hero-border pt-5';
+  if (!to) return <div className={cls}>{body}</div>;
+  return (
+    <Link to={to} className={cn(cls, 'group/hero rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-saffron')}>
+      {body}
+    </Link>
+  );
+}
+
+/** Small paired columns for the navy hero (saffron and slate, as on Android), with a legend. */
+export function HeroBars({ data, legend, labelEvery = 3 }: { data: { label: string; values: number[] }[]; legend?: string[]; labelEvery?: number }) {
+  const max = Math.max(1, ...data.flatMap((d) => d.values));
+  const fills = ['bg-brand-gradient', 'bg-chart-bar'];
+  return (
+    <div className="flex flex-col gap-3" aria-hidden>
+      <div className="flex h-20 items-end gap-1.5 sm:gap-2">
+        {data.map((d, i) => (
+          <div key={i} className="flex h-full flex-1 flex-col justify-end gap-1">
+            <div className="flex flex-1 items-end justify-center gap-px">
+              {d.values.map((v, j) => (
+                <span key={j} className={cn('w-full max-w-4 rounded-full transition-[height] duration-500 ease-smooth', fills[j % fills.length])} style={{ height: `${Math.max(v ? 6 : 2, (v / max) * 100)}%`, opacity: v ? 1 : 0.25 }} />
+              ))}
+            </div>
+            <span className="h-3 text-center text-[0.625rem] leading-3 text-hero-muted tabular-nums">{i % labelEvery === 0 ? d.label : ''}</span>
+          </div>
+        ))}
+      </div>
+      {legend && (
+        <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-hero-muted">
+          {legend.map((l, i) => (
+            <span key={l} className="inline-flex items-center gap-1.5">
+              <span className={cn('size-2 rounded-full', fills[i % fills.length])} />
+              {l}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -144,45 +240,50 @@ export function Stat({
   const card = (
     <Card
       className={cn(
-        'h-full gap-3 py-5 sm:py-6',
+        'h-full gap-5 px-5 py-5 sm:px-6',
         to && 'transition-[box-shadow,transform] duration-200 ease-smooth group-hover/stat:-translate-y-0.5 group-hover/stat:shadow-lift',
         hero && 'col-span-2',
-        // in dark mode --primary is a light grey, too bright for a large block: use the soft slate instead
-        hero && (tone === 'bad' ? 'bg-destructive-soft text-destructive' : 'bg-primary text-primary-foreground dark:bg-primary-soft dark:text-foreground'),
+        // the one figure that matters most: the orange gradient panel
+        hero && (tone === 'bad' ? 'bg-destructive-soft text-destructive' : 'bg-brand-gradient text-brand-foreground'),
         className,
       )}
     >
-      <CardHeader className="flex flex-row-reverse items-start gap-3 px-5 sm:px-6">
-        {icon && (
+      {/* the title leads; the corner holds a ↗ to the page behind the number (or the card's icon) */}
+      <div className="flex items-start gap-3">
+        <div className={cn('flex min-w-0 flex-1 items-center gap-1.5 pt-1 text-[0.9375rem] leading-snug font-semibold', hero ? 'text-current' : 'text-foreground')}>
+          <span className="min-w-0">{label}</span>
+          {info && <InfoTip text={info} className={cn(hero && 'text-current/70')} />}
+        </div>
+        {to ? (
           <span
             className={cn(
-              'grid size-8 shrink-0 place-items-center rounded-lg [&_svg]:size-[1.125rem]',
-              // minimal: just the icon, quiet; the number carries the card
-              hero ? 'bg-current/15' : iconTone ? toneTile[iconTone] : 'text-muted-foreground',
+              'grid size-8 shrink-0 place-items-center rounded-full transition-colors duration-200 [&_svg]:size-4',
+              hero ? 'bg-white/20' : 'bg-secondary text-foreground/80 group-hover/stat:bg-brand group-hover/stat:text-brand-foreground',
             )}
+            aria-hidden
           >
-            {icon}
+            <ArrowUpRightIcon />
           </span>
+        ) : (
+          icon && <span className={cn('grid size-8 shrink-0 place-items-center rounded-full [&_svg]:size-4', hero ? 'bg-white/20' : iconTone ? toneTile[iconTone] : 'bg-secondary text-muted-foreground')}>{icon}</span>
         )}
-        <CardDescription className={cn('flex min-w-0 flex-1 items-center gap-1.5 pt-1 text-[0.8125rem] font-medium', hero && 'text-current opacity-85')}>
-          {label}
-          {info && <InfoTip text={info} />}
-        </CardDescription>
-              </CardHeader>
-      <CardContent className="px-5 sm:px-6">
-        <div className={cn('leading-tight font-semibold tracking-[-0.025em] tabular-nums', hero ? 'text-3xl sm:text-[2.5rem]' : 'text-[1.625rem] sm:text-[2rem]', tone && !hero && toneText[tone])}>
-          <CountUp value={value} />
-          {unit && <span className={cn('ml-1.5 text-sm font-medium tracking-normal', hero ? 'opacity-80' : 'text-muted-foreground')}>{unit}</span>}
+      </div>
+      {/* the figure with its recent shape beside it; the comparison runs full width underneath */}
+      <div className="mt-auto">
+        <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+          <div className={cn('leading-none font-bold whitespace-nowrap tracking-[-0.03em] tabular-nums font-display', hero ? 'text-[2.25rem] sm:text-[2.75rem]' : 'text-[1.75rem] sm:text-[2rem]', tone && !hero && toneText[tone])}>
+            <CountUp value={value} />
+            {unit && <span className={cn('ml-1 text-xs font-semibold tracking-normal', hero ? 'opacity-80' : 'text-foreground/70')}>{unit}</span>}
+          </div>
+          {spark && <div className="w-28 shrink-0">{spark}</div>}
         </div>
         {(trend || hint) && (
-          <div className={cn('mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.8125rem]', hero ? 'opacity-80' : 'text-muted-foreground')}>
-            {trend && <Trend {...trend} />}
+          <div className={cn('mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs', hero ? 'opacity-85' : 'text-muted-foreground')}>
+            {trend && <Trend {...trend} onFill={hero} />}
             {hint}
           </div>
         )}
-        {/* the trend line sits low in the card's foot padding, so cards without one are left with little empty space */}
-        {spark && <div className="mt-2 -mb-3">{spark}</div>}
-      </CardContent>
+      </div>
     </Card>
   );
   if (!to) return card;
@@ -219,17 +320,18 @@ export function InfoTip({ text, className }: { text: string; className?: string 
   );
 }
 
-/** The small comparison pill on a KPI card: an arrow for the direction, green or red when the direction has a meaning. */
-function Trend({ dir, label, good }: { dir: 'up' | 'down' | 'flat'; label: ReactNode; good?: boolean }) {
-  const Icon = dir === 'up' ? ArrowUpRightIcon : dir === 'down' ? ArrowDownRightIcon : ArrowRightIcon;
+/** The comparison under a KPI: a small triangle for the direction and the change, green or red when the direction has a meaning. */
+function Trend({ dir, label, good, onFill }: { dir: 'up' | 'down' | 'flat'; label: ReactNode; good?: boolean; /** on a filled (hero) card: keep the card's colour */ onFill?: boolean }) {
+  const colour = onFill || good == null || dir === 'flat' ? 'text-current' : good ? 'text-success' : 'text-destructive';
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums',
-        good == null || dir === 'flat' ? 'bg-muted text-muted-foreground' : good ? 'bg-success-soft text-success' : 'bg-destructive-soft text-destructive',
+    <span className={cn('inline-flex items-center gap-1 font-semibold whitespace-nowrap tabular-nums', colour)}>
+      {dir === 'flat' ? (
+        <span className="h-0.5 w-2.5 rounded-full bg-current" aria-hidden />
+      ) : (
+        <svg viewBox="0 0 10 8" className={cn('size-2.5 fill-current', dir === 'down' && 'rotate-180')} aria-hidden>
+          <path d="M5 0 10 8H0Z" />
+        </svg>
       )}
-    >
-      <Icon className="size-3.5" aria-hidden />
       {label}
     </span>
   );
@@ -405,7 +507,7 @@ export function TableCard({
       ) : (
         <>
           <div className={cn('transition-opacity duration-200', busy && 'opacity-55')}>{children}</div>
-          {pager && <Pager {...pager} className="border-t border-border/70 bg-muted/25 px-4 py-3 sm:px-5" />}
+          {pager && <Pager {...pager} className="border-t border-border px-4 py-3.5 sm:px-5" />}
         </>
       )}
     </Card>
@@ -436,7 +538,7 @@ export function SearchBox({ value, onChange, placeholder, className }: { value: 
   }, [text, value]);
   return (
     <div className={cn('group/search relative w-full sm:w-72', className)}>
-      <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+      <SearchIcon className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         type="search"
         value={text}
@@ -445,7 +547,7 @@ export function SearchBox({ value, onChange, placeholder, className }: { value: 
         placeholder={placeholder}
         aria-label={t('search')}
         maxLength={60}
-        className="pr-9 pl-9 [&::-webkit-search-cancel-button]:hidden"
+        className="rounded-full pr-9 pl-10 [&::-webkit-search-cancel-button]:hidden"
       />
       {text && (
         <button
@@ -495,26 +597,43 @@ export interface PagerProps {
   className?: string;
 }
 
-/** "Rows per page · 26–50 of 120 · |< < Page 2 of 5 > >|". Hidden when everything fits on the smallest page. */
+/** Page numbers to show: always the first and last, the current one with a neighbour each side, gaps as null. */
+function pageList(current: number, pages: number): (number | null)[] {
+  if (pages <= 7) return Array.from({ length: pages }, (_, i) => i + 1);
+  const keep = new Set([1, pages, current - 1, current, current + 1]);
+  if (current <= 3) [2, 3, 4].forEach((n) => keep.add(n));
+  if (current >= pages - 2) [pages - 3, pages - 2, pages - 1].forEach((n) => keep.add(n));
+  const out: (number | null)[] = [];
+  let last = 0;
+  for (const n of [...keep].filter((n) => n >= 1 && n <= pages).sort((x, y) => x - y)) {
+    if (n - last > 1) out.push(null);
+    out.push(n);
+    last = n;
+  }
+  return out;
+}
+
+/** A round pager control: the arrows, and each page number (the open page filled). */
+const pagerBtn = 'size-9 rounded-full text-[0.8125rem] font-semibold tabular-nums';
+
+/**
+ * "Rows per page [25] · 26–50 of 120"  on the left, "‹ 1 2 [3] 4 … 9 ›" on the right.
+ * Hidden when everything fits on the smallest page.
+ */
 export function Pager({ skip, page, total, onSkip, onPageSize, className }: PagerProps) {
   const { t } = useI18n();
   if (total <= (onPageSize ? PAGE_SIZES[0] : page)) return null;
   const pages = Math.max(1, Math.ceil(total / page));
   const current = Math.floor(skip / page) + 1;
   const go = (n: number) => onSkip((Math.min(Math.max(n, 1), pages) - 1) * page);
-  const nav = (label: string, icon: ReactNode, target: number, disabled: boolean, extra?: string) => (
-    <Button variant="ghost" size="icon-sm" className={extra} disabled={disabled} onClick={() => go(target)} aria-label={label} title={label}>
-      {icon}
-    </Button>
-  );
   return (
-    <div className={cn('flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm print:hidden', className)}>
-      <div className="flex items-center gap-3 text-muted-foreground">
+    <nav aria-label={t('pageOf', { page: current, pages })} className={cn('flex flex-wrap items-center justify-between gap-x-4 gap-y-3 text-sm print:hidden', className)}>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-muted-foreground">
         {onPageSize && (
-          <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2">
             <span className="max-sm:hidden">{t('rowsPerPage')}</span>
             <Select value={String(page)} onValueChange={(v) => onPageSize(Number(v))}>
-              <SelectTrigger size="sm" className="w-[4.5rem]" aria-label={t('rowsPerPage')}>
+              <SelectTrigger size="sm" className="w-[4.75rem] rounded-full px-3.5" aria-label={t('rowsPerPage')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -525,20 +644,46 @@ export function Pager({ skip, page, total, onSkip, onPageSize, className }: Page
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </label>
         )}
-        <span className="tabular-nums">{t('rangeOf', { from: skip + 1, to: Math.min(skip + page, total), total })}</span>
-      </div>
-      <div className="flex items-center gap-0.5">
-        {nav(t('firstPage'), <ChevronsLeftIcon />, 1, current <= 1, 'max-sm:hidden')}
-        {nav(t('previous'), <ChevronLeftIcon />, current - 1, current <= 1)}
-        <span className="px-2 text-muted-foreground tabular-nums" aria-live="polite">
-          {t('pageOf', { page: current, pages })}
+        <span className="tabular-nums">
+          {t('rangeOf', { from: skip + 1, to: Math.min(skip + page, total), total })}
         </span>
-        {nav(t('next'), <ChevronRightIcon />, current + 1, current >= pages)}
-        {nav(t('lastPage'), <ChevronsRightIcon />, pages, current >= pages, 'max-sm:hidden')}
       </div>
-    </div>
+      <div className="flex items-center gap-1">
+        <Button variant="outline" size="icon" className={pagerBtn} disabled={current <= 1} onClick={() => go(current - 1)} aria-label={t('previous')} title={t('previous')}>
+          <ChevronLeftIcon />
+        </Button>
+        {/* phones: "3 / 9"; wider: the page numbers */}
+        <span className="px-2 text-[0.8125rem] font-semibold tabular-nums sm:hidden" aria-live="polite">
+          {current} / {pages}
+        </span>
+        <div className="flex items-center gap-1 max-sm:hidden">
+          {pageList(current, pages).map((n, i) =>
+            n == null ? (
+              <span key={`gap${i}`} className="grid size-9 place-items-center text-muted-foreground" aria-hidden>
+                …
+              </span>
+            ) : (
+              <Button
+                key={n}
+                variant={n === current ? 'default' : 'ghost'}
+                size="icon"
+                className={cn(pagerBtn, n !== current && 'text-foreground/75 hover:bg-secondary')}
+                aria-current={n === current ? 'page' : undefined}
+                aria-label={t('pageOf', { page: n, pages })}
+                onClick={() => go(n)}
+              >
+                {n}
+              </Button>
+            ),
+          )}
+        </div>
+        <Button variant="outline" size="icon" className={pagerBtn} disabled={current >= pages} onClick={() => go(current + 1)} aria-label={t('next')} title={t('next')}>
+          <ChevronRightIcon />
+        </Button>
+      </div>
+    </nav>
   );
 }
 

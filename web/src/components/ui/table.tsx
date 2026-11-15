@@ -20,7 +20,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("[&_tr]:border-b [&_tr]:border-[color-mix(in_oklab,var(--input)_65%,var(--surface))] [&_tr]:hover:bg-transparent", className)}
+      className={cn("[&_tr]:border-b-0 [&_tr]:bg-secondary [&_tr]:hover:bg-secondary", className)}
       {...props}
     />
   )
@@ -54,7 +54,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b border-[color-mix(in_oklab,var(--input)_65%,var(--surface))] transition-colors duration-200 ease-smooth hover:bg-[color-mix(in_oklab,var(--primary)_6%,var(--surface))] has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        "border-b border-border transition-colors duration-200 ease-smooth hover:bg-secondary/60 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
         className
       )}
       {...props}
@@ -67,7 +67,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-11 px-3 text-left align-middle text-xs tracking-wide uppercase max-sm:[&:not(:first-child):not(:last-child)]:px-2 font-semibold whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        "h-12 px-3 text-left align-middle text-[0.8125rem] max-sm:[&:not(:first-child):not(:last-child)]:px-2 font-medium whitespace-nowrap text-foreground/75 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
         className
       )}
       {...props}

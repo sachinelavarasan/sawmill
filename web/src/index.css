@@ -49,18 +49,26 @@
   --color-destructive: var(--bad);
   --color-border: var(--border);
   --color-input: var(--input);
-  --color-ring: var(--primary);
+  --color-ring: var(--saffron);
 
   /* brand extras */
   --color-primary-soft: var(--primary-soft);
   --color-success: var(--ok);
   --color-success-soft: var(--ok-soft);
-  --color-warning: var(--accent);
-  --color-warning-soft: var(--accent-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
   --color-destructive-soft: var(--bad-soft);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
   --color-hero: var(--hero);
+  --color-hero-foreground: var(--hero-text);
+  --color-hero-muted: var(--hero-muted);
+  --color-hero-chip: var(--hero-chip);
+  --color-hero-border: var(--hero-border);
+  --color-saffron: var(--saffron);
+  --color-saffron-foreground: var(--on-saffron);
+  --color-saffron-soft: var(--accent-soft);
+  --color-saffron-strong: var(--accent);
   --color-sidebar: var(--side);
   --color-sidebar-foreground: var(--side-text);
   --color-sidebar-muted: var(--side-muted);
@@ -68,13 +76,19 @@
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-axis: var(--chart-axis);
+  --color-chart-bar: var(--chart-bar);
+  --color-chart-hatch: var(--chart-hatch);
 
-  /* controls 8px (rounded-lg), cards 12px (rounded-xl) */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
+  /*
+   * Generous corners: buttons, selects and search are pills (rounded-full); fields 12px (rounded-lg);
+   * cards and panels 20px (rounded-xl); the sidebar, top bar and hero panels 24px (rounded-3xl).
+   */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 20px;
+  --radius-2xl: 22px;
+  --radius-3xl: 24px;
 
   --color-primary-hover: var(--primary-hover);
   --color-sidebar-accent: var(--side-accent);
@@ -123,7 +137,7 @@
 
   --font-sans: Inter, 'Noto Sans Tamil', system-ui, -apple-system, sans-serif;
   /* display type: titles, headings and headline figures (class `font-display`); Tamil falls back to Noto Sans Tamil */
-  --font-display: Manrope, Inter, 'Noto Sans Tamil', system-ui, -apple-system, sans-serif;
+  --font-display: 'Plus Jakarta Sans', Inter, 'Noto Sans Tamil', system-ui, -apple-system, sans-serif;
 }
 
 
@@ -146,7 +160,7 @@
     font-size: 0.875rem;
     -webkit-font-smoothing: antialiased;
   }
-  /* Inter reads, Manrope speaks: every heading is display type */
+  /* Inter reads, Plus Jakarta Sans speaks: every heading is display type */
   h1,
   h2,
   h3 {
@@ -172,7 +186,7 @@
       box-shadow 200ms var(--ease-smooth);
   }
   .hover-lift:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
     box-shadow: var(--elev-lift);
   }
   .hover-lift:active {
@@ -195,6 +209,11 @@
     box-shadow: inset 3px 0 0 var(--saffron);
   }
 
+  /* the orange accent as a soft gradient: the open menu item, highlighted bars, the hero stat */
+  .bg-brand-gradient {
+    background-image: linear-gradient(100deg, var(--saffron), color-mix(in oklab, var(--saffron), var(--saffron-2) 70%));
+  }
+
   /* thin scrollbars inside panels (sidebar, tab strips) */
   .scroll-quiet {
     scrollbar-width: thin;
@@ -203,55 +222,43 @@
 }
 
 /*
- * Elevation values. Light: slate-tinted layered shadows under a hairline ring. Dark: deeper,
- * black shadows with a faint light ring, since dark surfaces separate by edge more than by shade.
- * Paper (print) gets none.
+ * Elevation values. Light: white panels on the grey canvas need no edge at all; a clickable one gains a
+ * soft shadow on hover. Dark: panels carry a hairline, since dark surfaces separate by edge.
+ * Only what genuinely floats (menus, dialogs, side panels) casts a shadow. Paper (print) gets none.
  */
 :root {
-  --elev-xs: 0 1px 2px rgb(15 23 42 / 0.05);
-  --elev-sm: 0 1px 2px rgb(15 23 42 / 0.05), 0 2px 6px -1px rgb(15 23 42 / 0.06);
-  --elev-md: 0 1px 3px rgb(15 23 42 / 0.05), 0 6px 16px -4px rgb(15 23 42 / 0.09);
-  --elev-lg: 0 2px 6px rgb(15 23 42 / 0.05), 0 14px 32px -8px rgb(15 23 42 / 0.14);
-  --elev-xl: 0 4px 10px rgb(15 23 42 / 0.06), 0 28px 64px -16px rgb(15 23 42 / 0.24);
-  --elev-card: 0 0 0 1px rgb(15 23 42 / 0.07), 0 0 3px rgb(15 23 42 / 0.05), 0 0 16px rgb(15 23 42 / 0.06);
-  --elev-table: 0 0 0 1px rgb(15 23 42 / 0.08), 0 0 4px rgb(15 23 42 / 0.05), 0 0 20px rgb(15 23 42 / 0.08);
-  --elev-lift: 0 0 0 1px rgb(15 23 42 / 0.1), 0 0 6px rgb(15 23 42 / 0.07), 0 0 30px rgb(15 23 42 / 0.13);
-  --elev-widget: 0 0 0 1px rgb(15 23 42 / 0.09), 0 0 6px rgb(15 23 42 / 0.07), 0 0 32px rgb(15 23 42 / 0.13);
-  --elev-float: 0 0 0 1px rgb(15 23 42 / 0.07), var(--elev-lg);
-  --elev-pop: 0 0 0 1px rgb(15 23 42 / 0.08), var(--elev-xl);
-  --elev-inset: inset 0 1px 1px rgb(15 23 42 / 0.04);
-  --elev-button: inset 0 1px 0 rgb(255 255 255 / 0.12), 0 1px 2px rgb(15 23 42 / 0.16), 0 2px 6px -2px rgb(15 23 42 / 0.18);
+  --elev-xs: none;
+  --elev-sm: none;
+  --elev-md: 0 1px 3px rgb(17 17 19 / 0.05), 0 6px 16px -4px rgb(17 17 19 / 0.09);
+  --elev-lg: 0 2px 6px rgb(17 17 19 / 0.05), 0 14px 32px -8px rgb(17 17 19 / 0.14);
+  --elev-xl: 0 4px 10px rgb(17 17 19 / 0.06), 0 28px 64px -16px rgb(17 17 19 / 0.24);
+  --elev-card: none;
+  --elev-table: none;
+  --elev-widget: none;
+  --elev-lift: 0 10px 28px -12px rgb(17 17 19 / 0.18);
+  --elev-float: 0 0 0 1px var(--border), var(--elev-lg);
+  --elev-pop: 0 0 0 1px var(--border), var(--elev-xl);
+  --elev-inset: none;
+  --elev-button: none;
 }
 :root[data-theme='dark'] {
-  --elev-xs: 0 1px 2px rgb(0 0 0 / 0.3);
-  --elev-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 8px -2px rgb(0 0 0 / 0.35);
+  --elev-card: 0 0 0 1px var(--border);
+  --elev-table: 0 0 0 1px var(--border);
+  --elev-widget: 0 0 0 1px var(--border);
   --elev-md: 0 1px 3px rgb(0 0 0 / 0.3), 0 8px 20px -6px rgb(0 0 0 / 0.5);
   --elev-lg: 0 2px 6px rgb(0 0 0 / 0.35), 0 16px 36px -10px rgb(0 0 0 / 0.6);
   --elev-xl: 0 4px 12px rgb(0 0 0 / 0.4), 0 32px 72px -18px rgb(0 0 0 / 0.75);
-  --elev-card: 0 0 0 1px var(--border), 0 0 4px rgb(0 0 0 / 0.35), 0 0 16px rgb(0 0 0 / 0.4);
-  --elev-table: 0 0 0 1px var(--border), 0 0 5px rgb(0 0 0 / 0.4), 0 0 26px rgb(0 0 0 / 0.55);
-  --elev-lift: 0 0 0 1px rgb(255 255 255 / 0.11), 0 0 6px rgb(0 0 0 / 0.45), 0 0 34px rgb(0 0 0 / 0.65);
-  --elev-widget: 0 0 0 1px rgb(255 255 255 / 0.09), 0 0 6px rgb(0 0 0 / 0.45), 0 0 40px rgb(0 0 0 / 0.7);
-  --elev-float: 0 0 0 1px rgb(255 255 255 / 0.09), var(--elev-lg);
-  --elev-pop: 0 0 0 1px rgb(255 255 255 / 0.1), var(--elev-xl);
-  --elev-inset: inset 0 1px 2px rgb(0 0 0 / 0.3);
-  --elev-button: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 1px 2px rgb(0 0 0 / 0.4);
+  --elev-lift: 0 0 0 1px var(--input), 0 4px 14px -6px rgb(0 0 0 / 0.5);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --elev-xs: 0 1px 2px rgb(0 0 0 / 0.3);
-    --elev-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 8px -2px rgb(0 0 0 / 0.35);
+    --elev-card: 0 0 0 1px var(--border);
+    --elev-table: 0 0 0 1px var(--border);
+    --elev-widget: 0 0 0 1px var(--border);
     --elev-md: 0 1px 3px rgb(0 0 0 / 0.3), 0 8px 20px -6px rgb(0 0 0 / 0.5);
     --elev-lg: 0 2px 6px rgb(0 0 0 / 0.35), 0 16px 36px -10px rgb(0 0 0 / 0.6);
     --elev-xl: 0 4px 12px rgb(0 0 0 / 0.4), 0 32px 72px -18px rgb(0 0 0 / 0.75);
-    --elev-card: 0 0 0 1px var(--border), 0 0 4px rgb(0 0 0 / 0.35), 0 0 16px rgb(0 0 0 / 0.4);
-    --elev-table: 0 0 0 1px var(--border), 0 0 5px rgb(0 0 0 / 0.4), 0 0 26px rgb(0 0 0 / 0.55);
-    --elev-lift: 0 0 0 1px rgb(255 255 255 / 0.11), 0 0 6px rgb(0 0 0 / 0.45), 0 0 34px rgb(0 0 0 / 0.65);
-    --elev-widget: 0 0 0 1px rgb(255 255 255 / 0.09), 0 0 6px rgb(0 0 0 / 0.45), 0 0 40px rgb(0 0 0 / 0.7);
-    --elev-float: 0 0 0 1px rgb(255 255 255 / 0.09), var(--elev-lg);
-    --elev-pop: 0 0 0 1px rgb(255 255 255 / 0.1), var(--elev-xl);
-    --elev-inset: inset 0 1px 2px rgb(0 0 0 / 0.3);
-    --elev-button: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 1px 2px rgb(0 0 0 / 0.4);
+    --elev-lift: 0 0 0 1px var(--input), 0 4px 14px -6px rgb(0 0 0 / 0.5);
   }
 }
 @media print {

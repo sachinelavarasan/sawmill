@@ -319,7 +319,7 @@ function useCalendarTheme() {
     textMonthFontSize: 16,
     textDayHeaderFontSize: 12,
     textDayFontFamily: 'Inter_500Medium',
-    textMonthFontFamily: 'Manrope_700Bold',
+    textMonthFontFamily: 'PlusJakartaSans_700Bold',
     textDayHeaderFontFamily: 'Inter_600SemiBold',
   };
 }

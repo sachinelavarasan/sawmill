@@ -1,20 +1,21 @@
 /**
- * Screen chrome: the navy app bar every screen uses, and the scrolling page body.
- * The bar is navy in both themes, so the status bar icons are always light.
+ * Screen chrome: the app bar every screen uses (orange melting into warm black, see glow.tsx),
+ * and the scrolling page body. The bar is dark in both themes, so the status bar icons are always light.
  */
 import { useRouter } from 'expo-router';
 import { createElement, ReactNode } from 'react';
 import { FlatList, type FlatListProps, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useT } from '../lib/i18n';
+import { Glow } from './glow';
 import { Text } from './text';
 import { cn, Icon, type IconName, refresher } from './ui';
 
-/** Icon button for the app bar (white on navy). */
+/** Icon button for the app bar: a round white button with a dark icon. */
 export function HeaderButton({ icon, label, onPress, badge }: { icon: IconName; label: string; onPress: () => void; badge?: ReactNode }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} className="h-11 w-11 items-center justify-center rounded-full active:bg-hero-chip">
-      <Icon name={icon} size={21} colorClassName="accent-hero-foreground" />
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={4} className="mx-0.5 h-10 w-10 items-center justify-center rounded-full bg-hero-foreground active:opacity-80">
+      <Icon name={icon} size={19} colorClassName="accent-hero" />
       {badge && <View className="absolute right-1 top-1">{badge}</View>}
     </Pressable>
   );
@@ -46,10 +47,11 @@ export function ScreenHeader({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   return (
-    <View className="bg-hero" style={{ paddingTop: insets.top }}>
-      <View className={cn('flex-row items-center gap-1 px-2', large ? 'min-h-16 pl-5' : 'min-h-14')}>
-        {back && <HeaderButton icon="arrow-left" label={t('back')} onPress={onBack ?? (() => router.back())} />}
-        <View className={cn('flex-1', back && 'pl-1')}>
+    <View className="overflow-hidden bg-hero" style={{ paddingTop: insets.top }}>
+      <Glow />
+      <View className={cn('flex-row items-center gap-1 px-3', large ? 'min-h-16 pl-5' : 'min-h-14')}>
+        {back && <HeaderButton icon="chevron-left" label={t('back')} onPress={onBack ?? (() => router.back())} />}
+        <View className={cn('flex-1', back && 'pl-2')}>
           <Text className={cn('font-semibold text-hero-foreground font-display', large ? 'text-[22px] font-bold tracking-tight font-display' : 'text-[17px]')} numberOfLines={1} accessibilityRole="header">
             {title}
           </Text>
@@ -61,7 +63,7 @@ export function ScreenHeader({
         </View>
         {right}
       </View>
-      {children ? <View className="gap-3 px-4 pb-4 pt-1">{children}</View> : null}
+      {children ? <View className="gap-3 px-4 pb-4 pt-1">{children}</View> : <View className="h-1" />}
     </View>
   );
 }
@@ -74,9 +76,9 @@ export function ScreenHeader({
  * Inside the sheet there are no boxed cards: rows divided by hairlines, tinted panels for
  * grouped figures, and section headings.
  */
-export const SHEET_TOP = 'rounded-t-[28px] bg-card';
+export const SHEET_TOP = 'rounded-t-[30px] bg-card';
 
-/** Navy content above the sheet. */
+/** Dark content above the sheet (the band continues under the app bar's gradient). */
 function Hero({ children }: { children?: ReactNode }) {
   return children ? <View className="gap-4 px-5 pb-7 pt-2">{children}</View> : <View className="h-2" />;
 }

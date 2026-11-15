@@ -61,7 +61,7 @@ async function ensureChannel() {
     name: 'TimberTrail',
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#F59E0B',
+    lightColor: '#F26B1D',
   });
 }
 

@@ -11,6 +11,7 @@ import { ReactNode, useState } from 'react';
 import { Image, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ExportCard, ImportCard, MovementRow, ProductionCard } from '../../../components/cards';
+import { Glow } from '../../../components/glow';
 import { HeaderButton, SHEET_TOP } from '../../../components/header';
 import { Appear, Tap } from '../../../components/motion';
 import { ProfileSheet } from '../../../components/ProfileSheet';
@@ -74,7 +75,7 @@ function greetingKey() {
 }
 
 /**
- * Navy band with the greeting, the mill, the bell and the profile. It scrolls with the
+ * The warm band with the greeting, the mill, the bell and the profile. It scrolls with the
  * page; the figures below overlap its lower edge.
  */
 function HomeHero({ pending, children }: { pending?: number; children?: ReactNode }) {
@@ -116,10 +117,11 @@ function HomeHero({ pending, children }: { pending?: number; children?: ReactNod
 function Body({ hero, children, refreshing, onRefresh }: { hero: ReactNode; children: ReactNode; refreshing: boolean; onRefresh: () => void }) {
   const insets = useSafeAreaInsets();
   return (
-    <View className="flex-1 bg-hero">
-      {/* the status-bar strip stays navy while the hero scrolls away under it */}
-      <View className="bg-hero" style={{ height: insets.top }} />
-      <ScrollView className="flex-1 bg-hero" contentContainerClassName="grow" refreshControl={refresher(refreshing, onRefresh)}>
+    <View className="flex-1 overflow-hidden bg-hero">
+      {/* orange melting into warm black behind the band; the white sheet rises over it */}
+      <Glow />
+      <View style={{ height: insets.top }} />
+      <ScrollView className="flex-1" contentContainerClassName="grow" refreshControl={refresher(refreshing, onRefresh)}>
         {hero}
         <View className={cn('grow gap-3 px-4 pb-10 pt-6', SHEET_TOP)}>{children}</View>
       </ScrollView>

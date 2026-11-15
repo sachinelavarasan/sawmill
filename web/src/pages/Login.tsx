@@ -69,7 +69,7 @@ export function LoginPage() {
           <h1 className="mt-3 text-[2rem] leading-[1.1] font-semibold tracking-[-0.02em] text-balance sm:text-[2.5rem] lg:text-[3.25rem] font-display">{t('heroTitle')}</h1>
           <p className="mt-5 max-w-lg text-[0.9375rem] leading-relaxed text-pretty text-white/75 sm:text-base">{t('heroSub')}</p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            <Button size="lg" onClick={toForm} className="bg-brand text-brand-foreground shadow-[0_8px_24px_-8px_rgb(229_160_0/0.6)] hover:bg-brand/90">
+            <Button size="lg" onClick={toForm} className="bg-brand text-brand-foreground hover:bg-brand/90">
               {t('heroCta')}
               <ArrowRightIcon />
             </Button>

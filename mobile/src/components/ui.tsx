@@ -20,6 +20,7 @@ import { useThemeToggle } from '../lib/theme';
 import type { Status } from '../lib/types';
 import { Icon, type IconName } from './icon';
 import { Appear, AnimatedView, SPRING_SLIDE, Tap, tick, useGrowIn } from './motion';
+import { Glow } from './glow';
 import { Text, TextInput } from './text';
 
 export { Icon, type IconName };
@@ -136,7 +137,11 @@ export function Kpi({
     <>
       <View className="flex-row items-start justify-between">
         {icon ? <IconTile icon={icon} tone={tone ?? 'saffron'} size="sm" /> : <View />}
-        {onPress && <Icon name="arrow-up-right" size={15} colorClassName="accent-muted-foreground" />}
+        {onPress && (
+          <View className="h-7 w-7 items-center justify-center rounded-full bg-card">
+            <Icon name="arrow-up-right" size={14} colorClassName="accent-foreground" />
+          </View>
+        )}
       </View>
       <View className="gap-0.5">
         <Text className="text-xs font-medium text-muted-foreground" numberOfLines={2}>
@@ -154,7 +159,7 @@ export function Kpi({
       </View>
     </>
   );
-  const box = 'grow basis-[46%] gap-3 rounded-2xl bg-background p-3.5';
+  const box = 'grow basis-[46%] gap-3 rounded-3xl bg-background p-4';
   return onPress ? (
     <Tap scale={0.96} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label}: ${value}${unit ? ` ${unit}` : ''}`} className={cn(box, 'active:bg-secondary')}>
       {body}
@@ -164,15 +169,16 @@ export function Kpi({
   );
 }
 
-/** Two big numbers side by side; the second sits on navy. */
+/** Two big numbers side by side; the second sits on the dark gradient card. */
 export function StatPair({ a, b }: { a: { label: string; value: string | number }; b: { label: string; value: string | number } }) {
   return (
     <View className="flex-row gap-3">
-      <View className="flex-1 gap-1 rounded-2xl bg-background p-4">
+      <View className="flex-1 gap-1 rounded-3xl bg-background p-4">
         <Text className="text-xs font-medium text-muted-foreground">{a.label}</Text>
         <Text className="text-2xl font-bold tracking-tight tabular-nums text-foreground font-display">{a.value}</Text>
       </View>
-      <View className="flex-1 gap-1 rounded-2xl bg-hero p-4">
+      <View className="flex-1 gap-1 overflow-hidden rounded-3xl bg-hero p-4">
+        <Glow variant="card" />
         <Text className="text-xs font-medium text-hero-muted">{b.label}</Text>
         <Text className="text-2xl font-bold tracking-tight tabular-nums text-hero-foreground font-display">{b.value}</Text>
       </View>
@@ -181,7 +187,7 @@ export function StatPair({ a, b }: { a: { label: string; value: string | number 
 }
 
 /**
- * Navy summary card — the headline figure of a screen (stock on hand, today's output,
+ * Dark gradient summary card (orange rising out of warm black) — the headline figure of a screen (stock on hand, today's output,
  * profit). Optional icon top-right and children below for a chart or breakdown.
  */
 export function HeroCard({
@@ -206,6 +212,7 @@ export function HeroCard({
 }) {
   const body = (
     <>
+      {!bare && <Glow variant="card" />}
       <View className="flex-row items-start gap-3">
         <View className="flex-1 gap-1">
           <Text className="text-[13px] font-medium text-hero-muted">{label}</Text>
@@ -216,15 +223,15 @@ export function HeroCard({
           {typeof sub === 'string' ? <Text className="text-[13px] text-hero-muted">{sub}</Text> : sub}
         </View>
         {icon && (
-          <View className="h-12 w-12 items-center justify-center rounded-2xl bg-saffron">
-            <Icon name={icon} size={22} colorClassName="accent-saffron-foreground" />
+          <View className="h-11 w-11 items-center justify-center rounded-full bg-hero-chip">
+            <Icon name={icon} size={20} colorClassName="accent-hero-foreground" />
           </View>
         )}
       </View>
       {children}
     </>
   );
-  const box = bare ? 'gap-5' : 'gap-4 overflow-hidden rounded-2xl bg-hero p-5';
+  const box = bare ? 'gap-5' : 'gap-4 overflow-hidden rounded-3xl bg-hero p-5';
   return onPress ? (
     <Tap scale={0.985} onPress={onPress} accessibilityRole="button" className={cn(box, 'active:opacity-90')}>
       {body}
@@ -250,14 +257,19 @@ const STATUS: Record<Status, { key: TKey; tone?: Tone }> = {
   REJECTED: { key: 'rejected', tone: 'bad' },
 };
 
-/** Status with a coloured dot — Draft, Pending, Approved, Rejected. */
+/** Status as an outlined pill on a soft fill of its colour — Draft, Pending, Approved, Rejected. */
 export function StatusPill({ status }: { status: string }) {
   const t = useT();
   const m = STATUS[status as Status];
   const tone = m?.tone;
   return (
-    <View className={cn('flex-row items-center gap-1.5 self-start rounded-full px-2.5 py-[3px]', tone ? TONE_BG[tone] : 'bg-secondary')}>
-      <View className={cn('h-1.5 w-1.5 rounded-full', tone === 'good' ? 'bg-success' : tone === 'warn' ? 'bg-warning' : tone === 'bad' ? 'bg-destructive' : 'bg-muted-foreground')} />
+    <View
+      className={cn(
+        'flex-row items-center self-start rounded-full border px-2.5 py-[3px]',
+        tone ? TONE_BG[tone] : 'bg-secondary',
+        tone === 'good' ? 'border-success/30' : tone === 'warn' ? 'border-warning/30' : tone === 'bad' ? 'border-destructive/30' : 'border-input',
+      )}
+    >
       <Text className={cn('text-xs font-semibold', tone ? TONE_TEXT[tone] : 'text-muted-foreground')}>{m ? t(m.key) : status}</Text>
     </View>
   );
@@ -290,11 +302,11 @@ export function Avatar({ name, size = 'md', tone = 'navy' }: { name: string; siz
   );
 }
 
-/** Red count bubble (pending approvals on the bell / tab). */
+/** Orange count bubble (pending approvals on the bell / tab). */
 export function CountBadge({ n, className, onDark }: { n: number; className?: string; /** sits on the navy app bar */ onDark?: boolean }) {
   if (!n) return null;
   return (
-    <View className={cn('h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 bg-destructive px-1', onDark ? 'border-hero' : 'border-card', className)}>
+    <View className={cn('h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 bg-saffron px-1', onDark ? 'border-hero-foreground' : 'border-card', className)}>
       <Text className="text-[10px] font-bold text-white">{n > 99 ? '99+' : n}</Text>
     </View>
   );
@@ -579,24 +591,24 @@ export function Button({
   size?: 'sm' | 'md' | 'lg';
 }) {
   const box: Record<ButtonKind, string> = {
-    primary: 'bg-saffron active:opacity-85',
-    navy: 'bg-hero active:opacity-90',
+    primary: 'bg-primary active:opacity-85',
+    navy: 'bg-primary active:opacity-85',
     secondary: 'border border-input bg-card active:bg-secondary',
     danger: 'border border-destructive bg-card active:bg-destructive-soft',
     success: 'bg-success active:opacity-85',
     ghost: 'active:bg-secondary',
   };
   const text: Record<ButtonKind, string> = {
-    primary: 'text-saffron-foreground',
-    navy: 'text-hero-foreground',
+    primary: 'text-primary-foreground',
+    navy: 'text-primary-foreground',
     secondary: 'text-foreground',
     danger: 'text-destructive',
     success: 'text-white',
     ghost: 'text-saffron-strong',
   };
   const accent: Record<ButtonKind, string> = {
-    primary: 'accent-saffron-foreground',
-    navy: 'accent-hero-foreground',
+    primary: 'accent-primary-foreground',
+    navy: 'accent-primary-foreground',
     secondary: 'accent-foreground',
     danger: 'accent-destructive',
     success: 'accent-white',
@@ -612,7 +624,7 @@ export function Button({
       accessibilityLabel={title}
       accessibilityState={{ disabled: !!disabled, busy: !!busy }}
       className={cn(
-        'flex-row items-center justify-center gap-2 rounded-xl',
+        'flex-row items-center justify-center gap-2 rounded-full',
         size === 'lg' ? 'min-h-[52px] px-5' : size === 'md' ? 'min-h-11 px-4' : 'min-h-9 px-3',
         off ? 'bg-secondary' : box[kind],
         busy && 'opacity-80',
@@ -636,7 +648,7 @@ export function Button({
   );
 }
 
-/** Square icon button on a card or page. */
+/** Round icon button on a card or page. */
 export function IconButton({ icon, label, onPress, tone }: { icon: IconName; label: string; onPress: () => void; tone?: 'bad' }) {
   return (
     <Tap
@@ -644,14 +656,14 @@ export function IconButton({ icon, label, onPress, tone }: { icon: IconName; lab
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      className="h-11 w-11 items-center justify-center rounded-xl border border-border bg-card active:bg-secondary"
+      className="h-11 w-11 items-center justify-center rounded-full bg-secondary active:bg-background"
     >
       <Icon name={icon} size={18} colorClassName={tone === 'bad' ? 'accent-destructive' : 'accent-foreground'} />
     </Tap>
   );
 }
 
-/** Filter / choice chip. Selected = solid saffron. */
+/** Filter / choice chip. Selected = solid black (white in dark). */
 export function Chip({ text, on, onPress, count }: { text: string; on?: boolean; onPress: () => void; count?: number }) {
   return (
     <Tap
@@ -660,11 +672,11 @@ export function Chip({ text, on, onPress, count }: { text: string; on?: boolean;
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: !!on }}
-      className={cn('min-h-9 flex-row items-center gap-1.5 rounded-full border px-4', on ? 'border-saffron bg-saffron' : 'border-transparent bg-background active:bg-secondary')}
+      className={cn('min-h-9 flex-row items-center gap-1.5 rounded-full border px-4', on ? 'border-primary bg-primary' : 'border-transparent bg-background active:bg-secondary')}
     >
-      <Text className={cn('text-[13px] font-semibold', on ? 'text-saffron-foreground' : 'text-muted-foreground')}>{text}</Text>
+      <Text className={cn('text-[13px] font-semibold', on ? 'text-primary-foreground' : 'text-muted-foreground')}>{text}</Text>
       {count != null && count > 0 && (
-        <View className={cn('min-w-5 items-center rounded-full px-1.5', on ? 'bg-saffron-foreground/15' : 'bg-secondary')}>
+        <View className={cn('min-w-5 items-center rounded-full px-1.5', on ? 'bg-saffron' : 'bg-secondary')}>
           <Text className={cn('text-[11px] font-bold', on ? 'text-saffron-foreground' : 'text-foreground')}>{count}</Text>
         </View>
       )}
@@ -696,7 +708,7 @@ export function Segmented<V extends string>({
   const thumb = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (
     <View
-      className={cn('flex-row rounded-xl p-1', onDark ? 'bg-hero-chip' : 'bg-secondary')}
+      className={cn('flex-row rounded-2xl p-1', onDark ? 'bg-hero-chip' : 'bg-secondary')}
       accessibilityRole="tablist"
       onLayout={(e) => {
         const each = (e.nativeEvent.layout.width - 8) / options.length;
@@ -707,7 +719,7 @@ export function Segmented<V extends string>({
       {w > 0 && (
         <AnimatedView
           pointerEvents="none"
-          className={cn('absolute bottom-1 left-1 top-1 rounded-lg', onDark ? 'bg-saffron' : 'border border-border bg-card')}
+          className={cn('absolute bottom-1 left-1 top-1 rounded-xl', onDark ? 'bg-saffron' : 'bg-primary')}
           style={[{ width: w }, thumb]}
         />
       )}
@@ -722,12 +734,12 @@ export function Segmented<V extends string>({
             }}
             accessibilityRole="tab"
             accessibilityState={{ selected: on }}
-            className="min-h-10 flex-1 items-center justify-center rounded-lg px-2"
+            className="min-h-10 flex-1 items-center justify-center rounded-xl px-2"
           >
             <Text
               className={cn(
                 'text-center text-[13px]',
-                on ? (onDark ? 'font-semibold text-saffron-foreground' : 'font-semibold text-foreground') : onDark ? 'font-medium text-hero-muted' : 'font-medium text-muted-foreground',
+                on ? (onDark ? 'font-semibold text-saffron-foreground' : 'font-semibold text-primary-foreground') : onDark ? 'font-medium text-hero-muted' : 'font-medium text-muted-foreground',
               )}
               numberOfLines={2}
             >
@@ -809,7 +821,7 @@ export function TabStrip<V extends string>({
 export function SearchBar({ value, onChange, placeholder, right }: { value: string; onChange: (v: string) => void; placeholder: string; right?: ReactNode }) {
   const t = useT();
   return (
-    <View className="min-h-12 flex-row items-center gap-2.5 rounded-2xl bg-background pl-4 pr-1.5">
+    <View className="min-h-12 flex-row items-center gap-2.5 rounded-full bg-background pl-4 pr-1.5">
       <Icon name="search" size={18} colorClassName="accent-muted-foreground" />
       <TextInput
         value={value}

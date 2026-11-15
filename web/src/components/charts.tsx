@@ -5,7 +5,7 @@
  * view so no value is gated behind hover. Colours come from --chart-* tokens
  * (validated for light and dark); text always uses text tokens.
  */
-import { ReactNode, useLayoutEffect, useRef, useState } from 'react';
+import { ReactNode, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -52,8 +52,9 @@ const compact = new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFra
 export const axisNumber = (n: number) => (Math.abs(n) >= 10_000 ? compact.format(n) : n.toLocaleString('en-IN'));
 
 /** A vertical bar: 4px rounded top (data end), square at the baseline. */
-function columnPath(x: number, y: number, w: number, h: number) {
-  const r = Math.min(4, h, w / 2);
+/** A column with rounded top corners; `pill` rounds them fully (a single-series chart's wide bars). */
+function columnPath(x: number, y: number, w: number, h: number, pill = false) {
+  const r = Math.min(pill ? w / 2 : 4, h, w / 2);
   return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
 }
 /** A horizontal segment; `roundEnd` rounds the right (data) end. */
@@ -90,24 +91,24 @@ export function ChartCard({
     <Card className={cn('gap-4 py-6 shadow-widget', className)}>
       <CardHeader className="flex flex-row items-start justify-between gap-3 px-5 sm:px-6">
         <div className="min-w-0">
-          <CardTitle className="text-base">{title}</CardTitle>
-          {subtitle && <CardDescription className="mt-0.5 text-xs">{subtitle}</CardDescription>}
+          <CardTitle className="text-lg tracking-tight font-display">{title}</CardTitle>
+          {subtitle && <CardDescription className="mt-1 text-xs">{subtitle}</CardDescription>}
         </div>
         {!empty && (
-          <Button variant="ghost" size="sm" className="h-7 shrink-0 text-xs text-muted-foreground" onClick={() => setAsTable((v) => !v)} aria-pressed={asTable}>
+          <Button variant="secondary" size="sm" className="h-9 shrink-0 px-4 text-xs font-medium" onClick={() => setAsTable((v) => !v)} aria-pressed={asTable}>
             {asTable ? t('showChart') : t('showTable')}
           </Button>
         )}
       </CardHeader>
       <CardContent className="px-5 sm:px-6">
         {series && series.length > 1 && !asTable && !empty && (
-          <ul className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <ul className="mb-3 flex flex-wrap gap-x-5 gap-y-1 text-[0.8125rem] text-foreground/80">
             {series.map((s) => (
               <li key={s.key} className="flex items-center gap-1.5">
                 {s.shape === 'line' ? (
                   <span className="h-0.5 w-3.5 rounded-full" style={{ background: s.color }} />
                 ) : (
-                  <span className="size-2.5 rounded-[3px]" style={{ background: s.color }} />
+                  <span className="size-2.5 rounded-full" style={{ background: s.color }} />
                 )}
                 {s.label}
               </li>
@@ -153,7 +154,7 @@ export function ChartCard({
 function Tooltip({ x, y, width, title, rows }: { x: number; y: number; width: number; title: string; rows: { label: string; value: string; color: string }[] }) {
   const left = Math.min(Math.max(x + 12, 0), Math.max(width - 168, 0));
   return (
-    <div className="pointer-events-none absolute z-10 w-40 rounded-md border bg-popover px-2.5 py-2 text-xs shadow-md" style={{ left, top: Math.max(y - 8, 0) }} role="presentation">
+    <div className="pointer-events-none absolute z-10 w-40 rounded-xl bg-popover px-3 py-2 text-xs shadow-float" style={{ left, top: Math.max(y - 8, 0) }} role="presentation">
       <div className="mb-1 text-muted-foreground">{title}</div>
       {rows.map((r) => (
         <div key={r.label} className="flex items-center gap-2">
@@ -174,7 +175,7 @@ function YAxis({ ticks, y, width, format }: { ticks: number[]; y: (v: number) =>
     <g>
       {ticks.map((tk) => (
         <g key={tk}>
-          <line x1={PAD.left} x2={width - PAD.right} y1={y(tk)} y2={y(tk)} className={tk === 0 ? 'stroke-chart-axis' : 'stroke-border'} strokeWidth={1} shapeRendering="crispEdges" />
+          <line x1={PAD.left} x2={width - PAD.right} y1={y(tk)} y2={y(tk)} className="stroke-chart-axis" strokeWidth={1} strokeDasharray={tk === 0 ? undefined : '4 4'} shapeRendering="crispEdges" />
           <text x={PAD.left - 6} y={y(tk)} dy="0.32em" textAnchor="end" className="fill-muted-foreground text-[10px] tabular-nums">
             {format(tk)}
           </text>
@@ -321,8 +322,16 @@ export function ColumnChart({
   const top = ticks[ticks.length - 1];
   const plotW = Math.max(width - PAD.left - PAD.right, 10);
   const band = plotW / Math.max(n, 1);
-  const gap = 2; // surface gap between touching bars
-  const barW = Math.min(24, Math.max(3, (band * 0.7 - gap * (series.length - 1)) / series.length));
+  const gap = 3; // surface gap between touching bars
+  const single = series.length === 1;
+  const barW = Math.min(single ? 40 : 22, Math.max(3, (band * (single ? 0.68 : 0.72) - gap * (series.length - 1)) / series.length));
+  // one series: every bar a striped grey, the highlighted one (hovered, else the latest with a value) in orange
+  const latest = (() => {
+    for (let i = n - 1; i >= 0; i--) if (Number(data[i][series[0]?.key]) > 0) return i;
+    return n - 1;
+  })();
+  const focus = hover ?? latest;
+  const hatchId = useId().replace(/:/g, '');
   const groupW = barW * series.length + gap * (series.length - 1);
   const y = (v: number) => PAD.top + (1 - v / top) * (height - PAD.top - PAD.bottom);
   const base = y(0);
@@ -347,6 +356,16 @@ export function ColumnChart({
             e.preventDefault();
           }}
         >
+          <defs>
+            <pattern id={`${hatchId}-hatch`} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <rect width="6" height="6" className="fill-chart-bar" />
+              <line x1="0" y1="0" x2="0" y2="6" className="stroke-chart-hatch" strokeWidth="2" />
+            </pattern>
+            <linearGradient id={`${hatchId}-hi`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="var(--saffron)" />
+              <stop offset="1" stopColor="var(--saffron-2)" />
+            </linearGradient>
+          </defs>
           <YAxis ticks={ticks} y={y} width={width} format={formatAxis} />
           {data.map((d, i) => {
             const gx = PAD.left + band * i + (band - groupW) / 2;
@@ -357,9 +376,9 @@ export function ColumnChart({
                 {series.map((s, si) => {
                   const v = Number(d[s.key]);
                   const h = Math.max(base - y(v), 0);
-                  return h > 0 ? (
-                    <path key={s.key} d={columnPath(gx + si * (barW + gap), base - h, barW, h)} style={{ fill: s.color }} opacity={hover == null || hover === i ? 1 : 0.55} />
-                  ) : null;
+                  if (h <= 0) return null;
+                  const fill = single ? `url(#${hatchId}-${i === focus ? 'hi' : 'hatch'})` : s.color;
+                  return <path key={s.key} d={columnPath(gx + si * (barW + gap), base - h, barW, h, single)} style={{ fill }} opacity={single || hover == null || hover === i ? 1 : 0.55} />;
                 })}
                 {((i % labelEvery === 0 && n - 1 - i >= labelEvery * 0.75) || i === n - 1) && (
                   <text x={PAD.left + band * i + band / 2} y={height - 6} textAnchor="middle" className="fill-muted-foreground text-[10px]">
@@ -371,7 +390,17 @@ export function ColumnChart({
           })}
         </svg>
       )}
-      {hover != null && (
+      {/* one series: the highlighted bar's value floats above it as an orange pill */}
+      {single && width > 0 && n > 0 && Number(data[focus][series[0].key]) > 0 && (
+        <span
+          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg bg-brand px-2 py-1 text-[0.6875rem] font-semibold whitespace-nowrap text-brand-foreground tabular-nums shadow-md transition-[left,top] duration-200 ease-smooth"
+          style={{ left: PAD.left + band * focus + band / 2, top: y(Number(data[focus][series[0].key])) - 6 }}
+          aria-hidden
+        >
+          {formatValue(Number(data[focus][series[0].key]))}
+        </span>
+      )}
+      {!single && hover != null && (
         <Tooltip
           x={PAD.left + band * hover + band / 2}
           y={PAD.top}
@@ -459,32 +488,43 @@ export function StackedBars({
   );
 }
 
-// ───────── sparkline (a KPI's recent shape, no axes) ─────────
+// ───────── sparkline (a KPI's recent shape, as a dot matrix) ─────────
 
 /**
- * A tiny trend line under a KPI: its shape over recent periods, nothing more. The area under the
- * line is a faint wash of the same colour; the last point is marked. Decorative: the card states
- * the figure and the comparison in text, so screen readers skip it.
+ * A KPI's recent shape as columns of small dots: each column one period, lit from the bottom up to its
+ * value, the rest of the column a faint trace. Short series are stretched to at least 14 columns so the
+ * matrix keeps its texture. Decorative: the card states the figure and the comparison in text.
  */
 export function Sparkline({ values, color = 'var(--chart-1)', className }: { values: number[]; color?: string; className?: string }) {
   const [ref, width] = useWidth<HTMLDivElement>();
-  const H = 24;
+  const ROWS = 9;
+  const STEP = 5.5;
+  const H = ROWS * STEP;
   const pts = values.filter((v) => Number.isFinite(v));
-  if (pts.length < 2) return <div ref={ref} className={cn('h-6', className)} aria-hidden />;
-  const min = Math.min(...pts);
-  const max = Math.max(...pts);
+  if (pts.length < 2) return <div ref={ref} className={cn('h-12', className)} aria-hidden />;
+  const cols = Math.max(14, pts.length);
+  // resample to `cols` columns (linear between the real points)
+  const at = (c: number) => {
+    const t = (c / (cols - 1)) * (pts.length - 1);
+    const i = Math.floor(t);
+    const f = t - i;
+    return pts[i] + (pts[Math.min(i + 1, pts.length - 1)] - pts[i]) * f;
+  };
+  const series = Array.from({ length: cols }, (_, c) => at(c));
+  const min = Math.min(0, ...series);
+  const max = Math.max(...series);
   const span = max - min || 1;
-  const x = (i: number) => (i / (pts.length - 1)) * Math.max(width - 4, 1) + 2;
-  const y = (v: number) => H - 3 - ((v - min) / span) * (H - 8);
-  const line = pts.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
-  const area = `${line}L${x(pts.length - 1).toFixed(1)},${H}L${x(0).toFixed(1)},${H}Z`;
+  const colW = width > 0 ? width / cols : 0;
   return (
-    <div ref={ref} className={cn('h-6', className)} aria-hidden>
+    <div ref={ref} className={cn('h-12', className)} aria-hidden>
       {width > 0 && (
-        <svg width={width} height={H} className="chart-line block overflow-visible">
-          <path d={area} style={{ fill: color }} opacity={0.12} />
-          <path d={line} fill="none" style={{ stroke: color }} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-          <circle cx={x(pts.length - 1)} cy={y(pts[pts.length - 1])} r={3} style={{ fill: color }} className="stroke-card" strokeWidth={2} />
+        <svg width={width} height={H} className="chart-line block">
+          {series.map((v, c) => {
+            const lit = Math.max(1, Math.round(((v - min) / span) * ROWS));
+            return Array.from({ length: ROWS }, (_, r) => (
+              <circle key={`${c}-${r}`} cx={c * colW + colW / 2} cy={H - STEP / 2 - r * STEP} r={1.5} style={{ fill: color }} opacity={r < lit ? 1 : 0.14} />
+            ));
+          })}
         </svg>
       )}
     </div>

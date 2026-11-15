@@ -45,7 +45,7 @@ import { useAuth } from '../auth';
 import { ChartCard, ColumnChart, LineChart, Sparkline, StackedBars } from '../components/charts';
 import { Reveal } from '../components/depth';
 import { dateTime, money, num3, useLoad } from '../components/common';
-import { LinkRow, LoadState, numCell, OwnerOnly, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging, wide } from '../components/page';
+import { HeroBars, HeroFigure, heroControl, HomeHero, LinkRow, LoadState, numCell, OwnerOnly, Page, Section, Stat, StatGrid, TableCard, useClientPaging, wide } from '../components/page';
 import { periodQuery, type PeriodValue, presets } from '../components/period';
 import { QuickActions } from '../components/quick-actions';
 import { StatusBadge } from '../components/status-badge';
@@ -443,14 +443,14 @@ export function OwnerDashboard() {
 
   return (
     <Page>
-      <PageHeader
-        eyebrow={user?.mill.name}
-        title={`${t('welcome')}, ${user?.name ?? ''}`}
-        subtitle={t('ownerDashSub')}
+      {/* the navy band of the Android home screen: greeting, mill, period, and total stock with its 14-day flow */}
+      <HomeHero
+        name={user?.name}
+        mill={user?.mill.name}
         actions={
           <>
             <Select value={periodKey} onValueChange={(v) => setPeriodKey(v as PeriodKey)}>
-              <SelectTrigger className="w-44" aria-label={t('period')}>
+              <SelectTrigger className={cn('w-44', heroControl)} aria-label={t('period')}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -461,12 +461,29 @@ export function OwnerDashboard() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="icon" className="print:hidden" onClick={refresh} disabled={refreshing} aria-label={t('refresh')} title={t('refresh')}>
+            <Button variant="outline" size="icon" className={heroControl} onClick={refresh} disabled={refreshing} aria-label={t('refresh')} title={t('refresh')}>
               <RefreshCwIcon className={cn(refreshing && 'animate-spin')} />
             </Button>
           </>
         }
-      />
+      >
+        {k && (
+          <HeroFigure
+            to="/stock"
+            label={t('totalStock')}
+            value={num3(k.rawStockCft + k.finishedStockCft)}
+            unit="CFT"
+            sub={`${t('raw')} ${num3(k.rawStockCft)} · ${t('finished')} ${num3(k.finishedStockCft)}`}
+          >
+            {c && c.flow.some((f) => f.receivedCft || f.shippedCft) && (
+              <HeroBars
+                data={c.flow.slice(-14).map((f) => ({ label: String(Number(f.day.slice(8, 10))), values: [f.receivedCft, f.shippedCft] }))}
+                legend={[t('receivedCft'), t('shippedCft')]}
+              />
+            )}
+          </HeroFigure>
+        )}
+      </HomeHero>
 
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
 
@@ -513,7 +530,7 @@ export function OwnerDashboard() {
                   info={t('infoPurchases')}
                   value={p ? money(p.purchases) : HOLD}
                   trend={trendOf(p?.purchases, pp?.purchases, false)}
-                  spark={m.length > 1 && <Sparkline values={m.map((x) => x.purchases)} color="var(--chart-2)" />}
+                  spark={m.length > 1 && <Sparkline values={m.map((x) => x.purchases)} color="var(--chart-4)" />}
                 />
                 <Stat
                   icon={<IndianRupeeIcon />}
@@ -529,7 +546,7 @@ export function OwnerDashboard() {
                   info={t('infoExpensesAll')}
                   value={p ? money(p.totalExpenses) : HOLD}
                   trend={trendOf(p?.totalExpenses, pp?.totalExpenses, false)}
-                  spark={m.length > 1 && <Sparkline values={m.map((x) => x.expenses)} color="var(--chart-2)" />}
+                  spark={m.length > 1 && <Sparkline values={m.map((x) => x.expenses)} color="var(--chart-5)" />}
                 />
                 {/* the one figure that takes a colour: green in profit, red in loss */}
                 <Stat

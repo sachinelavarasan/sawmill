@@ -8,7 +8,7 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { ChartCard, ColumnChart } from '../components/charts';
 import { num3, useLoad } from '../components/common';
-import { LinkRow, LoadState, numCell, Page, PageHeader, Section, Stat, TableCard, wide } from '../components/page';
+import { HeroBars, HeroFigure, heroControl, HomeHero, LinkRow, LoadState, numCell, Page, Section, Stat, TableCard, wide } from '../components/page';
 import { Reveal } from '../components/depth';
 import { QuickActions } from '../components/quick-actions';
 import { StatusBadge } from '../components/status-badge';
@@ -106,22 +106,28 @@ export function AccountantDashboard() {
 
   return (
     <Page>
-      <PageHeader
-        eyebrow={user?.mill.name}
-        title={`${t('welcome')}, ${user?.name ?? ''}`}
-        subtitle={t('accountantDashSub')}
+      {/* the navy band of the Android home screen: greeting, mill, today, and the person's own measuring */}
+      <HomeHero
+        name={user?.name}
+        mill={user?.mill.name}
         actions={
           <>
-            <span className="inline-flex h-11 items-center gap-2 rounded-lg border border-input bg-card px-3.5 text-sm font-medium">
-              <CalendarDaysIcon className="size-4 text-muted-foreground" aria-hidden />
+            <span className={cn('inline-flex h-11 items-center gap-2 rounded-lg border px-3.5 text-sm font-medium', heroControl)}>
+              <CalendarDaysIcon className="size-4" aria-hidden />
               <time dateTime={now.toISOString().slice(0, 10)}>{now.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</time>
             </span>
-            <Button variant="outline" size="icon" className="print:hidden" onClick={refresh} disabled={refreshing} aria-label={t('refresh')} title={t('refresh')}>
+            <Button variant="outline" size="icon" className={heroControl} onClick={refresh} disabled={refreshing} aria-label={t('refresh')} title={t('refresh')}>
               <RefreshCwIcon className={cn(refreshing && 'animate-spin')} />
             </Button>
           </>
         }
-      />
+      >
+        {logs.length > 0 && (
+          <HeroFigure label={t('chartLogsTitle')} value={String(logs.reduce((a, l) => a + l.logs, 0))} unit={t('logs')} sub={t('chartLogsSub')}>
+            {logs.some((l) => l.logs) && <HeroBars labelEvery={2} data={logs.map((l) => ({ label: String(Number(l.day.slice(8, 10))), values: [l.logs] }))} />}
+          </HeroFigure>
+        )}
+      </HomeHero>
 
       {/* the work starts here: one tap to a new import, measuring, production or export */}
       <QuickActions />

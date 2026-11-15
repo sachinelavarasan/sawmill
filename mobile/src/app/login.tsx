@@ -3,6 +3,7 @@
  * after that it opens straight on Sign in. Navy brand band on top, the form on a rounded
  * surface rising from the bottom, the Sign in button always above the keyboard.
  */
+import { Glow } from '../components/glow';
 import { KeyboardView } from '../components/keyboard';
 import { KEYS, getStored, setStored } from '../lib/storage';
 import { useEffect, useState } from 'react';
@@ -55,7 +56,8 @@ function Welcome({ onContinue }: { onContinue: () => void }) {
   const t = useT();
   const insets = useSafeAreaInsets();
   return (
-    <View className="flex-1 bg-hero" style={{ paddingTop: insets.top, paddingBottom: insets.bottom + 20 }}>
+    <View className="flex-1 overflow-hidden bg-hero" style={{ paddingTop: insets.top, paddingBottom: insets.bottom + 20 }}>
+      <Glow />
       <View className="flex-row justify-end px-4 pt-2">
         <ThemeToggle onDark />
       </View>
@@ -106,7 +108,8 @@ function SignIn() {
   }
 
   return (
-    <View className="flex-1 bg-hero">
+    <View className="flex-1 overflow-hidden bg-hero">
+      <Glow />
       <KeyboardView>
         <ScrollView contentContainerClassName="grow" keyboardShouldPersistTaps="handled">
           {/* navy brand band: language + theme in the corners, the mark centred in the space left */}

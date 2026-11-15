@@ -42,16 +42,16 @@ export function QuickPanel({
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
         // floats over the list with the page still readable behind it; fills the screen on a phone
-        overlayClassName="bg-black/15 backdrop-blur-none"
+        overlayClassName="bg-[rgb(17_17_19/0.18)] backdrop-blur-[2px]"
         // z-60: above the list's selected row (z-55), which itself sits above the backdrop (z-50)
-        className="inset-0 z-[60] w-full gap-0 overflow-hidden border-0 bg-card sm:inset-y-auto sm:top-20 sm:right-5 sm:bottom-5 sm:left-auto sm:h-auto sm:w-[34rem] sm:max-w-[calc(100vw-2.5rem)] sm:rounded-2xl sm:shadow-float"
+        className="inset-0 z-[60] w-full gap-0 overflow-hidden border-0 bg-card sm:inset-y-3 sm:right-3 sm:left-auto sm:h-auto sm:w-[34rem] sm:max-w-[calc(100vw-1.5rem)] sm:rounded-3xl sm:shadow-pop"
       >
-        <div className="border-b border-border/70 px-5 py-4 pr-12 text-[0.9375rem] font-semibold">{title}</div>
-        <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
-          <div className="flex items-center gap-4 rounded-xl border border-border/70 bg-muted/40 p-3.5">
-            <span className="grid size-20 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary [&_svg]:size-8 [&_svg]:stroke-[1.5]">{icon}</span>
+        <div className="flex min-h-16 items-center border-b border-border px-6 py-4 pr-16 text-base font-semibold tracking-tight font-display">{title}</div>
+        <div className="scroll-quiet flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-6">
+          <div className="flex items-center gap-4 rounded-2xl bg-secondary p-4">
+            <span className="grid size-16 shrink-0 place-items-center rounded-2xl bg-card text-saffron [&_svg]:size-7 [&_svg]:stroke-[1.75]">{icon}</span>
             <div className="min-w-0 flex-1">
-              <SheetTitle className="text-lg leading-tight">{code}</SheetTitle>
+              <SheetTitle className="text-xl leading-tight">{code}</SheetTitle>
               <SheetDescription className="mt-0.5 truncate">{sub}</SheetDescription>
               <div className="mt-2.5 flex flex-wrap items-center gap-1.5">{tags}</div>
             </div>
@@ -59,7 +59,7 @@ export function QuickPanel({
           {children}
         </div>
         {(fullTo || actions) && (
-          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/70 px-5 py-3.5">
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border bg-card px-6 py-4">
             {fullTo && (
               <Button asChild variant={actions ? 'ghost' : 'outline'} className={actions ? 'mr-auto' : undefined}>
                 <Link to={fullTo}>
@@ -77,7 +77,7 @@ export function QuickPanel({
 
 /** A small grey figure beside the status badge. */
 export function Tag({ children }: { children: ReactNode }) {
-  return <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground tabular-nums">{children}</span>;
+  return <span className="rounded-full bg-card px-2.5 py-1 text-xs font-semibold text-foreground/70 tabular-nums">{children}</span>;
 }
 
 /** Read-only values laid out like a form: two to a row. */
@@ -89,8 +89,8 @@ export function Boxes({ children }: { children: ReactNode }) {
 export function Box({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) {
   return (
     <div className={cn('min-w-0', wide && 'col-span-2')}>
-      <div className="mb-1.5 text-[0.8125rem] font-medium">{label}</div>
-      <div className="flex min-h-10 items-center rounded-lg border bg-card px-3 py-2 text-sm break-words">{children || <span className="text-muted-foreground">—</span>}</div>
+      <div className="mb-1.5 text-xs font-medium text-muted-foreground">{label}</div>
+      <div className="flex min-h-11 items-center rounded-xl bg-secondary px-3.5 py-2.5 text-sm font-medium break-words">{children || <span className="text-muted-foreground">—</span>}</div>
     </div>
   );
 }
@@ -116,8 +116,8 @@ export function LinesCard({
 }) {
   return (
     <div>
-      <div className="mb-1.5 text-[0.8125rem] font-medium">{label}</div>
-      <div className="overflow-hidden rounded-xl border">
+      <div className="mb-1.5 text-xs font-medium text-muted-foreground">{label}</div>
+      <div className="overflow-hidden rounded-2xl border border-border">
         <div className="flex min-h-12 items-center justify-between gap-3 px-4 py-2">
           <span className="text-sm text-muted-foreground tabular-nums">{summary}</span>
           {action}
@@ -129,7 +129,7 @@ export function LinesCard({
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-y bg-muted/40 text-xs">
+              <tr className="border-y border-border bg-secondary text-xs">
                 {head.map((h, i) => (
                   <th key={h} className={cn('px-4 py-2.5 font-medium', i ? 'text-right' : 'text-left')}>
                     {h}

@@ -112,11 +112,11 @@ export function QuickJump() {
       <Button
         variant="outline"
         onClick={() => setOpen(true)}
-        className="hidden w-56 justify-start gap-2 px-3 font-normal text-muted-foreground md:flex xl:w-72"
+        className="hidden w-56 justify-start gap-2 px-4 font-normal text-muted-foreground md:flex xl:w-96"
       >
         <SearchIcon />
         <span className="flex-1 truncate text-left">{t('quickJump')}</span>
-        <kbd className="rounded border bg-muted px-1.5 font-mono text-[10px] font-medium">{isMac ? '⌘' : 'Ctrl'} K</kbd>
+        <kbd className="rounded-md bg-card px-1.5 font-mono text-[10px] font-medium">{isMac ? '⌘' : 'Ctrl'} K</kbd>
       </Button>
       <Button variant="outline" size="icon" className="md:hidden" onClick={() => setOpen(true)} aria-label={t('quickJump')}>
         <SearchIcon />

@@ -1,93 +1,86 @@
-
 /*
- * TimberTrail — Slate & Saffron Theme
+ * TimberTrail on the web — "industrial operations" style: a pale grey canvas, white panels with
+ * generous corners floating on it (sidebar, top bar, cards), pill-shaped controls, near-black for the
+ * main action and one orange accent (the open page, the highlighted bar, counts).
+ * Panels separate by colour, not by borders or shadows; only menus and dialogs cast a shadow.
  *
- * Design direction: Modern Minimal, Professional Business Software
- * Primary: Slate
- * Accent: Saffron
- * Light: White cards, cool slate background
- * Dark: Deep navy/slate surfaces
- *
- * Light is the default.
- * Dark follows system preference unless manually overridden.
- * Manual override: <html data-theme="dark"> or <html data-theme="light">
- *
- * Shared variable naming convention for Web and Android.
+ * Dark: near-black canvas, panels step lighter, hairline edges, orange a touch brighter.
+ * Light is the default. Dark follows the system unless overridden with
+ * <html data-theme="dark"> or <html data-theme="light">.
  */
 
-/* ============================================
-   1. LIGHT THEME (DEFAULT)
-   ============================================ */
+/* ============ 1. LIGHT (default) ============ */
 
 :root {
-  /* Base surfaces */
-  --bg: #f8fafc;
+  --bg: #eeeef0;
   --surface: #ffffff;
-  --surface-2: #f1f5f9;
-  --border: #e8ecf1;
-  --input: #cbd5e1;
+  --surface-2: #f4f4f5;
+  --border: #ebebed;
+  --input: #e1e1e5;
 
-  /* Dedicated layout surfaces */
   --topbar: #ffffff;
-  --content-bg: #f8fafc;
+  --content-bg: #eeeef0;
 
-  /* Typography */
-  --text: #1e293b;
-  --muted: #64748b;
+  --text: #111113;
+  --muted: #6b6b74;
 
-  /* Primary - Slate */
-  --primary: #334155;
-  --primary-hover: #1e293b;
+  /* Primary: near-black (the main action button) */
+  --primary: #111113;
+  --primary-hover: #2a2a2e;
   --on-primary: #ffffff;
-  --primary-soft: #f1f5f9;
+  --primary-soft: #f4f4f5;
 
-  /* Brand accent - Saffron */
-  --saffron: #e5a000;
-  --on-saffron: #1e293b;
-  --accent: #92400e;
-  --accent-soft: #fef3c7;
+  /* Brand accent: orange (active menu item, highlighted bar, count badges) */
+  --saffron: #f26b1d;
+  --saffron-2: #f7a05e;
+  --on-saffron: #ffffff;
+  /* orange as text / icon on white (AA) */
+  --accent: #c2410c;
+  --accent-soft: #fff1e8;
 
-  /* Sidebar */
-  --side: #1e293b;
-  --side-text: #ffffff;
-  --side-muted: #cbd5e1;
-  --side-active: #334155;
-  --side-accent: #e5a000;
+  /* Sidebar: a white panel like the rest */
+  --side: #ffffff;
+  --side-text: #111113;
+  --side-muted: #6b6b74;
+  --side-active: #f4f4f5;
+  --side-accent: #f26b1d;
 
-  /* Subtle shadows */
-  --shadow: 0 1px 2px rgba(15, 23, 42, 0.035),
-            0 3px 8px rgba(15, 23, 42, 0.025);
+  --shadow: none;
 
-  /* Semantic status colours (the same light values as the print theme below) */
   --ok: #15803d;
-  --ok-soft: #dcfce7;
+  --ok-soft: #e8f8ee;
 
-  --bad: #b42318;
-  --bad-soft: #fee4e2;
+  --bad: #dc2626;
+  --bad-soft: #fdecec;
 
-  --warning: #b45309;
-  --warning-soft: #fef3c7;
+  --warning: #a16207;
+  --warning-soft: #fef8e1;
 
-  --info: #1d4ed8;
-  --info-soft: #dbeafe;
+  --info: #4f46e5;
+  --info-soft: #eef0fe;
 
-  /* Dashboard / Hero */
-  --hero: #334155;
+  /* "Hero" panels are plain white panels in this style */
+  --hero: #ffffff;
+  --hero-text: #111113;
+  --hero-muted: #6b6b74;
+  --hero-chip: #f4f4f5;
+  --hero-border: #ebebed;
 
-  /* Interactive states */
-  --focus: #64748b;
-  --focus-ring: rgba(100, 116, 139, 0.25);
-  --selection: #e2e8f0;
-  --disabled: #94a3b8;
+  --focus: #111113;
+  --focus-ring: rgba(242, 107, 29, 0.28);
+  --selection: #ffe3d1;
+  --disabled: #a1a1aa;
 
-  /* Charts (light series on white, as in print) */
-  --chart-1: #2878c8;
-  --chart-2: #d97736;
-  --chart-3: #16845b;
-  --chart-4: #8b65c5;
-  --chart-5: #c18a22;
-  --chart-axis: #cbd5e1;
-  --chart-grid: #e2e8f0;
+  /* Charts: orange leads, charcoal second, then soft orange, indigo, red */
+  --chart-1: #f26b1d;
+  --chart-2: #3f3f46;
+  --chart-3: #f7a05e;
+  --chart-4: #6366f1;
+  --chart-5: #dc2626;
+  --chart-bar: #e4e4e7;
+  --chart-hatch: #d4d4d8;
+  --chart-axis: #e1e1e5;
+  --chart-grid: #ebebed;
 
   color-scheme: light;
   font-family: Inter, 'Noto Sans Tamil', system-ui, -apple-system, sans-serif;
@@ -96,156 +89,151 @@
   color: var(--text);
 }
 
-/* ============================================
-   2. DARK THEME
-   ============================================ */
+/* ============ 2. DARK ============ */
 
 :root[data-theme='dark'] {
-  /* Base surfaces */
-  --bg: #0f172a;
-  --surface: #172033;
-  --surface-2: #1e293b;
-  --border: #334155;
-  --input: #475569;
+  --bg: #0b0b0d;
+  --surface: #161619;
+  --surface-2: #202024;
+  --border: #26262b;
+  --input: #34343a;
 
-  /* Typography */
-  --text: #e2e8f0;
-  --muted: #94a3b8;
+  --topbar: #161619;
+  --content-bg: #0b0b0d;
 
-  /* Primary - Slate */
-  --primary: #cbd5e1;
-  --primary-hover: #e2e8f0;
-  --on-primary: #0f172a;
-  --primary-soft: #1e293b;
+  --text: #f4f4f5;
+  --muted: #9a9aa3;
 
-  /* Brand accent - Saffron */
-  --saffron: #e5a000;
-  --on-saffron: #1e293b;
-  --accent: #f2b535;
-  --accent-soft: #3b2f12;
+  /* the main button flips to white */
+  --primary: #f4f4f5;
+  --primary-hover: #ffffff;
+  --on-primary: #111113;
+  --primary-soft: #202024;
 
-  /* Semantic status colours */
-  --ok: #6fd39a;
-  --ok-soft: #173526;
+  --saffron: #f47a33;
+  --saffron-2: #f7a05e;
+  --on-saffron: #ffffff;
+  --accent: #fb9a5c;
+  --accent-soft: #2e1c11;
 
-  --bad: #f2958b;
-  --bad-soft: #3d1d19;
+  --side: #161619;
+  --side-text: #f4f4f5;
+  --side-muted: #9a9aa3;
+  --side-active: #202024;
+  --side-accent: #f47a33;
 
-  --warning: #f2b535;
-  --warning-soft: #44351b;
-
-  --info: #8fbdf3;
-  --info-soft: #172a40;
-
-  /* Dashboard / Hero */
-  --hero: #1e293b;
-
-  /* Sidebar */
-  --side: #172033;
-  --side-text: #f8fafc;
-  --side-muted: #94a3b8;
-  --side-active: #334155;
-  --side-accent: #e5a000;
-
-  /* Interactive states */
-  --focus: #94a3b8;
-  --focus-ring: rgba(148, 163, 184, 0.25);
-  --selection: #334155;
-  --disabled: #64748b;
-
-  /* Shadows */
   --shadow: none;
 
-  /* Charts */
-  --chart-1: #65a9f2;
-  --chart-2: #e99a65;
-  --chart-3: #62c99b;
-  --chart-4: #b69ae8;
-  --chart-5: #e5bd65;
-  --chart-axis: #475569;
-  --chart-grid: #334155;
+  --ok: #4ade80;
+  --ok-soft: #10261a;
+
+  --bad: #f87171;
+  --bad-soft: #2d1414;
+
+  --warning: #facc15;
+  --warning-soft: #2a2410;
+
+  --info: #a5b4fc;
+  --info-soft: #1b1d3a;
+
+  --hero: #161619;
+  --hero-text: #f4f4f5;
+  --hero-muted: #9a9aa3;
+  --hero-chip: #202024;
+  --hero-border: #26262b;
+
+  --focus: #f4f4f5;
+  --focus-ring: rgba(244, 122, 51, 0.35);
+  --selection: #3a2414;
+  --disabled: #52525b;
+
+  --chart-1: #f47a33;
+  --chart-2: #a1a1aa;
+  --chart-3: #f7a05e;
+  --chart-4: #a5b4fc;
+  --chart-5: #f87171;
+  --chart-bar: #2a2a2f;
+  --chart-hatch: #3a3a40;
+  --chart-axis: #34343a;
+  --chart-grid: #26262b;
 
   color-scheme: dark;
 }
 
-/* ============================================
-   3. SYSTEM DARK MODE
-   Applies only when there is no manual override.
-   ============================================ */
+/* ============ 3. SYSTEM DARK (no manual override) ============ */
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']):not([data-theme='dark']) {
-    /* Base surfaces */
-    --bg: #0f172a;
-    --surface: #172033;
-    --surface-2: #1e293b;
-    --border: #334155;
-    --input: #475569;
+    --bg: #0b0b0d;
+    --surface: #161619;
+    --surface-2: #202024;
+    --border: #26262b;
+    --input: #34343a;
 
-    /* Typography */
-    --text: #e2e8f0;
-    --muted: #94a3b8;
+    --topbar: #161619;
+    --content-bg: #0b0b0d;
 
-    /* Primary */
-    --primary: #cbd5e1;
-    --primary-hover: #e2e8f0;
-    --on-primary: #0f172a;
-    --primary-soft: #1e293b;
+    --text: #f4f4f5;
+    --muted: #9a9aa3;
 
-    /* Brand accent */
-    --saffron: #e5a000;
-    --on-saffron: #1e293b;
-    --accent: #f2b535;
-    --accent-soft: #3b2f12;
+    /* the main button flips to white */
+    --primary: #f4f4f5;
+    --primary-hover: #ffffff;
+    --on-primary: #111113;
+    --primary-soft: #202024;
 
-    /* Semantic status */
-    --ok: #6fd39a;
-    --ok-soft: #173526;
+    --saffron: #f47a33;
+    --saffron-2: #f7a05e;
+    --on-saffron: #ffffff;
+    --accent: #fb9a5c;
+    --accent-soft: #2e1c11;
 
-    --bad: #f2958b;
-    --bad-soft: #3d1d19;
+    --side: #161619;
+    --side-text: #f4f4f5;
+    --side-muted: #9a9aa3;
+    --side-active: #202024;
+    --side-accent: #f47a33;
 
-    --warning: #f2b535;
-    --warning-soft: #44351b;
-
-    --info: #8fbdf3;
-    --info-soft: #172a40;
-
-    /* Dashboard */
-    --hero: #1e293b;
-
-    /* Sidebar */
-    --side: #172033;
-    --side-text: #f8fafc;
-    --side-muted: #94a3b8;
-    --side-active: #334155;
-    --side-accent: #e5a000;
-
-    /* Interactive states */
-    --focus: #94a3b8;
-    --focus-ring: rgba(148, 163, 184, 0.25);
-    --selection: #334155;
-    --disabled: #64748b;
-
-    /* Shadows */
     --shadow: none;
 
-    /* Charts */
-    --chart-1: #65a9f2;
-    --chart-2: #e99a65;
-    --chart-3: #62c99b;
-    --chart-4: #b69ae8;
-    --chart-5: #e5bd65;
-    --chart-axis: #475569;
-    --chart-grid: #334155;
+    --ok: #4ade80;
+    --ok-soft: #10261a;
+
+    --bad: #f87171;
+    --bad-soft: #2d1414;
+
+    --warning: #facc15;
+    --warning-soft: #2a2410;
+
+    --info: #a5b4fc;
+    --info-soft: #1b1d3a;
+
+    --hero: #161619;
+    --hero-text: #f4f4f5;
+    --hero-muted: #9a9aa3;
+    --hero-chip: #202024;
+    --hero-border: #26262b;
+
+    --focus: #f4f4f5;
+    --focus-ring: rgba(244, 122, 51, 0.35);
+    --selection: #3a2414;
+    --disabled: #52525b;
+
+    --chart-1: #f47a33;
+    --chart-2: #a1a1aa;
+    --chart-3: #f7a05e;
+    --chart-4: #a5b4fc;
+    --chart-5: #f87171;
+    --chart-bar: #2a2a2f;
+    --chart-hatch: #3a3a40;
+    --chart-axis: #34343a;
+    --chart-grid: #26262b;
 
     color-scheme: dark;
   }
 }
 
-/* ============================================
-   4. GLOBAL STYLES
-   ============================================ */
+/* ============ 4. GLOBAL ============ */
 
 html {
   min-height: 100%;
@@ -269,80 +257,84 @@ body {
   outline-offset: 2px;
 }
 
-/* ============================================
-   5. PRINT THEME
-   Always use the light palette for printing.
-   ============================================ */
+/* ============ 5. PRINT: always light, white paper ============ */
 
 @media print {
   :root,
   :root[data-theme='dark'],
   :root:not([data-theme='light']) {
-    /* Base surfaces */
-    --bg: #ffffff;
+    --bg: #eeeef0;
     --surface: #ffffff;
-    --surface-2: #f1f5f9;
-    --border: #e2e8f0;
-    --input: #cbd5e1;
+    --surface-2: #f4f4f5;
+    --border: #ebebed;
+    --input: #e1e1e5;
 
-    /* Typography */
-    --text: #1e293b;
-    --muted: #64748b;
+    --topbar: #ffffff;
+    --content-bg: #eeeef0;
 
-    /* Primary */
-    --primary: #334155;
-    --primary-hover: #1e293b;
+    --text: #111113;
+    --muted: #6b6b74;
+
+    /* Primary: near-black (the main action button) */
+    --primary: #111113;
+    --primary-hover: #2a2a2e;
     --on-primary: #ffffff;
-    --primary-soft: #f1f5f9;
+    --primary-soft: #f4f4f5;
 
-    /* Brand accent */
-    --saffron: #e5a000;
-    --on-saffron: #1e293b;
-    --accent: #92400e;
-    --accent-soft: #fef3c7;
+    /* Brand accent: orange (active menu item, highlighted bar, count badges) */
+    --saffron: #f26b1d;
+    --saffron-2: #f7a05e;
+    --on-saffron: #ffffff;
+    /* orange as text / icon on white (AA) */
+    --accent: #c2410c;
+    --accent-soft: #fff1e8;
 
-    /* Semantic status */
-    --ok: #15803d;
-    --ok-soft: #dcfce7;
+    /* Sidebar: a white panel like the rest */
+    --side: #ffffff;
+    --side-text: #111113;
+    --side-muted: #6b6b74;
+    --side-active: #f4f4f5;
+    --side-accent: #f26b1d;
 
-    --bad: #b42318;
-    --bad-soft: #fee4e2;
-
-    --warning: #b45309;
-    --warning-soft: #fef3c7;
-
-    --info: #1d4ed8;
-    --info-soft: #dbeafe;
-
-    /* Dashboard */
-    --hero: #334155;
-
-    /* Sidebar */
-    --side: #1e293b;
-    --side-text: #ffffff;
-    --side-muted: #cbd5e1;
-    --side-active: #334155;
-    --side-accent: #e5a000;
-
-    /* Interactive states */
-    --focus: #64748b;
-    --focus-ring: rgba(100, 116, 139, 0.25);
-    --selection: #e2e8f0;
-    --disabled: #94a3b8;
-
-    /* Shadows */
     --shadow: none;
 
-    /* Charts */
-    --chart-1: #2878c8;
-    --chart-2: #d97736;
-    --chart-3: #16845b;
-    --chart-4: #8b65c5;
-    --chart-5: #c18a22;
-    --chart-axis: #cbd5e1;
-    --chart-grid: #e2e8f0;
+    --ok: #15803d;
+    --ok-soft: #e8f8ee;
+
+    --bad: #dc2626;
+    --bad-soft: #fdecec;
+
+    --warning: #a16207;
+    --warning-soft: #fef8e1;
+
+    --info: #4f46e5;
+    --info-soft: #eef0fe;
+
+    /* "Hero" panels are plain white panels in this style */
+    --hero: #ffffff;
+    --hero-text: #111113;
+    --hero-muted: #6b6b74;
+    --hero-chip: #f4f4f5;
+    --hero-border: #ebebed;
+
+    --focus: #111113;
+    --focus-ring: rgba(242, 107, 29, 0.28);
+    --selection: #ffe3d1;
+    --disabled: #a1a1aa;
+
+    /* Charts: orange leads, charcoal second, then soft orange, indigo, red */
+    --chart-1: #f26b1d;
+    --chart-2: #3f3f46;
+    --chart-3: #f7a05e;
+    --chart-4: #6366f1;
+    --chart-5: #dc2626;
+    --chart-bar: #e4e4e7;
+    --chart-hatch: #d4d4d8;
+    --chart-axis: #e1e1e5;
+    --chart-grid: #ebebed;
 
     color-scheme: light;
+    --bg: #ffffff;
   }
 
   body {
