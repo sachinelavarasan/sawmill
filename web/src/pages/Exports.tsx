@@ -10,6 +10,7 @@ import { useAuth } from '../auth';
 import { num3, useLoad } from '../components/common';
 import { DataTable } from '../components/data-table';
 import { ListEmpty, ListToolbar, openColumn, PageSum, StatusCards, useRecordList, type ListColumn } from '../components/record-list';
+import { useChangedGuard } from '../components/leave-guard';
 import { ALL, Field, FormActions, FormCard, FormSection, LoadState, Notice, Page, PageHeader } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
 import { useI18n } from '../i18n';
@@ -261,6 +262,8 @@ export function NewExportPage() {
   const [form, setForm] = useState(emptyExportForm);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // anything typed or picked since the page opened counts as unsaved
+  const release = useChangedGuard(form);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -268,6 +271,7 @@ export function NewExportPage() {
     setError(null);
     try {
       const created = await api<{ id: string }>('/exports', { method: 'POST', body: exportBody(form) });
+      release();
       navigate(`/exports/${created.id}`, { replace: true });
     } catch (err) {
       setError((err as Error).message);

@@ -7,20 +7,30 @@ import { cn, Icon, type IconName } from './ui';
 
 type Kind = 'success' | 'error' | 'info';
 
-const STYLE: Record<Kind, { box: string; text: string; accent: string; icon: IconName }> = {
-  success: { box: 'bg-success-soft border-success', text: 'text-success', accent: 'accent-success', icon: 'check-circle' },
-  error: { box: 'bg-destructive-soft border-destructive', text: 'text-destructive', accent: 'accent-destructive', icon: 'alert-circle' },
-  info: { box: 'bg-hero border-hero', text: 'text-hero-foreground', accent: 'accent-saffron', icon: 'info' },
+/** The kind shows only in the small round chip; the card itself is the app's plain card. */
+const STYLE: Record<Kind, { chip: string; accent: string; icon: IconName }> = {
+  success: { chip: 'bg-success-soft', accent: 'accent-success', icon: 'check' },
+  error: { chip: 'bg-destructive-soft', accent: 'accent-destructive', icon: 'x' },
+  info: { chip: 'bg-saffron-soft', accent: 'accent-saffron', icon: 'info' },
 };
 
+/** A compact card that sizes to its text: round icon chip, one bold line, an optional muted second line. */
 function ToastView({ kind, text1, text2 }: { kind: Kind; text1?: string; text2?: string }) {
   const s = STYLE[kind];
   return (
-    <View className={cn('mx-4 w-[92%] flex-row items-center gap-3 rounded-2xl border px-4 py-3.5 shadow-lg', s.box)} accessibilityRole="alert">
-      <Icon name={s.icon} size={20} colorClassName={s.accent} />
-      <View className="flex-1">
-        <Text className={cn('text-[15px] font-semibold', s.text)}>{text1}</Text>
-        {!!text2 && <Text className="text-[13px] text-muted-foreground">{text2}</Text>}
+    <View className="max-w-[88%] flex-row items-center gap-2.5 self-center rounded-2xl border border-border bg-card py-2 pr-4 pl-2 shadow-lg" accessibilityRole="alert">
+      <View className={cn('h-7 w-7 items-center justify-center rounded-full', s.chip)}>
+        <Icon name={s.icon} size={15} colorClassName={s.accent} />
+      </View>
+      <View className="shrink">
+        <Text className="text-[14px] font-semibold text-foreground" numberOfLines={2}>
+          {text1}
+        </Text>
+        {!!text2 && (
+          <Text className="text-[12px] text-muted-foreground" numberOfLines={2}>
+            {text2}
+          </Text>
+        )}
       </View>
     </View>
   );

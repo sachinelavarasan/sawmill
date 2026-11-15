@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { dateTime, num3, useLoad } from '../components/common';
 import { StatusBadge } from '../components/status-badge';
+import { useEditGuard } from '../components/leave-guard';
 import { FormActions, FormCard, LoadState, Notice, numCell, Page, PageHeader, Section, TableCard, useClientPaging } from '../components/page';
 import { WorkflowBar } from '../components/workflow';
 import { useConfirmDelete } from '../components/confirm';
@@ -187,6 +188,8 @@ function Facts({ items, className }: { items: [string, ReactNode][]; className?:
 function DetailsSection({ run, onSaved }: { run: ProductionDetail; onSaved: () => void }) {
   const { t } = useI18n();
   const [form, setForm] = useState<ProductionForm | null>(null);
+  // ask before leaving with unsaved edits
+  useEditGuard(form);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 

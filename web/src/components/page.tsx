@@ -687,13 +687,29 @@ export function Pager({ skip, page, total, onSkip, onPageSize, className }: Page
   );
 }
 
+/** Where the main record lists keep the rows-per-page last picked on this device. */
+const PAGE_SIZE_KEY = 'timbertrail.pageSize';
+
+/** The remembered rows-per-page, or `fallback` if none (or storage is blocked). */
+function savedPageSize(fallback: number): number {
+  try {
+    const n = Number(localStorage.getItem(PAGE_SIZE_KEY));
+    if ((PAGE_SIZES as readonly number[]).includes(n)) return n;
+  } catch {
+    /* storage blocked: use the fallback */
+  }
+  return fallback;
+}
+
 /**
  * Page position and size for a list the server pages (?take=&skip=).
  * Call reset() when a filter changes, so the list starts again at page 1.
+ * `remember`: the main record lists share the last rows-per-page picked on this device;
+ * small tables inside a record don't, so picking 100 there leaves the lists alone.
  */
-export function usePaging(initialSize: number = 25) {
+export function usePaging(initialSize: number = 25, { remember = false }: { remember?: boolean } = {}) {
   const [skip, setSkip] = useState(0);
-  const [take, setTake] = useState(initialSize);
+  const [take, setTake] = useState(() => (remember ? savedPageSize(initialSize) : initialSize));
   const reset = useCallback(() => setSkip(0), []);
   const pager = (total: number): PagerProps => ({
     skip,
@@ -703,6 +719,13 @@ export function usePaging(initialSize: number = 25) {
     onPageSize: (n) => {
       setTake(n);
       setSkip(0);
+      if (remember) {
+        try {
+          localStorage.setItem(PAGE_SIZE_KEY, String(n));
+        } catch {
+          /* storage blocked: the choice lasts for this page only */
+        }
+      }
     },
   });
   return { skip, take, reset, pager };

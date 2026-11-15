@@ -13,6 +13,7 @@ import { DataTable } from '../components/data-table';
 import { ListEmpty, ListToolbar, openColumn, PageSum, StatusCards, useRecordList, type ListColumn } from '../components/record-list';
 import { StatusBadge } from '../components/status-badge';
 import { useToast } from '../components/toast';
+import { useChangedGuard } from '../components/leave-guard';
 import { Field, FormActions, FormCard, FormSection, LoadState, Notice, Page, PageHeader } from '../components/page';
 import { useI18n } from '../i18n';
 import { ImportQuickView } from './QuickViews';
@@ -278,6 +279,8 @@ export function NewImportPage() {
   const [busy, setBusy] = useState(false);
   /** where the pressed button goes after saving: the record, or straight to log entry */
   const next = useRef<'record' | 'logs'>('record');
+  // anything typed or picked since the page opened counts as unsaved
+  const release = useChangedGuard([form, unl, supplierId]);
 
   // the supplier sits on the purchase record, which only the owner may see or set
   const canSupplier = can(Permission.FINANCE_VIEW) && can(Permission.SUPPLIERS_MANAGE);
@@ -318,6 +321,7 @@ export function NewImportPage() {
       if (supplierId)
         await api(`/imports/${created.id}/financials`, { method: 'PUT', body: JSON.stringify({ supplierId }) }).catch((err) => missed.push(`${t('supplier')} (${(err as Error).message})`));
       if (missed.length) toast(t('savedButNot', { what: missed.join(', ') }), 'warn');
+      release();
       navigate(`/imports/${created.id}${goTo === 'logs' ? '#logs' : ''}`, { replace: true });
     } catch (err) {
       setError((err as Error).message);

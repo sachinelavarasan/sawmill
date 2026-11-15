@@ -454,7 +454,7 @@ function MovementsTab({ loads, load, onLoad }: { loads: { id: string; code: stri
   const canOpenAll = can(Permission.OPERATIONS_VIEW_ALL);
   const [kind, setKind] = useState(ALL);
   const [direction, setDirection] = useState(ALL);
-  const paging = usePaging();
+  const paging = usePaging(25, { remember: true });
   const query = `take=${paging.take}&skip=${paging.skip}${load ? `&importLoadId=${load}` : ''}${kind !== ALL ? `&kind=${kind}` : ''}${direction !== ALL ? `&direction=${direction}` : ''}`;
   const { data, loading, error, reload } = useLoad(() => api<{ items: Movement[]; total: number }>(`/stock/movements?${query}`), [query]);
   const filtered = !!load || kind !== ALL || direction !== ALL;
@@ -656,7 +656,7 @@ function AdjustmentsTab({
   const { t } = useI18n();
   const { user } = useAuth();
   const isOwner = user?.role === 'OWNER';
-  const paging = usePaging();
+  const paging = usePaging(25, { remember: true });
   const { data, loading, error, reload } = useLoad(
     () => api<{ items: Adjustment[]; total: number }>(`/stock-adjustments?take=${paging.take}&skip=${paging.skip}`),
     [paging.take, paging.skip],

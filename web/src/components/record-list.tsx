@@ -43,7 +43,7 @@ export function useRecordList<T>({ path, name, hiddenByDefault = [], fixedQuery 
   const [status, setStatus] = useState('');
   const [q, setQ] = useState('');
   const [hidden, setHidden] = useState(() => savedHidden(storageKey, hiddenByDefault));
-  const paging = usePaging();
+  const paging = usePaging(25, { remember: true });
   const search = q ? `&q=${encodeURIComponent(q)}` : '';
   const scope = fixedQuery ? `&${fixedQuery}` : status ? `&status=${status}` : '';
   const { data, loading, error, reload } = useApi<{ items: T[]; total: number }>(`${path}?take=${paging.take}&skip=${paging.skip}${scope}${search}`);

@@ -13,6 +13,26 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  build: {
+    // the vendor chunk below is deliberately one file (~530 kB, ~170 kB gzipped)
+    chunkSizeWarningLimit: 600,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              // Third-party code every screen needs (React, router, Radix, Query…) in its own chunk.
+              // It changes only when a dependency is updated, so browsers keep it cached across
+              // releases instead of re-downloading it whenever app code (e.g. a new phrase) changes.
+              // The table library stays out: only list pages load it, on demand.
+              name: 'vendor',
+              test: /node_modules[\\/](?!@tanstack[\\/](table-core|react-table|store|react-store)[\\/])/,
+            },
+          ],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: { '/api': 'http://localhost:3000' },

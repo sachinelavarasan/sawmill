@@ -14,6 +14,7 @@
  * Optional: EXPO_ACCESS_TOKEN, if "enhanced push security" is turned on for the Expo project.
  */
 import { Body, Controller, Delete, Get, Global, HttpCode, Injectable, Logger, Module, Post, Query } from '@nestjs/common';
+import { waitUntil } from '@vercel/functions';
 import { Type } from 'class-transformer';
 import { type Lang, Role, translate, type TKey } from '@timbertrail/shared';
 import { ArrayMaxSize, IsArray, IsIn, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
@@ -100,9 +101,14 @@ export class NotificationsService {
       .where(ids?.length ? and(mine, inArray(notifications.id, ids)) : mine);
   }
 
-  /** Fire-and-forget: call after the transaction that changed the record has committed. */
+  /**
+   * Fire-and-forget: call after the transaction that changed the record has committed.
+   * On Vercel, waitUntil keeps the function alive until the inbox rows and pushes are done
+   * (otherwise it may be frozen as soon as the response is sent); on a normal server it's a no-op.
+   */
   workflow(actor: AuthUser, kind: WorkflowKind, id: string, action: WorkflowAction) {
-    void this.sendWorkflow(actor, kind, id, action).catch((e: unknown) => this.logger.warn(`push for ${kind} ${id} ${action} failed: ${String(e)}`));
+    const task = this.sendWorkflow(actor, kind, id, action).catch((e: unknown) => this.logger.warn(`push for ${kind} ${id} ${action} failed: ${String(e)}`));
+    waitUntil(task);
   }
 
   private async sendWorkflow(actor: AuthUser, kind: WorkflowKind, id: string, action: WorkflowAction) {

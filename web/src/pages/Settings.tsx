@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { useLoad } from '../components/common';
+import { useLeaveGuard } from '../components/leave-guard';
 import { Field, FormCard, FormSection, LoadState, Notice, OwnerOnly, Page, PageHeader } from '../components/page';
 import { useToast } from '../components/toast';
 import { Lang, useI18n } from '../i18n';
@@ -91,6 +92,8 @@ export function SettingsPage() {
   const offsets = form && !OFFSETS.includes(Number(form.offset)) ? [...OFFSETS, Number(form.offset)].sort((a, b) => a - b) : OFFSETS;
   const saved = data ? toForm(data) : null;
   const dirty = !!form && !!saved && (Object.keys(saved) as (keyof Form)[]).some((k) => form[k] !== saved[k]);
+  // saving makes form and saved equal again, which lifts the guard
+  useLeaveGuard(dirty);
 
   const units: [string, string][] = [
     [t('unitsLogs'), t('unitsLogsValue')],

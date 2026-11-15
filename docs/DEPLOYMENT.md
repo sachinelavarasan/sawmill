@@ -2,6 +2,7 @@
 
 How to run TimberTrail (API + web app) on one Linux server, keep it updated, and keep the
 data safe. Written for Ubuntu 22.04/24.04; any systemd Linux works with small changes.
+To host on Vercel instead, see [VERCEL.md](VERCEL.md).
 
 ```
  browser ──https──▶ nginx ──▶ /            web/dist (static files)

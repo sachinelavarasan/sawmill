@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { dateTime, money, num3, useLoad } from '../components/common';
+import { useEditGuard } from '../components/leave-guard';
 import { ALL, EntryField, Field, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
 import { WorkflowBar } from '../components/workflow';
@@ -136,6 +137,8 @@ export function ExportDetailPage() {
 function DetailsSection({ exp, finished, onSaved }: { exp: ExportDetail; finished: FinishedStockRow[]; onSaved: () => void }) {
   const { t } = useI18n();
   const [form, setForm] = useState<ExportForm | null>(null);
+  // ask before leaving with unsaved edits
+  useEditGuard(form);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 

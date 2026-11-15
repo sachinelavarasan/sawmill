@@ -402,6 +402,80 @@
   animation: drift 8s ease-in-out -3s infinite alternate;
 }
 
+/* ── the sign-in hero ── */
+
+/* The growth rings turn, very slowly, like a log on the carriage (a transform only: the GPU does it, no repaint). */
+@keyframes rings-turn {
+  to { transform: rotate(360deg); }
+}
+.hero-rings {
+  animation: rings-turn 140s linear infinite;
+}
+
+/* The saffron glow behind the preview swells and settles (a gradient, not a blur filter, so scaling it is cheap). */
+@keyframes glow-breathe {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+.hero-glow {
+  animation: glow-breathe 9s ease-in-out infinite;
+}
+
+/* The eyebrow catches a slow sweep of light. */
+@keyframes sheen {
+  from { background-position: 150% 0; }
+  to { background-position: -50% 0; }
+}
+.hero-sheen {
+  /* the glint leans toward the hero's text colour: darker on the light hero, lighter on the dark one */
+  --glint: color-mix(in oklab, var(--saffron), var(--hero-text) 45%);
+  background: linear-gradient(100deg, var(--saffron) 40%, var(--glint) 50%, var(--saffron) 60%) 0 0 / 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: sheen 5s ease-in-out 1s infinite;
+}
+
+/* The preview rises in after the words, then its columns grow and its panels pop forward. */
+@keyframes preview-in {
+  from { opacity: 0; transform: translateY(40px); }
+}
+.hero-preview-in {
+  animation: preview-in 0.9s var(--ease-smooth) 0.35s both;
+}
+.hero-bar {
+  transform-origin: 50% 100%;
+  animation: chart-grow-y 0.7s var(--ease-smooth) both;
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.85) translateY(12px); }
+}
+.hero-pop {
+  animation: pop-in 0.6s var(--ease-smooth) both;
+}
+
+/* The bell's dot sends out a soft ring now and then. */
+@keyframes dot-ping {
+  0% { transform: scale(1); opacity: 0.7; }
+  70%, 100% { transform: scale(2.6); opacity: 0; }
+}
+.hero-ping::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  animation: dot-ping 2.4s var(--ease-smooth) 1.6s infinite;
+}
+
+/* The call to action's arrow nudges forward on hover. */
+.hero-cta svg {
+  transition: transform 200ms var(--ease-smooth);
+}
+.hero-cta:hover svg {
+  transform: translateX(3px);
+}
+
 /*
  * The raised product name on the sign-in screen. Each letter is extruded downwards in six crisp
  * steps (--d is the step) over one soft contact shadow. --p (0…1) is how far a letter has risen
@@ -432,7 +506,8 @@
     0 calc(var(--d) * 6 + 4px) 8px rgb(0 0 0 / 0.35);
 }
 .wordmark-3d > .wm-light {
-  color: #fff;
+  /* follows the hero: dark letters on the light hero, white on the dark one */
+  color: var(--hero-text);
   --s1: #cbd5e1;
   --s2: #94a3b8;
   --s3: #64748b;
@@ -447,7 +522,7 @@
 /* Paper shows everything, still. */
 @media print {
   .reveal { opacity: 1; transform: none; }
-  .stagger > *, .drift, .drift-slow, [data-slot='table-body'] > [data-slot='table-row'] { animation: none; }
+  .stagger > *, .drift, .drift-slow, .hero-rings, .hero-glow, .hero-preview-in, .hero-bar, .hero-pop, .hero-ping::after, [data-slot='table-body'] > [data-slot='table-row'] { animation: none; }
 }
 
 /*

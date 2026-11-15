@@ -1,3 +1,4 @@
+import '../lib/dev-trace'; // temporary: traces "state update before mount" warnings
 import '../global.css';
 
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';

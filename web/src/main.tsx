@@ -3,7 +3,7 @@ import './storage-migrate';
 import { QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './auth';
 import { ConfirmProvider } from './components/confirm';
@@ -30,6 +30,13 @@ import './index.css';
 
 initTheme();
 
+/**
+ * A data router (rather than <BrowserRouter>) so pages can hold a navigation — including the
+ * browser's Back button — while a form has unsaved changes (components/leave-guard.ts, useBlocker).
+ * One catch-all route renders the app; its pages are still declared with <Routes> in App.tsx.
+ */
+const router = createBrowserRouter([{ path: '*', element: <App /> }]);
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
@@ -37,9 +44,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <ConfirmProvider>
           <ToastProvider>
             <AuthProvider>
-              <BrowserRouter>
-                <App />
-              </BrowserRouter>
+              <RouterProvider router={router} />
             </AuthProvider>
           </ToastProvider>
         </ConfirmProvider>

@@ -4,15 +4,20 @@
  * screen), the CFT is shown live with the same shared formula the server uses (3 decimals),
  * and each saved log gets the next number from the server. Every log stays listed below,
  * newest first: tap to correct it, long-press to delete.
+ *
+ * Logs off one lorry are mostly the same length, so the length is kept from the last log:
+ * usually only the girth is typed. The first key pressed on a kept length replaces it.
+ * Keys tick and spring under the thumb; a just-saved log slides in, briefly highlighted.
  */
 import { importLogCft } from '@timbertrail/shared';
 import { useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { FadeInDown } from 'react-native-reanimated';
 import { Text } from '../../../../components/text';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useConfirm } from '../../../../components/confirm';
 import { Page, ScreenHeader } from '../../../../components/header';
+import { AnimatedView, Tap } from '../../../../components/motion';
 import { toast } from '../../../../components/toast';
 import { Button, cn, ErrorBox, Icon, MenuGroup, Muted, Notice, SectionTitle, SkeletonList, StatPair } from '../../../../components/ui';
 import { ApiError } from '../../../../lib/api';
@@ -35,6 +40,17 @@ function press(value: string, key: Key): string {
   return next;
 }
 
+/** A history row's frame: plain, except the log just saved, which slides in highlighted (only it pays for Reanimated). */
+function LogRowFrame({ fresh, children }: { fresh: boolean; children: ReactNode }) {
+  return fresh ? (
+    <AnimatedView entering={FadeInDown.duration(320)} className="bg-success-soft">
+      {children}
+    </AnimatedView>
+  ) : (
+    <View>{children}</View>
+  );
+}
+
 const parse = (v: string) => {
   const n = Number(v);
   return v && Number.isFinite(n) && n > 0 ? n : null;
@@ -43,16 +59,20 @@ const parse = (v: string) => {
 export default function MeasureScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const t = useT();
-  const insets = useSafeAreaInsets();
   const confirm = useConfirm();
 
   const [load, setLoad] = useState<ImportDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [girth, setGirth] = useState('');
+  /** the length typed for this entry; ignored while `kept` */
   const [length, setLength] = useState('');
+  /** true until a length key is pressed: the entry uses the newest log's length */
+  const [kept, setKept] = useState(true);
   const [field, setField] = useState<Field>('girth');
   const [editing, setEditing] = useState<Log | null>(null);
   const [busy, setBusy] = useState(false);
+  /** the log just saved: slides in and stays highlighted for a moment */
+  const [fresh, setFresh] = useState<string | null>(null);
   const inFlight = useRef(false);
   const changed = useRef(false);
 
@@ -66,6 +86,12 @@ export default function MeasureScreen() {
   }, [id]);
 
   useEffect(() => {
+    if (!fresh) return;
+    const timer = setTimeout(() => setFresh(null), 1800);
+    return () => clearTimeout(timer);
+  }, [fresh]);
+
+  useEffect(() => {
     void fetchLoad();
     // lists and dashboards pick up the new totals once, when leaving
     return () => {
@@ -73,21 +99,34 @@ export default function MeasureScreen() {
     };
   }, [fetchLoad]);
 
+  // newest first; sorted only when the logs change, not on every key press
+  const logs = load?.logs;
+  const history = useMemo(() => (logs ? [...logs].sort((a, b) => b.logNumber - a.logNumber) : []), [logs]);
+  const newest = history[0];
+  const lastLength = newest ? String(newest.lengthFt) : '';
+  const lengthShown = kept ? lastLength : length;
+
   const g = parse(girth);
-  const l = parse(length);
+  const l = parse(lengthShown);
   const liveCft = g && l ? importLogCft(g, l) : null;
-  const nextNo = (load?.logs.reduce((m, x) => Math.max(m, x.logNumber), 0) ?? 0) + 1;
+  const nextNo = (newest?.logNumber ?? 0) + 1;
   const currentNo = editing ? editing.logNumber : nextNo;
   const totalAfter = load && liveCft != null ? load.totalCft - (editing?.cft ?? 0) + liveCft : null;
 
   function onKey(k: Key) {
     if (field === 'girth') setGirth((v) => press(v, k));
-    else setLength((v) => press(v, k));
+    else if (kept) {
+      // a kept length is replaced by the first key, not appended to
+      setKept(false);
+      setLength(k === 'del' ? '' : press('', k));
+    } else setLength((v) => press(v, k));
   }
 
+  /** Ready for the next log: girth empty, length carried over from the newest log. */
   function resetEntry() {
     setGirth('');
     setLength('');
+    setKept(true);
     setField('girth');
     setEditing(null);
   }
@@ -96,6 +135,7 @@ export default function MeasureScreen() {
     setEditing(log);
     setGirth(String(log.girthIn));
     setLength(String(log.lengthFt));
+    setKept(false);
     setField('girth');
   }
 
@@ -125,6 +165,7 @@ export default function MeasureScreen() {
           },
       );
       toast(t('logSavedLine', { n: res.log.logNumber, cft: num3(res.log.cft) }));
+      setFresh(res.log.id);
       resetEntry();
     } catch (e) {
       setError((e as Error).message);
@@ -149,7 +190,6 @@ export default function MeasureScreen() {
     }
   }
 
-  const history = load ? [...load.logs].sort((a, b) => b.logNumber - a.logNumber) : [];
   const saveLabel = editing ? `${t('save')} ${t('logNo')}${currentNo}` : g && !l ? t('nextLength') : t('saveLog', { n: currentNo });
 
   return (
@@ -201,7 +241,7 @@ export default function MeasureScreen() {
               <View className="flex-row gap-2.5">
                 {(['girth', 'length'] as const).map((f) => {
                   const on = field === f;
-                  const value = f === 'girth' ? girth : length;
+                  const value = f === 'girth' ? girth : lengthShown;
                   const label = t(f === 'girth' ? 'girth' : 'lengthFt');
                   return (
                     <Pressable
@@ -212,7 +252,15 @@ export default function MeasureScreen() {
                       accessibilityLabel={`${label} ${value || '0'}`}
                       className={cn('min-h-[88px] flex-1 justify-between rounded-xl border-2 px-3.5 py-2.5', on ? 'border-saffron bg-saffron-soft' : 'border-border bg-background')}
                     >
-                      <Text className="text-[13px] font-semibold text-muted-foreground">{label}</Text>
+                      {/* label may wrap (Tamil runs long); the "same as last" note gets its own line */}
+                      <View>
+                        <Text className="text-[13px] font-semibold text-muted-foreground">{label}</Text>
+                        {f === 'length' && kept && !!value && (
+                          <Text className="text-[12px] font-medium text-saffron" numberOfLines={1}>
+                            {t('lengthKept')}
+                          </Text>
+                        )}
+                      </View>
                       <Text className={cn('text-[34px] font-bold tabular-nums font-display', value ? 'text-foreground' : 'text-muted-foreground')}>
                         {value || '0'}
                         <Text className="text-base font-semibold text-muted-foreground">{f === 'girth' ? ' in' : ' ft'}</Text>
@@ -229,15 +277,17 @@ export default function MeasureScreen() {
 
               <View className="flex-row flex-wrap justify-between gap-y-2">
                 {KEYS.map((k) => (
-                  <Pressable
+                  <Tap
                     key={k}
+                    scale={0.92}
+                    haptic
                     onPress={() => onKey(k)}
                     accessibilityRole="button"
                     accessibilityLabel={k === 'del' ? t('delete') : k}
                     className="h-[60px] w-[32%] items-center justify-center rounded-xl border border-border bg-background active:bg-secondary"
                   >
                     {k === 'del' ? <Icon name="delete" size={24} colorClassName="accent-foreground" /> : <Text className="text-[26px] font-semibold text-foreground">{k}</Text>}
-                  </Pressable>
+                  </Tap>
                 ))}
               </View>
 
@@ -255,13 +305,14 @@ export default function MeasureScreen() {
           <SectionTitle>
             {t('measurementHistory')} · {int(history.length)}
           </SectionTitle>
+          {history.length > 0 && load.editable && <Muted>{t('logListHint')}</Muted>}
           {history.length === 0 ? (
             <Muted>{t('noLogsYet')}</Muted>
           ) : (
             <MenuGroup>
               {history.map((log, i) => (
+                <LogRowFrame key={log.id} fresh={log.id === fresh}>
                 <Pressable
-                  key={log.id}
                   disabled={!load.editable}
                   onPress={() => startEdit(log)}
                   onLongPress={() => void remove(log)}
@@ -280,6 +331,7 @@ export default function MeasureScreen() {
                   <Text className="text-[15px] font-bold tabular-nums text-foreground">{num3(log.cft)}</Text>
                   {load.editable && <Icon name="edit-2" size={15} colorClassName="accent-muted-foreground" />}
                 </Pressable>
+                </LogRowFrame>
               ))}
             </MenuGroup>
           )}

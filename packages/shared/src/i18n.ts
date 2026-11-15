@@ -721,6 +721,8 @@ const en = {
   openFullRecord: 'Open full record',
   latestLogs: 'Latest logs',
   noLogsYet: 'No logs measured yet.',
+  logListHint: 'Tap a log to correct it · press and hold to delete.',
+  lengthKept: 'same as last',
   // ── Android app ──
   transactions: 'Transactions',
   transactionsSub: 'Record and follow the wood through the mill.',
@@ -963,8 +965,8 @@ const ta: Dict = {
   totalCft: 'மொத்த CFT',
   draft: 'வரைவு',
   pending: 'நிலுவை',
-  approved: 'அங்கீகரிக்கப்பட்டது',
-  rejected: 'நிராகரிக்கப்பட்டது',
+  approved: 'ஏற்கப்பட்டது',
+  rejected: 'நிராகரிப்பு',
 
   measurementProgress: 'அளவீடு முன்னேற்றம்',
   pendingSubmissions: 'ஒப்புதலுக்கு அனுப்பியவை',
@@ -1543,6 +1545,8 @@ const ta: Dict = {
   openFullRecord: 'முழுப் பதிவைத் திற',
   latestLogs: 'சமீபத்திய கட்டைகள்',
   noLogsYet: 'இன்னும் கட்டைகள் அளக்கப்படவில்லை.',
+  logListHint: 'திருத்த ஒரு கட்டையைத் தொடவும் · நீக்க அழுத்திப் பிடிக்கவும்.',
+  lengthKept: 'முந்தையது போல',
   // ── Android app ──
   transactions: 'பரிவர்த்தனைகள்',
   transactionsSub: 'ஆலையில் மரத்தின் பயணத்தைப் பதிவுசெய்து கண்காணிக்கவும்.',

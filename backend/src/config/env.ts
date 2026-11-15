@@ -23,6 +23,10 @@ export function validateEnv(env: Record<string, unknown>): Record<string, unknow
     errors.push('TRUST_PROXY must be a hop count (e.g. 1), "loopback", "true" or "false"');
   }
 
+  if (get('LOG_FORMAT') && !isLogFormat(get('LOG_FORMAT'))) {
+    errors.push(`LOG_FORMAT must be one of: ${LOG_FORMATS.join(', ')}`);
+  }
+
   if (production) {
     if (secret.length < 32 || PLACEHOLDER.test(secret)) {
       errors.push('JWT_ACCESS_SECRET must be a random value of 32+ characters in production (openssl rand -base64 48)');
@@ -47,6 +51,17 @@ export function validateEnv(env: Record<string, unknown>): Record<string, unknow
     throw new Error(`Invalid environment:\n  - ${errors.join('\n  - ')}`);
   }
   return env;
+}
+
+const LOG_FORMATS = ['json', 'text'] as const;
+type LogFormat = (typeof LOG_FORMATS)[number];
+const isLogFormat = (v: string | undefined): v is LogFormat => (LOG_FORMATS as readonly string[]).includes(v ?? '');
+
+/** LOG_FORMAT if set; otherwise JSON lines in production and readable text elsewhere. */
+export function logFormat(env: Record<string, string | undefined>): LogFormat {
+  const v = env.LOG_FORMAT?.trim();
+  if (isLogFormat(v)) return v;
+  return env.NODE_ENV === 'production' ? 'json' : 'text';
 }
 
 /** Express "trust proxy" value from TRUST_PROXY: a hop count, 'loopback', or a boolean. */

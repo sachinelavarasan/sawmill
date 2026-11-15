@@ -83,7 +83,7 @@ const show = (v: unknown) => (v === null || v === undefined || v === '' ? '—' 
 /** [OWNER-ONLY] Every recorded action, newest first. Read-only. */
 export function AuditLogPage() {
   const { t } = useI18n();
-  const paging = usePaging(50);
+  const paging = usePaging(50, { remember: true });
   // sent to the server: they apply to the whole log
   const [userId, setUserId] = useState('');
   const [entityType, setEntityType] = useState('');

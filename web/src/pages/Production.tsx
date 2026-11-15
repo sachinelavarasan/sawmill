@@ -12,6 +12,7 @@ import { num3, useLoad } from '../components/common';
 import { DataTable } from '../components/data-table';
 import { ListEmpty, ListToolbar, openColumn, PageSum, StatusCards, useRecordList, type ListColumn } from '../components/record-list';
 import { StatusBadge } from '../components/status-badge';
+import { useChangedGuard } from '../components/leave-guard';
 import { Field, FormActions, FormCard, FormSection, LoadState, Notice, Page, PageHeader } from '../components/page';
 import { useI18n } from '../i18n';
 import { fromLocalInput, toLocalInput } from './Imports';
@@ -276,6 +277,8 @@ export function NewProductionPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const chosen = loads.find((l) => l.importLoadId === loadId) ?? null;
+  // anything typed or picked since the page opened counts as unsaved (a load passed in the link doesn't)
+  const release = useChangedGuard([form, loadId]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -286,6 +289,7 @@ export function NewProductionPage() {
         method: 'POST',
         body: JSON.stringify({ importLoadId: loadId, ...productionBody(form) }),
       });
+      release();
       navigate(`/production/${created.id}`, { replace: true });
     } catch (err) {
       setError((err as Error).message);

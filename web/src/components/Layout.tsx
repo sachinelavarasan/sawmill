@@ -291,10 +291,14 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
           (collapsed ? (
             <span className={cn('absolute top-1.5 right-1.5 size-2.5 animate-in rounded-full border-2 duration-300 zoom-in-50', isActive ? 'border-transparent bg-white' : 'border-sidebar bg-sidebar-accent')} aria-hidden="true" />
           ) : (
-            // the count: a saffron pill; it pops in when the number changes
+            // the count: a saffron pill; on the open page's orange pill, frosted white with white type
+            // (readable in both themes, like the label beside it). It pops in when the number changes.
             <span
               key={badge}
-              className={cn('min-w-5 animate-in rounded-full px-1.5 text-center text-[0.6875rem] leading-5 font-bold tabular-nums duration-300 zoom-in-75 fade-in-0', isActive ? 'bg-white text-accent' : 'bg-sidebar-accent text-brand-foreground')}
+              className={cn(
+                'min-w-5 animate-in rounded-full px-1.5 text-center text-[0.6875rem] leading-5 font-bold tabular-nums duration-300 zoom-in-75 fade-in-0',
+                isActive ? 'bg-white/25 text-white ring-1 ring-white/40' : 'bg-sidebar-accent text-brand-foreground',
+              )}
             >
               {badge}
             </span>

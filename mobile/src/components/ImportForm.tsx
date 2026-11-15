@@ -20,6 +20,7 @@ const EMPTY: Form = {
   lorryOwnerName: '',
   lorryOwnerMobile: '',
   originLocation: '',
+  notes: '',
 };
 const PHONE = /^[0-9+ ]{7,15}$/;
 
@@ -28,7 +29,6 @@ export function ImportForm({ id }: { id?: string }) {
   const router = useRouter();
   const [initial, setInitial] = useState<Form | null>(id ? null : EMPTY);
   const [form, setForm] = useState<Form | null>(initial);
-  const [notes, setNotes] = useState('');
   const [touched, setTouched] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   // the mill's own previous wood types — never a hard-coded list
@@ -49,10 +49,10 @@ export function ImportForm({ id }: { id?: string }) {
           lorryOwnerName: d.lorryOwnerName ?? '',
           lorryOwnerMobile: d.lorryOwnerMobile ?? '',
           originLocation: d.originLocation ?? '',
+          notes: d.notes ?? '',
         };
         setInitial(f);
         setForm(f);
-        setNotes(d.notes ?? '');
       })
       .catch((e: Error) => setLoadError(e.message));
   }, [id]);
@@ -70,15 +70,14 @@ export function ImportForm({ id }: { id?: string }) {
 
   const [save, busy, error] = useSubmit(async (thenMeasure: boolean) => {
     if (!form) return;
-    const body = { ...form, notes };
     if (id) {
-      await importsApi.update(id, body);
+      await importsApi.update(id, form);
       release();
       await invalidateOperations();
       toast(t('saved'));
       router.back();
     } else {
-      const created = await importsApi.create(body);
+      const created = await importsApi.create(form);
       release();
       await invalidateOperations();
       toast(t('saved'), 'success', created.code);
@@ -136,9 +135,9 @@ export function ImportForm({ id }: { id?: string }) {
             {field('lorryOwnerMobile', 'lorryOwnerMobile', { keyboardType: 'phone-pad' })}
           </FormSection>
 
-          <FormSection title={t('secAdditional')} subtitle={t('secAdditionalSub')} collapsible initiallyOpen={!!(form.originLocation || notes)}>
+          <FormSection title={t('secAdditional')} subtitle={t('secAdditionalSub')} collapsible initiallyOpen={!!(form.originLocation || form.notes)}>
             {field('originLocation', 'originLocation', { autoCapitalize: 'words' })}
-            <Field label={t('notes')} value={notes} onChangeText={setNotes} multiline placeholder={t('notesHint')} />
+            <Field label={t('notes')} value={form.notes} onChangeText={set('notes')} multiline placeholder={t('notesHint')} />
           </FormSection>
         </>
       )}

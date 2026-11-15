@@ -1,4 +1,4 @@
-import type { Permission, Role } from '@timbertrail/shared';
+import { apiErrorText, type Permission, type Role } from '@timbertrail/shared';
 
 export interface Profile {
   id: string;
@@ -14,9 +14,18 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** the server's X-Request-Id for this request, when it sent one */
+    public requestId?: string,
   ) {
     super(message);
   }
+}
+
+/** The error a failed response becomes; the text (and a 5xx's "(ref …)") comes from the shared apiErrorText. */
+async function toApiError(res: Response): Promise<ApiError> {
+  const body: unknown = await res.json().catch(() => null);
+  const requestId = res.headers.get('X-Request-Id') ?? undefined;
+  return new ApiError(res.status, apiErrorText(res.status, body, res.statusText, requestId), requestId);
 }
 
 const BASE = import.meta.env.VITE_API_URL ?? '/api';
@@ -53,16 +62,7 @@ async function raw<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (init.body) headers.set('Content-Type', 'application/json');
   headers.set('X-TimberTrail-Client', CLIENT['X-TimberTrail-Client']);
   const res = await fetch(`${BASE}${path}`, { ...init, headers, credentials: 'include' });
-  if (!res.ok) {
-    let message = res.statusText;
-    try {
-      const body = await res.json();
-      message = Array.isArray(body.message) ? body.message.join(', ') : (body.message ?? message);
-    } catch {
-      /* not JSON */
-    }
-    throw new ApiError(res.status, message);
-  }
+  if (!res.ok) throw await toApiError(res);
   return res.status === 204 ? (undefined as T) : res.json();
 }
 
@@ -100,14 +100,7 @@ export async function download(path: string): Promise<void> {
   if (res.status === 401 && (await tryRefresh())) res = await get();
   if (!res.ok) {
     if (res.status === 401) onSessionLost();
-    let message = res.statusText;
-    try {
-      const body = await res.json();
-      message = Array.isArray(body.message) ? body.message.join(', ') : (body.message ?? message);
-    } catch {
-      /* not JSON */
-    }
-    throw new ApiError(res.status, message);
+    throw await toApiError(res);
   }
   const filename = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ?? 'download';
   const url = URL.createObjectURL(await res.blob());

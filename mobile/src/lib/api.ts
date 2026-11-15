@@ -7,7 +7,7 @@
  * refresh token in the secure store. A 401 triggers one shared refresh, then the request is
  * retried once; if the refresh fails the session is ended (onSessionLost → login screen).
  */
-import type { Permission, Role } from '@timbertrail/shared';
+import { apiErrorText, type Permission, type Role } from '@timbertrail/shared';
 import axios, { AxiosError, type AxiosRequestConfig, type Method } from 'axios';
 import { Directory, File, Paths } from 'expo-file-system';
 import { API_URL } from './env';
@@ -34,6 +34,8 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** the server's X-Request-Id for this request, when it sent one */
+    public requestId?: string,
   ) {
     super(message);
   }
@@ -77,15 +79,16 @@ http.interceptors.response.use(undefined, async (error: unknown) => {
   throw toApiError(error);
 });
 
-/** Turn an axios failure into an ApiError with the server's own message where it gave one. */
+/** Turn an axios failure into an ApiError; the text (and a 5xx's "(ref …)") comes from the shared apiErrorText. */
 function toApiError(e: AxiosError): ApiError {
   if (!e.response) {
     const timedOut = e.code === AxiosError.ECONNABORTED || e.code === AxiosError.ETIMEDOUT;
     return new ApiError(0, timedOut ? `The server took too long to answer (${API_URL})` : `Cannot reach server (${API_URL})`);
   }
-  const data = e.response.data as { message?: string | string[] } | undefined;
-  const msg = data?.message;
-  return new ApiError(e.response.status, Array.isArray(msg) ? msg.join(', ') : (msg ?? `HTTP ${e.response.status}`));
+  const { status, data, headers } = e.response;
+  const rid = headers['x-request-id'];
+  const requestId = typeof rid === 'string' ? rid : undefined;
+  return new ApiError(status, apiErrorText(status, data, `HTTP ${status}`, requestId), requestId);
 }
 
 async function applyAuth(res: AuthResponse) {

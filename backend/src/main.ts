@@ -1,16 +1,24 @@
 import 'reflect-metadata';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { ConsoleLogger, Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
-import { trustProxy } from './config/env';
+import { requestLogger } from './common/request-logger';
+import { logFormat, trustProxy } from './config/env';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
+  // JSON lines in production (Vercel / journald can search and filter them); readable colours on a dev machine
+  const json = logFormat(process.env) === 'json';
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+    logger: new ConsoleLogger({ json, colors: !json }),
+  });
 
-  // Behind nginx, req.ip must be the visitor's address (rate limits, audit log), not 127.0.0.1.
+  // Behind nginx or Vercel, req.ip must be the visitor's address (rate limits, audit log), not the proxy's.
   app.set('trust proxy', trustProxy(process.env.TRUST_PROXY));
+  // first, so it times everything that follows: one line per request, with an X-Request-Id
+  app.use(requestLogger);
   // The largest real request (an import with all its logs) is well under this.
   app.useBodyParser('json', { limit: '1mb' });
   app.useBodyParser('urlencoded', { limit: '100kb', extended: false });
@@ -20,6 +28,8 @@ async function bootstrap() {
   app.enableCors({
     origin: (process.env.CORS_ORIGINS ?? 'http://localhost:5173').split(',').map((s) => s.trim()),
     credentials: true,
+    // lets the web app read the id to show alongside an error
+    exposedHeaders: ['X-Request-Id'],
   });
   app.useGlobalPipes(
     new ValidationPipe({

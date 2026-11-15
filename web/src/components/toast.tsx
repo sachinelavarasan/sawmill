@@ -1,4 +1,4 @@
-import { AlertTriangleIcon, CheckCircle2Icon, InfoIcon, XCircleIcon, XIcon } from 'lucide-react';
+import { AlertTriangleIcon, CheckIcon, InfoIcon, XIcon } from 'lucide-react';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useI18n } from '../i18n';
@@ -15,8 +15,14 @@ const ToastContext = createContext<Toast | null>(null);
 
 /** How long a toast stays; errors stay longer. Hovering or focusing the stack holds them all. */
 const LIFE_MS: Record<ToastTone, number> = { ok: 4000, info: 5000, warn: 6000, error: 8000 };
-const ICON = { ok: CheckCircle2Icon, info: InfoIcon, warn: AlertTriangleIcon, error: XCircleIcon } as const;
-const ICON_TONE: Record<ToastTone, string> = { ok: 'text-success', info: 'text-info', warn: 'text-warning', error: 'text-destructive' };
+const ICON = { ok: CheckIcon, info: InfoIcon, warn: AlertTriangleIcon, error: XIcon } as const;
+/** The tone shows only in the small round chip (same look as the phone app); the card stays plain. */
+const ICON_TONE: Record<ToastTone, string> = {
+  ok: 'bg-success-soft text-success',
+  info: 'bg-info-soft text-info',
+  warn: 'bg-warning-soft text-warning',
+  error: 'bg-destructive-soft text-destructive',
+};
 
 /**
  * Short confirmations that something was done ("Saved"), shown in the corner and
@@ -64,17 +70,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div
               key={i.id}
               role={i.tone === 'error' ? 'alert' : 'status'}
-              className="pointer-events-auto flex w-full max-w-sm animate-in items-start gap-3 rounded-lg bg-card py-3 pr-2 pl-3.5 text-sm text-card-foreground shadow-float duration-200 fade-in-0 slide-in-from-bottom-2"
+              className="group pointer-events-auto flex w-fit max-w-sm animate-in items-center gap-2.5 rounded-2xl border border-border/70 bg-card py-1.5 pr-1.5 pl-1.5 text-[0.8125rem] text-card-foreground shadow-float duration-300 ease-smooth fade-in-0 zoom-in-95 slide-in-from-bottom-2"
             >
-              <Icon className={cn('mt-0.5 size-4 shrink-0', ICON_TONE[i.tone])} aria-hidden />
-              <div className="min-w-0 flex-1 font-medium break-words">{i.text}</div>
+              <span className={cn('grid size-7 shrink-0 place-items-center rounded-full', ICON_TONE[i.tone])} aria-hidden>
+                <Icon className="size-3.5" strokeWidth={2.5} />
+              </span>
+              <div className="min-w-0 flex-1 py-1 font-medium break-words">{i.text}</div>
+              {/* close: quiet until the toast is hovered or focused */}
               <button
                 type="button"
                 onClick={() => dismiss(i.id)}
                 aria-label={t('close')}
-                className="-my-1 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground opacity-60 transition outline-none group-hover:opacity-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <XIcon className="size-4" />
+                <XIcon className="size-3.5" />
               </button>
             </div>
           );

@@ -46,13 +46,16 @@ export function LoginPage() {
   return (
     <div className="grid min-h-svh bg-background lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
       {/* ── the hero: what TimberTrail is, and the product itself ── */}
-      <section className="relative isolate flex flex-col overflow-hidden bg-hero px-6 pt-10 pb-12 text-white sm:px-10 lg:min-h-svh lg:px-14 lg:pt-12 lg:pb-0">
+      <section className="relative isolate flex flex-col overflow-hidden bg-hero px-6 pt-10 pb-12 text-hero-foreground sm:px-10 lg:min-h-svh lg:px-14 lg:pt-12 lg:pb-0">
         {/* growth rings of a sawn log, faint, behind everything */}
-        <div className="pointer-events-none absolute -top-40 -left-40 -z-10 size-[720px] opacity-[0.07]" aria-hidden>
+        <div className="hero-rings pointer-events-none absolute -top-40 -left-40 -z-10 size-[720px] opacity-[0.07]" aria-hidden>
           <GrowthRings className="inset-0 size-full" />
         </div>
         {/* a soft saffron glow where the preview sits */}
-        <div className="pointer-events-none absolute right-[-10%] bottom-[-20%] -z-10 hidden size-[640px] rounded-full bg-brand/20 blur-3xl lg:block" aria-hidden />
+        <div
+          className="hero-glow pointer-events-none absolute right-[-10%] bottom-[-20%] -z-10 hidden size-[640px] rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--saffron),transparent_75%),transparent)] lg:block"
+          aria-hidden
+        />
 
         {/* the name leans toward the pointer like the preview below; the wordmark floats in front of the logo */}
         <Tilt className="w-fit" rest={{ x: 0, y: 0 }} max={9}>
@@ -64,12 +67,12 @@ export function LoginPage() {
           </div>
         </Tilt>
 
-        <div className="mt-10 max-w-xl animate-in duration-500 ease-smooth fade-in-0 slide-in-from-bottom-2 lg:mt-16">
-          <p className="text-xs font-semibold tracking-[0.18em] text-brand uppercase">{t('heroEyebrow')}</p>
+        <div className="stagger mt-10 max-w-xl lg:mt-16">
+          <p className="hero-sheen w-fit text-xs font-semibold tracking-[0.18em] text-brand uppercase">{t('heroEyebrow')}</p>
           <h1 className="mt-3 text-[2rem] leading-[1.1] font-semibold tracking-[-0.02em] text-balance sm:text-[2.5rem] lg:text-[3.25rem] font-display">{t('heroTitle')}</h1>
-          <p className="mt-5 max-w-lg text-[0.9375rem] leading-relaxed text-pretty text-white/75 sm:text-base">{t('heroSub')}</p>
+          <p className="mt-5 max-w-lg text-[0.9375rem] leading-relaxed text-pretty text-hero-muted sm:text-base">{t('heroSub')}</p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            <Button size="lg" onClick={toForm} className="bg-brand text-brand-foreground hover:bg-brand/90">
+            <Button size="lg" onClick={toForm} className="hero-cta bg-brand text-brand-foreground hover:bg-brand/90">
               {t('heroCta')}
               <ArrowRightIcon />
             </Button>
@@ -77,7 +80,7 @@ export function LoginPage() {
         </div>
 
         {/* the product, in perspective: from a tablet up, where it can be read */}
-        <div className="relative mt-12 hidden flex-1 items-end md:flex lg:mt-14" role="img" aria-label={t('heroPreview')}>
+        <div className="hero-preview-in relative mt-12 hidden flex-1 items-end md:flex lg:mt-14" role="img" aria-label={t('heroPreview')}>
           <HeroPreview />
         </div>
       </section>
@@ -278,8 +281,8 @@ function HeroPreview() {
                 <div className="mt-3 flex h-24 items-end gap-2.5">
                   {FLOW.map(([inn, out], i) => (
                     <div key={i} className="flex h-full flex-1 items-end gap-0.5">
-                      <span className="flex-1 rounded-t-sm bg-chart-1" style={{ height: `${(inn / max) * 100}%` }} />
-                      <span className="flex-1 rounded-t-sm bg-chart-2" style={{ height: `${(out / max) * 100}%` }} />
+                      <span className="hero-bar flex-1 rounded-t-sm bg-chart-1" style={{ height: `${(inn / max) * 100}%`, animationDelay: `${0.8 + i * 0.07}s` }} />
+                      <span className="hero-bar flex-1 rounded-t-sm bg-chart-2" style={{ height: `${(out / max) * 100}%`, animationDelay: `${0.85 + i * 0.07}s` }} />
                     </div>
                   ))}
                 </div>
@@ -290,6 +293,7 @@ function HeroPreview() {
 
         {/* ── a log being measured, floating in front at the lower left ── */}
         <div className="absolute -bottom-8 -left-8 w-56" style={{ transform: 'translateZ(70px)' }}>
+          <div className="hero-pop" style={{ animationDelay: '1.3s' }}>
           <div className="drift rounded-xl bg-card p-3.5 text-foreground shadow-pop">
             <div className="flex items-center gap-2 text-[0.6875rem] font-semibold">
               <span className="grid size-6 place-items-center rounded-md bg-brand/15 text-brand">
@@ -314,20 +318,23 @@ function HeroPreview() {
               </span>
             </div>
           </div>
+          </div>
         </div>
 
         {/* ── an entry waiting for approval, floating at the upper right ── */}
         <div className="absolute -top-7 -right-6 w-60" style={{ transform: 'translateZ(50px)' }}>
+          <div className="hero-pop" style={{ animationDelay: '1.05s' }}>
           <div className="drift-slow flex items-start gap-2.5 rounded-xl bg-card p-3 text-foreground shadow-pop">
             <span className="relative grid size-7 shrink-0 place-items-center rounded-lg bg-warning-soft text-warning">
               <BellIcon className="size-3.5" />
-              <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-brand ring-2 ring-card" />
+              <span className="hero-ping absolute -top-0.5 -right-0.5 size-2 rounded-full bg-brand ring-2 ring-card" />
             </span>
             <div className="min-w-0 text-[0.625rem] leading-snug">
               <div className="text-[0.6875rem] font-semibold">IMP-2026-0032</div>
               <div className="truncate text-muted-foreground">{t('waitingForApproval')}</div>
               <div className="mt-0.5 font-medium tabular-nums">844.381 CFT · Teak</div>
             </div>
+          </div>
           </div>
         </div>
       </div>

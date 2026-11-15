@@ -70,7 +70,7 @@ export function AccountsPage() {
   const [category, setCategory] = useState('');
   const pq = periodQuery(period);
   const summary = useLoad(() => api<Summary>(`/accounts/summary?${pq}`), [pq]);
-  const paging = usePaging();
+  const paging = usePaging(25, { remember: true });
   const cq = category ? `&category=${encodeURIComponent(category)}` : '';
   const expenses = useLoad(() => api<ExpenseList>(`/expenses?${pq}${cq}&take=${paging.take}&skip=${paging.skip}`), [pq, cq, paging.take, paging.skip]);
   const reloadAll = () => {
