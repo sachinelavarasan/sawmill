@@ -445,7 +445,7 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
               <div className="flex flex-col justify-between gap-4 rounded-lg bg-muted/60 p-5">
                 <div aria-live="polite">
                   <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('lineCft')}</div>
-                  <div className={cn('mt-1 text-[2rem] leading-tight font-semibold tracking-tight tabular-nums', liveCft == null && 'text-muted-foreground')}>
+                  <div className={cn('mt-1 text-[2rem] leading-tight font-semibold tracking-tight tabular-nums font-display', liveCft == null && 'text-muted-foreground')}>
                     {liveCft != null ? num3(liveCft) : '0.000'} <span className="text-sm font-medium tracking-normal text-muted-foreground">CFT</span>
                   </div>
                   <div className="mt-1 text-sm text-muted-foreground">

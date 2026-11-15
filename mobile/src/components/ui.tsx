@@ -32,14 +32,14 @@ export const SafeAreaView = withUniwind(RNSafeAreaView);
 // ───────── text ─────────
 
 export function H1({ children }: { children: ReactNode }) {
-  return <Text className="text-2xl font-bold tracking-tight text-foreground">{children}</Text>;
+  return <Text className="text-2xl font-bold tracking-tight text-foreground font-display">{children}</Text>;
 }
 
 /** Heading over a group, with an optional action on the right ("View all"). */
 export function SectionTitle({ children, right, action }: { children: ReactNode; right?: ReactNode; action?: { label: string; onPress: () => void } }) {
   return (
     <View className="mt-4 min-h-8 flex-row items-center gap-2">
-      <Text className="shrink text-base font-bold tracking-tight text-foreground" accessibilityRole="header">
+      <Text className="shrink text-base font-bold tracking-tight text-foreground font-display" accessibilityRole="header">
         {children}
       </Text>
       {right}
@@ -142,7 +142,7 @@ export function Kpi({
         <Text className="text-xs font-medium text-muted-foreground" numberOfLines={2}>
           {label}
         </Text>
-        <Text className={cn('text-[22px] font-bold tracking-tight tabular-nums', tone ? TONE_TEXT[tone] : 'text-foreground')} numberOfLines={1} adjustsFontSizeToFit>
+        <Text className={cn('text-[22px] font-bold tracking-tight tabular-nums font-display', tone ? TONE_TEXT[tone] : 'text-foreground')} numberOfLines={1} adjustsFontSizeToFit>
           {value}
           {unit ? <Text className="text-xs font-semibold text-muted-foreground"> {unit}</Text> : null}
         </Text>
@@ -170,11 +170,11 @@ export function StatPair({ a, b }: { a: { label: string; value: string | number 
     <View className="flex-row gap-3">
       <View className="flex-1 gap-1 rounded-2xl bg-background p-4">
         <Text className="text-xs font-medium text-muted-foreground">{a.label}</Text>
-        <Text className="text-2xl font-bold tracking-tight tabular-nums text-foreground">{a.value}</Text>
+        <Text className="text-2xl font-bold tracking-tight tabular-nums text-foreground font-display">{a.value}</Text>
       </View>
       <View className="flex-1 gap-1 rounded-2xl bg-hero p-4">
         <Text className="text-xs font-medium text-hero-muted">{b.label}</Text>
-        <Text className="text-2xl font-bold tracking-tight tabular-nums text-hero-foreground">{b.value}</Text>
+        <Text className="text-2xl font-bold tracking-tight tabular-nums text-hero-foreground font-display">{b.value}</Text>
       </View>
     </View>
   );
@@ -209,7 +209,7 @@ export function HeroCard({
       <View className="flex-row items-start gap-3">
         <View className="flex-1 gap-1">
           <Text className="text-[13px] font-medium text-hero-muted">{label}</Text>
-          <Text className={cn('font-bold tracking-tight tabular-nums text-hero-foreground', bare ? 'text-[36px]' : 'text-[30px]')} numberOfLines={1} adjustsFontSizeToFit>
+          <Text className={cn('font-bold tracking-tight tabular-nums text-hero-foreground font-display', bare ? 'text-[36px]' : 'text-[30px]')} numberOfLines={1} adjustsFontSizeToFit>
             {value}
             {unit ? <Text className="text-base font-semibold text-hero-muted"> {unit}</Text> : null}
           </Text>
@@ -986,7 +986,7 @@ export function EmptyState({ icon = 'inbox', title, body, action }: { icon?: Ico
       <View className="mb-2 h-16 w-16 items-center justify-center rounded-full bg-background">
         <Icon name={icon} size={24} colorClassName="accent-muted-foreground" />
       </View>
-      <Text className="text-center text-base font-semibold text-foreground">{title}</Text>
+      <Text className="text-center text-base font-bold text-foreground font-display">{title}</Text>
       {!!body && <Text className="text-center text-[13px] leading-[18px] text-muted-foreground">{body}</Text>}
       {action && <Button className="mt-2" size="md" kind="secondary" icon="plus" title={action.label} onPress={action.onPress} />}
     </Appear>

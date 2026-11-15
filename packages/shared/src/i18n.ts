@@ -809,6 +809,15 @@ const en = {
   dailyReminder: 'Daily reminder',
   dailyReminderSub: "A nudge each evening to finish the day's entries",
   remindAt: 'Remind me at',
+  // inbox, connection, measuring
+  markAllRead: 'Mark all read',
+  noNotificationsSub: 'Submissions, approvals and corrections will appear here.',
+  justNow: 'Just now',
+  minutesAgo: '{n} min ago',
+  hoursAgo: '{n} h ago',
+  connectionLost: 'No connection — retrying…',
+  backOnline: 'Back online',
+  recentLengths: 'Recent lengths',
 };
 
 export type Dict = typeof en;
@@ -1622,6 +1631,15 @@ const ta: Dict = {
   dailyReminder: 'தினசரி நினைவூட்டல்',
   dailyReminderSub: 'ஒவ்வொரு மாலையும் அன்றைய பதிவுகளை முடிக்க நினைவூட்டல்',
   remindAt: 'நினைவூட்ட வேண்டிய நேரம்',
+  // inbox, connection, measuring
+  markAllRead: 'அனைத்தையும் படித்ததாகக் குறி',
+  noNotificationsSub: 'சமர்ப்பிப்புகள், அங்கீகாரங்கள், திருத்தங்கள் இங்கே தோன்றும்.',
+  justNow: 'இப்போது',
+  minutesAgo: '{n} நிமிடம் முன்',
+  hoursAgo: '{n} மணி முன்',
+  connectionLost: 'இணைப்பு இல்லை — மீண்டும் முயல்கிறது…',
+  backOnline: 'இணைப்பு திரும்பியது',
+  recentLengths: 'சமீபத்திய நீளங்கள்',
 };
 
 export type Lang = 'en' | 'ta';

@@ -630,19 +630,19 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
         <Card className="gap-0 bg-primary py-6 text-primary-foreground lg:sticky lg:top-24 lg:order-last dark:bg-primary-soft dark:text-foreground">
           <CardContent className="px-6">
             <div className="text-sm font-medium opacity-80">{t('totalCft')}</div>
-            <div className="mt-2 text-5xl leading-none font-semibold tracking-[-0.03em] tabular-nums" aria-live="polite">
+            <div className="mt-2 text-5xl leading-none font-semibold tracking-[-0.03em] tabular-nums font-display" aria-live="polite">
               {num3(load.totalCft)}
               <span className="ml-2 text-base font-medium tracking-normal opacity-75">CFT</span>
             </div>
             <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-current/15 pt-4">
               <div>
                 <dt className="text-xs opacity-75">{t('logsMeasured')}</dt>
-                <dd className="mt-0.5 text-2xl leading-tight font-bold tabular-nums">{load.totalLogs}</dd>
+                <dd className="mt-0.5 text-2xl leading-tight font-bold tabular-nums font-display">{load.totalLogs}</dd>
               </div>
               {load.editable && (
                 <div>
                   <dt className="text-xs opacity-75">{t('nextLog')}</dt>
-                  <dd className="mt-0.5 text-2xl leading-tight font-bold tabular-nums">#{nextNo}</dd>
+                  <dd className="mt-0.5 text-2xl leading-tight font-bold tabular-nums font-display">#{nextNo}</dd>
                 </div>
               )}
             </dl>
@@ -704,13 +704,13 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
                   <div className="grid grid-cols-2 gap-3 rounded-lg bg-muted/60 px-4 py-3">
                     <div>
                       <div className="text-xs text-muted-foreground">{t('thisLog')}</div>
-                      <div className={cn('mt-0.5 text-2xl leading-tight font-bold tabular-nums', previewCft == null && 'text-muted-foreground')}>
+                      <div className={cn('mt-0.5 text-2xl leading-tight font-bold tabular-nums font-display', previewCft == null && 'text-muted-foreground')}>
                         {previewCft != null ? num3(previewCft) : '0.000'} <span className="text-sm font-medium text-muted-foreground">CFT</span>
                       </div>
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground">{t('totalAfterLog')}</div>
-                      <div className={cn('mt-0.5 text-2xl leading-tight font-bold tabular-nums', previewCft == null && 'text-muted-foreground')}>
+                      <div className={cn('mt-0.5 text-2xl leading-tight font-bold tabular-nums font-display', previewCft == null && 'text-muted-foreground')}>
                         {num3(previewCft != null ? totalCft([load.totalCft, previewCft]) : load.totalCft)} <span className="text-sm font-medium text-muted-foreground">CFT</span>
                       </div>
                     </div>

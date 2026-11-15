@@ -223,7 +223,7 @@ export default function ExportDetailScreen() {
           <NumberField label={t('pieces')} required decimals={0} value={pieces} onChangeText={setPieces} hint={chosen ? `${t('inStock')}: ${int(available)}` : undefined} error={over ? `${t('moreThanStock')}: ${int(available)}` : undefined} />
           <View className="flex-row items-center justify-between rounded-xl bg-saffron-soft px-4 py-3">
             <Text className="text-sm font-semibold text-warning">{t('lineCft')}</Text>
-            <Text className="text-xl font-bold tabular-nums text-warning">{num3(live ?? 0)} CFT</Text>
+            <Text className="text-xl font-bold tabular-nums text-warning font-display">{num3(live ?? 0)} CFT</Text>
           </View>
           {lineError && <ErrorBox message={lineError} />}
         </View>

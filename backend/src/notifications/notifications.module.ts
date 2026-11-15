@@ -13,14 +13,15 @@
  *
  * Optional: EXPO_ACCESS_TOKEN, if "enhanced push security" is turned on for the Expo project.
  */
-import { Body, Controller, Delete, Global, HttpCode, Injectable, Logger, Module, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Global, HttpCode, Injectable, Logger, Module, Post, Query } from '@nestjs/common';
+import { Type } from 'class-transformer';
 import { type Lang, Role, translate, type TKey } from '@timbertrail/shared';
-import { IsIn, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
-import { and, eq, inArray, ne } from 'drizzle-orm';
+import { ArrayMaxSize, IsArray, IsIn, IsInt, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
+import { and, count, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
 import { AuthenticatedOnly, CurrentUser } from '../common/decorators';
 import type { AuthUser } from '../common/types';
 import { Database, InjectDb } from '../db/db.module';
-import { exportLoads, importLoads, productionRuns, pushTokens, stockAdjustments, users } from '../db/schema';
+import { exportLoads, importLoads, notifications, productionRuns, pushTokens, stockAdjustments, users } from '../db/schema';
 
 export type WorkflowKind = 'IMPORT' | 'PRODUCTION' | 'EXPORT' | 'ADJUSTMENT';
 export type WorkflowAction = 'SUBMIT' | 'APPROVE' | 'REJECT';
@@ -73,6 +74,32 @@ export class NotificationsService {
     await this.db.delete(pushTokens).where(and(eq(pushTokens.token, token), eq(pushTokens.userId, actor.id)));
   }
 
+  // ───────── inbox ─────────
+
+  async inbox(actor: AuthUser, take: number, skip: number) {
+    const mine = eq(notifications.userId, actor.id);
+    const [items, [{ total }], [{ unread }]] = await Promise.all([
+      this.db.select().from(notifications).where(mine).orderBy(desc(notifications.createdAt), desc(notifications.id)).limit(take).offset(skip),
+      this.db.select({ total: count() }).from(notifications).where(mine),
+      this.db.select({ unread: count() }).from(notifications).where(and(mine, isNull(notifications.readAt))),
+    ]);
+    return { items, total, unread };
+  }
+
+  async unreadCount(actor: AuthUser) {
+    const [{ unread }] = await this.db.select({ unread: count() }).from(notifications).where(and(eq(notifications.userId, actor.id), isNull(notifications.readAt)));
+    return { unread };
+  }
+
+  /** Mark some (ids) or all of this person's notifications read. */
+  async markRead(actor: AuthUser, ids?: string[]) {
+    const mine = and(eq(notifications.userId, actor.id), isNull(notifications.readAt));
+    await this.db
+      .update(notifications)
+      .set({ readAt: new Date() })
+      .where(ids?.length ? and(mine, inArray(notifications.id, ids)) : mine);
+  }
+
   /** Fire-and-forget: call after the transaction that changed the record has committed. */
   workflow(actor: AuthUser, kind: WorkflowKind, id: string, action: WorkflowAction) {
     void this.sendWorkflow(actor, kind, id, action).catch((e: unknown) => this.logger.warn(`push for ${kind} ${id} ${action} failed: ${String(e)}`));
@@ -100,6 +127,20 @@ export class NotificationsService {
               .from(users)
               .where(and(eq(users.id, rec.createdById), eq(users.isActive, true)));
     if (!recipients.length) return;
+
+    // the inbox gets every event, whether or not the phone allows pushes
+    await this.db.insert(notifications).values(
+      recipients.map((r) => ({
+        millId: actor.millId,
+        userId: r.id,
+        kind,
+        recordId: id,
+        action,
+        code: rec.code,
+        actorName: actor.name,
+        reason: action === 'REJECT' ? rec.rejectionReason : null,
+      })),
+    );
 
     const tokens = await this.db
       .select({ token: pushTokens.token, userId: pushTokens.userId })
@@ -157,6 +198,16 @@ class TokenDto {
   platform?: string;
 }
 
+class InboxQuery {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) take = 30;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) skip = 0;
+}
+
+class MarkReadDto {
+  /** omit to mark everything read */
+  @IsOptional() @IsArray() @ArrayMaxSize(200) @IsUUID('all', { each: true }) ids?: string[];
+}
+
 class RemoveTokenDto {
   @IsString()
   @MaxLength(200)
@@ -179,6 +230,26 @@ export class NotificationsController {
   @AuthenticatedOnly()
   unregister(@CurrentUser() user: AuthUser, @Body() dto: RemoveTokenDto) {
     return this.notifications.unregister(user, dto.token);
+  }
+
+  /** My inbox, newest first, with the unread count. */
+  @Get()
+  @AuthenticatedOnly()
+  inbox(@CurrentUser() user: AuthUser, @Query() q: InboxQuery) {
+    return this.notifications.inbox(user, q.take, q.skip);
+  }
+
+  @Get('unread-count')
+  @AuthenticatedOnly()
+  unread(@CurrentUser() user: AuthUser) {
+    return this.notifications.unreadCount(user);
+  }
+
+  @Post('read')
+  @HttpCode(204)
+  @AuthenticatedOnly()
+  read(@CurrentUser() user: AuthUser, @Body() dto: MarkReadDto) {
+    return this.notifications.markRead(user, dto.ids);
   }
 }
 

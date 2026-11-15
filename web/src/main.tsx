@@ -17,6 +17,11 @@ import '@fontsource/inter/400.css';
 import '@fontsource/inter/500.css';
 import '@fontsource/inter/600.css';
 import '@fontsource/inter/700.css';
+// Manrope: display type (page titles, headings, the big figures) — same pairing as the Android app
+import '@fontsource/manrope/500.css';
+import '@fontsource/manrope/600.css';
+import '@fontsource/manrope/700.css';
+import '@fontsource/manrope/800.css';
 import '@fontsource/noto-sans-tamil/400.css';
 import '@fontsource/noto-sans-tamil/500.css';
 import '@fontsource/noto-sans-tamil/600.css';

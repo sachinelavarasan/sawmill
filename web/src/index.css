@@ -122,6 +122,8 @@
   --animate-progress: progress 1.1s ease-in-out infinite;
 
   --font-sans: Inter, 'Noto Sans Tamil', system-ui, -apple-system, sans-serif;
+  /* display type: titles, headings and headline figures (class `font-display`); Tamil falls back to Noto Sans Tamil */
+  --font-display: Manrope, Inter, 'Noto Sans Tamil', system-ui, -apple-system, sans-serif;
 }
 
 
@@ -143,6 +145,12 @@
     /* body text 14px; headings, tables and controls set their own */
     font-size: 0.875rem;
     -webkit-font-smoothing: antialiased;
+  }
+  /* Inter reads, Manrope speaks: every heading is display type */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
   }
   ::selection {
     background: color-mix(in oklab, var(--primary) 22%, transparent);

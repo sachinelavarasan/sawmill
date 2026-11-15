@@ -154,7 +154,7 @@ function Figure({ label, value, sub, filled, bad, children }: { label: string; v
     <Card className={cn('gap-0 py-6', filled && 'bg-primary text-primary-foreground dark:bg-primary-soft dark:text-foreground')}>
       <CardContent className="px-6">
         <div className={cn('text-sm font-medium', filled ? 'opacity-80' : 'text-muted-foreground')}>{label}</div>
-        <div className={cn('mt-2 text-4xl leading-none font-semibold tracking-[-0.03em] tabular-nums', bad && 'text-destructive')}>
+        <div className={cn('mt-2 text-4xl leading-none font-semibold tracking-[-0.03em] tabular-nums font-display', bad && 'text-destructive')}>
           {value}
           <span className={cn('ml-1.5 text-sm font-medium tracking-normal', filled ? 'opacity-75' : 'text-muted-foreground')}>CFT</span>
         </div>
@@ -457,7 +457,7 @@ function OutputsSection({ run, onChanged }: { run: ProductionDetail; onChanged: 
                 ).map(([label, value, bad]) => (
                   <div key={label}>
                     <div className="text-xs text-muted-foreground">{label}</div>
-                    <div className={cn('mt-0.5 text-2xl leading-tight font-bold tabular-nums', !live && 'text-muted-foreground', bad && 'text-destructive')}>
+                    <div className={cn('mt-0.5 text-2xl leading-tight font-bold tabular-nums font-display', !live && 'text-muted-foreground', bad && 'text-destructive')}>
                       {value != null ? num3(value) : '—'} <span className="text-sm font-medium text-muted-foreground">CFT</span>
                     </div>
                   </div>

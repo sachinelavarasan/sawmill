@@ -162,7 +162,7 @@ export function AccountantDashboard() {
                       <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', s.bar)} aria-hidden />
                       {s.label}
                     </dt>
-                    <dd className={cn('text-[1.625rem] leading-none font-semibold tracking-[-0.025em] tabular-nums sm:text-[2rem]', s.n > 0 && s.text)}>{s.n}</dd>
+                    <dd className={cn('text-[1.625rem] leading-none font-semibold tracking-[-0.025em] tabular-nums sm:text-[2rem] font-display', s.n > 0 && s.text)}>{s.n}</dd>
                   </div>
                 ))}
               </dl>

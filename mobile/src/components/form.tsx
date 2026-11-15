@@ -1,6 +1,7 @@
 /** Form building blocks: labelled inputs, numeric inputs with units, grouped sections, and the form screen shell. */
+import { KeyboardView } from './keyboard';
 import { Children, ReactNode, useState } from 'react';
-import { KeyboardAvoidingView, Pressable, ScrollView, type TextInputProps, View } from 'react-native';
+import { Pressable, ScrollView, type TextInputProps, View } from 'react-native';
 import { cleanDecimal, cleanInt } from '../lib/format';
 import { useT } from '../lib/i18n';
 import { SHEET_TOP, ScreenHeader, StickyFooter } from './header';
@@ -114,7 +115,7 @@ export function FormSection({
   const head = (
     <View className="flex-row items-center gap-2">
       <View className="flex-1 gap-0.5">
-        <Text className="text-base font-bold tracking-tight text-foreground">{title}</Text>
+        <Text className="text-base font-bold tracking-tight text-foreground font-display">{title}</Text>
         {!!subtitle && <Muted>{subtitle}</Muted>}
       </View>
       {collapsible && <Icon name={open ? 'chevron-up' : 'chevron-down'} size={20} colorClassName="accent-muted-foreground" />}
@@ -156,7 +157,7 @@ export function FormScreen({
   return (
     <View className="flex-1 bg-card">
       <ScreenHeader title={title} subtitle={subtitle} back onBack={onBack} />
-      <KeyboardAvoidingView behavior="padding" className="flex-1">
+      <KeyboardView>
         <ScrollView className="flex-1 bg-hero" contentContainerClassName="grow" keyboardShouldPersistTaps="handled">
           <View className="h-2" />
           <View className={cn('grow gap-4 px-4 pb-10 pt-6', SHEET_TOP)}>
@@ -165,7 +166,7 @@ export function FormScreen({
           </View>
         </ScrollView>
         {footer && <StickyFooter>{footer}</StickyFooter>}
-      </KeyboardAvoidingView>
+      </KeyboardView>
     </View>
   );
 }

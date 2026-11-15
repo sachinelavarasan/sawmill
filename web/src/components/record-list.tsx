@@ -131,7 +131,7 @@ export function StatusCards({ list, totalLabel }: { list: RecordList; totalLabel
             </span>
             <span className="min-w-0">
               <span className="line-clamp-2 text-[0.8125rem] leading-snug font-medium text-muted-foreground">{c.label}</span>
-              <span className="block text-[1.625rem] leading-tight font-semibold tracking-[-0.025em] tabular-nums">{list.counts[c.status]?.toLocaleString('en-IN') ?? '–'}</span>
+              <span className="block text-[1.625rem] leading-tight font-semibold tracking-[-0.025em] tabular-nums font-display">{list.counts[c.status]?.toLocaleString('en-IN') ?? '–'}</span>
             </span>
           </button>
         );

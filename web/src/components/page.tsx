@@ -62,7 +62,7 @@ export function PageHeader({
         )}
         {eyebrow && <div className="mb-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">{eyebrow}</div>}
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl leading-tight font-semibold tracking-tight text-balance sm:text-[1.75rem]">{title}</h1>
+          <h1 className="text-2xl leading-tight font-semibold tracking-tight text-balance sm:text-[1.75rem] font-display">{title}</h1>
           {badge}
         </div>
         {subtitle && <p className="mt-2 text-sm text-pretty text-muted-foreground">{subtitle}</p>}
@@ -286,7 +286,7 @@ export function FigureStrip({ items, className }: { items: { label: ReactNode; v
       {items.map((it, i) => (
         <div key={i} className="bg-card px-5 py-4 sm:px-6 sm:py-5">
           <div className="text-[0.8125rem] font-medium text-muted-foreground">{it.label}</div>
-          <div className={cn('mt-1 text-2xl leading-tight font-semibold tracking-tight tabular-nums', it.tone && toneText[it.tone])}>{it.value}</div>
+          <div className={cn('mt-1 text-2xl leading-tight font-semibold tracking-tight tabular-nums font-display', it.tone && toneText[it.tone])}>{it.value}</div>
         </div>
       ))}
     </Card>
@@ -737,7 +737,7 @@ export function EntryRow({
           {children}
           <div className="flex flex-col gap-1.5 sm:min-w-24">
             <span className="text-xs text-muted-foreground">{resultLabel}</span>
-            <strong className="text-2xl leading-[3rem] font-bold text-warning tabular-nums">{result}</strong>
+            <strong className="text-2xl leading-[3rem] font-bold text-warning tabular-nums font-display">{result}</strong>
           </div>
           <Button type="submit" size="lg" className="h-12 sm:flex-1 sm:basis-36" disabled={submitDisabled}>
             {submitLabel}
@@ -763,7 +763,7 @@ export function EntryFigure({ label, children }: { label: ReactNode; children: R
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <strong className="text-2xl leading-[3rem] font-bold tabular-nums">{children}</strong>
+      <strong className="text-2xl leading-[3rem] font-bold tabular-nums font-display">{children}</strong>
     </div>
   );
 }

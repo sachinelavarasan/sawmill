@@ -126,7 +126,7 @@ function Summary() {
             ]}
             center={
               <View className="items-center">
-                <Text className="text-xl font-bold tabular-nums text-foreground">{int(total)}</Text>
+                <Text className="text-xl font-bold tabular-nums text-foreground font-display">{int(total)}</Text>
                 <Text className="text-[11px] text-muted-foreground">{t('runs')}</Text>
               </View>
             }

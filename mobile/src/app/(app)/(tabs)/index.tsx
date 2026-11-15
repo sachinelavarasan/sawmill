@@ -90,7 +90,7 @@ function HomeHero({ pending, children }: { pending?: number; children?: ReactNod
           <Text className="text-[13px] text-hero-muted" numberOfLines={1}>
             {t(greetingKey())},
           </Text>
-          <Text className="text-xl font-bold tracking-tight text-hero-foreground" numberOfLines={1} accessibilityRole="header">
+          <Text className="text-xl font-bold tracking-tight text-hero-foreground font-display" numberOfLines={1} accessibilityRole="header">
             {user.name}
           </Text>
         </View>
@@ -473,7 +473,7 @@ function AccountantHome() {
             ]}
             center={
               <View className="items-center">
-                <Text className="text-xl font-bold tabular-nums text-foreground">{int(statusTotal)}</Text>
+                <Text className="text-xl font-bold tabular-nums text-foreground font-display">{int(statusTotal)}</Text>
                 <Text className="text-[11px] text-muted-foreground">{t('entries')}</Text>
               </View>
             }

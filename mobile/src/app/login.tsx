@@ -3,9 +3,10 @@
  * after that it opens straight on Sign in. Navy brand band on top, the form on a rounded
  * surface rising from the bottom, the Sign in button always above the keyboard.
  */
+import { KeyboardView } from '../components/keyboard';
 import { KEYS, getStored, setStored } from '../lib/storage';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandMark } from '../components/Brand';
 import { Field } from '../components/form';
@@ -63,7 +64,7 @@ function Welcome({ onContinue }: { onContinue: () => void }) {
           <BrandMark size="lg" tagline={t('appTagline')} />
         </Appear>
         <Appear index={2} className="gap-5">
-          <Text className="text-[26px] font-bold leading-[32px] tracking-tight text-hero-foreground">{t('welcomeHeadline')}</Text>
+          <Text className="text-[26px] font-bold leading-[32px] tracking-tight text-hero-foreground font-display">{t('welcomeHeadline')}</Text>
           <View className="gap-4">
             <Feature icon="ruler" text={t('loginFeature1')} />
             <Feature icon="check-circle" text={t('loginFeature2')} />
@@ -106,7 +107,7 @@ function SignIn() {
 
   return (
     <View className="flex-1 bg-hero">
-      <KeyboardAvoidingView className="flex-1" behavior="padding">
+      <KeyboardView>
         <ScrollView contentContainerClassName="grow" keyboardShouldPersistTaps="handled">
           {/* navy brand band: language + theme in the corners, the mark centred in the space left */}
           <View className="min-h-[260px] grow px-5 pb-10" style={{ paddingTop: insets.top + 8 }}>
@@ -122,7 +123,7 @@ function SignIn() {
           {/* keep the Sign in button clear of Android's edge-to-edge navigation bar */}
           <Appear index={1} className="gap-5 rounded-t-[28px] bg-card px-6 pt-8">
             <View className="gap-1">
-              <Text className="text-[26px] font-bold tracking-tight text-foreground">{t('loginWelcome')}</Text>
+              <Text className="text-[26px] font-bold tracking-tight text-foreground font-display">{t('loginWelcome')}</Text>
               <Text className="text-[15px] text-muted-foreground">{t('loginSub')}</Text>
             </View>
             <Field
@@ -157,7 +158,7 @@ function SignIn() {
             <View style={{ height: 8 + insets.bottom }} />
           </Appear>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardView>
     </View>
   );
 }

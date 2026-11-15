@@ -50,7 +50,7 @@ export function ScreenHeader({
       <View className={cn('flex-row items-center gap-1 px-2', large ? 'min-h-16 pl-5' : 'min-h-14')}>
         {back && <HeaderButton icon="arrow-left" label={t('back')} onPress={onBack ?? (() => router.back())} />}
         <View className={cn('flex-1', back && 'pl-1')}>
-          <Text className={cn('font-semibold text-hero-foreground', large ? 'text-[22px] font-bold tracking-tight' : 'text-[17px]')} numberOfLines={1} accessibilityRole="header">
+          <Text className={cn('font-semibold text-hero-foreground font-display', large ? 'text-[22px] font-bold tracking-tight font-display' : 'text-[17px]')} numberOfLines={1} accessibilityRole="header">
             {title}
           </Text>
           {!!subtitle && (

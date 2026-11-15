@@ -40,7 +40,7 @@ export default function SettingsScreen() {
           <Appear className="items-center gap-3 pb-1">
             <Avatar name={user.name} size="lg" tone="saffron" />
             <View className="items-center gap-1">
-              <Text className="text-xl font-bold tracking-tight text-hero-foreground">{user.name}</Text>
+              <Text className="text-xl font-bold tracking-tight text-hero-foreground font-display">{user.name}</Text>
               <Text className="text-[13px] text-hero-muted">
                 @{user.username} · {can(Permission.DASHBOARD_OWNER) ? t('owner') : t('accountant')}
               </Text>

@@ -86,7 +86,7 @@ export default function ReportScreen() {
           r && totals.length > 0 ? (
             <View className="gap-3">
               <Text className="text-[11px] font-semibold uppercase tracking-[1px] text-hero-muted">{r.totalLabel || t('total')}</Text>
-              <Text className="text-[34px] font-bold tracking-tight tabular-nums text-hero-foreground" numberOfLines={1} adjustsFontSizeToFit>
+              <Text className="text-[34px] font-bold tracking-tight tabular-nums text-hero-foreground font-display" numberOfLines={1} adjustsFontSizeToFit>
                 {fmt(r.totals[totals[0].key], totals[0].type)}
               </Text>
               <Text className="-mt-2 text-[13px] text-hero-muted">{totals[0].label}</Text>

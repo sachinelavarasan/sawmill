@@ -66,7 +66,7 @@ export function LoginPage() {
 
         <div className="mt-10 max-w-xl animate-in duration-500 ease-smooth fade-in-0 slide-in-from-bottom-2 lg:mt-16">
           <p className="text-xs font-semibold tracking-[0.18em] text-brand uppercase">{t('heroEyebrow')}</p>
-          <h1 className="mt-3 text-[2rem] leading-[1.1] font-semibold tracking-[-0.02em] text-balance sm:text-[2.5rem] lg:text-[3.25rem]">{t('heroTitle')}</h1>
+          <h1 className="mt-3 text-[2rem] leading-[1.1] font-semibold tracking-[-0.02em] text-balance sm:text-[2.5rem] lg:text-[3.25rem] font-display">{t('heroTitle')}</h1>
           <p className="mt-5 max-w-lg text-[0.9375rem] leading-relaxed text-pretty text-white/75 sm:text-base">{t('heroSub')}</p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <Button size="lg" onClick={toForm} className="bg-brand text-brand-foreground shadow-[0_8px_24px_-8px_rgb(229_160_0/0.6)] hover:bg-brand/90">
@@ -102,7 +102,7 @@ export function LoginPage() {
               <div className="h-1 bg-[linear-gradient(90deg,var(--saffron),color-mix(in_oklab,var(--saffron),transparent_70%))]" aria-hidden />
               <div className="px-7 pt-8 pb-8 sm:px-9 sm:pt-9">
                 <LogoMark variant="auto" className="size-14 shadow-[0_0_0_1px_rgb(15_23_42/0.06),0_8px_18px_-8px_rgb(15_23_42/0.35)]" />
-                <h2 className="mt-5 text-2xl font-semibold tracking-[-0.02em]">{t('loginWelcome')}</h2>
+                <h2 className="mt-5 text-2xl font-semibold tracking-[-0.02em] font-display">{t('loginWelcome')}</h2>
                 <p className="mt-1.5 text-sm text-muted-foreground">{t('loginSub')}</p>
 
                 <form onSubmit={submit} className="mt-7 grid gap-5">

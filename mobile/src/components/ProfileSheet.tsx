@@ -32,7 +32,7 @@ export const ProfileSheet = forwardRef<SheetHandle>(function ProfileSheet(_, ref
           <View className="flex-row items-center gap-3.5">
             <Avatar name={user.name} size="lg" tone="saffron" />
             <View className="flex-1 gap-0.5">
-              <Text className="text-lg font-bold tracking-tight text-hero-foreground" numberOfLines={1}>
+              <Text className="text-lg font-bold tracking-tight text-hero-foreground font-display" numberOfLines={1}>
                 {user.name}
               </Text>
               <Text className="text-[13px] text-hero-muted" numberOfLines={1}>

@@ -201,7 +201,7 @@ export default function AdjustmentFormScreen() {
             )}
             <View className="flex-row items-center justify-between rounded-xl bg-saffron-soft px-4 py-3">
               <Text className="text-sm font-semibold text-warning">{t('change')}</Text>
-              <Text className="text-xl font-bold tabular-nums text-warning">{liveCft != null ? signed3(liveCft) : '0.000'} CFT</Text>
+              <Text className="text-xl font-bold tabular-nums text-warning font-display">{liveCft != null ? signed3(liveCft) : '0.000'} CFT</Text>
             </View>
           </FormSection>
 

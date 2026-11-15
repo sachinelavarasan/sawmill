@@ -25,6 +25,8 @@ GET /health                                      public
 GET /imports                                     operations:create
 GET /imports/:id                                 operations:create
 GET /imports/:id/financials                      operations:create + finance:view   [owner only]
+GET /notifications                               login
+GET /notifications/unread-count                  login
 GET /production                                  operations:create
 GET /production/:id                              operations:create
 GET /reports                                     login
@@ -66,6 +68,7 @@ POST /imports/:id/logs                           operations:create
 POST /imports/:id/reject                         operations:approve   [owner only]
 POST /imports/:id/submit                         operations:submit
 POST /imports/:id/unloading                      operations:create
+POST /notifications/read                         login
 POST /notifications/tokens                       login
 POST /production                                 operations:create
 POST /production/:id/approve                     operations:approve   [owner only]

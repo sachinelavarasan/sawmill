@@ -142,7 +142,7 @@ function StockSummary({ icon, label, cft, color, figure }: { icon: ReactNode; la
             {icon}
             {label}
           </div>
-          <div className="mt-2 text-[2rem] leading-none font-semibold tracking-[-0.025em] whitespace-nowrap tabular-nums">
+          <div className="mt-2 text-[2rem] leading-none font-semibold tracking-[-0.025em] whitespace-nowrap tabular-nums font-display">
             {num3(cft)}
             <span className="ml-1.5 text-sm font-medium tracking-normal text-muted-foreground">CFT</span>
           </div>

@@ -176,7 +176,7 @@ export default function MeasureScreen() {
               ].map((x) => (
                 <View key={x.label} className={x.big ? 'flex-1 gap-1' : 'gap-1'}>
                   <Text className="text-[13px] text-hero-muted">{x.label}</Text>
-                  <Text className={x.big ? 'text-[34px] font-bold tracking-tight tabular-nums text-hero-foreground' : 'text-[34px] font-bold tracking-tight tabular-nums text-saffron'}>{x.value}</Text>
+                  <Text className={x.big ? 'text-[34px] font-bold tracking-tight tabular-nums text-hero-foreground font-display' : 'text-[34px] font-bold tracking-tight tabular-nums text-saffron font-display'}>{x.value}</Text>
                 </View>
               ))}
             </View>
@@ -188,11 +188,11 @@ export default function MeasureScreen() {
           {load.editable && (
             <View className="gap-3 rounded-2xl bg-background p-4">
               <View className="flex-row items-baseline justify-between">
-                <Text className="text-lg font-bold text-foreground">
+                <Text className="text-lg font-bold text-foreground font-display">
                   {editing ? t('edit') : t('thisLog')} · {t('logNo')}
                   {currentNo}
                 </Text>
-                <Text className="text-[22px] font-bold tabular-nums text-warning" accessibilityLiveRegion="polite" accessibilityLabel={`CFT ${num3(liveCft ?? 0)}`}>
+                <Text className="text-[22px] font-bold tabular-nums text-warning font-display" accessibilityLiveRegion="polite" accessibilityLabel={`CFT ${num3(liveCft ?? 0)}`}>
                   {num3(liveCft ?? 0)}
                   <Text className="text-sm text-muted-foreground"> CFT</Text>
                 </Text>
@@ -213,7 +213,7 @@ export default function MeasureScreen() {
                       className={cn('min-h-[88px] flex-1 justify-between rounded-xl border-2 px-3.5 py-2.5', on ? 'border-saffron bg-saffron-soft' : 'border-border bg-background')}
                     >
                       <Text className="text-[13px] font-semibold text-muted-foreground">{label}</Text>
-                      <Text className={cn('text-[34px] font-bold tabular-nums', value ? 'text-foreground' : 'text-muted-foreground')}>
+                      <Text className={cn('text-[34px] font-bold tabular-nums font-display', value ? 'text-foreground' : 'text-muted-foreground')}>
                         {value || '0'}
                         <Text className="text-base font-semibold text-muted-foreground">{f === 'girth' ? ' in' : ' ft'}</Text>
                       </Text>

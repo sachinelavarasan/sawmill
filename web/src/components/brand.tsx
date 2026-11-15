@@ -95,7 +95,7 @@ export function Wordmark3D({ className }: { className?: string }) {
   };
 
   return (
-    <span ref={root} role="img" aria-label={name} onPointerMove={move} onPointerLeave={leave} className={cn('wordmark-3d font-extrabold tracking-[-0.01em] select-none', className)}>
+    <span ref={root} role="img" aria-label={name} onPointerMove={move} onPointerLeave={leave} className={cn('wordmark-3d font-display font-extrabold tracking-[-0.01em] select-none', className)}>
       {[...name].map((ch, i) => (
         <span key={i} aria-hidden className={i < 6 ? 'wm-light' : 'wm-brand'}>
           {ch}

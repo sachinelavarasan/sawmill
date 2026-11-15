@@ -4,8 +4,9 @@
  *   const prompt = usePrompt();     const reason = await prompt({ title, minLength: 3 });
  * One host at the app root renders whichever is open.
  */
+import { KeyboardView } from './keyboard';
 import { createContext, ReactNode, useCallback, useContext, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Pressable, View } from 'react-native';
+import { Modal, Pressable, View } from 'react-native';
 import { Text, TextInput } from './text';
 import { useT } from '../lib/i18n';
 import Animated, { ZoomIn } from 'react-native-reanimated';
@@ -72,10 +73,10 @@ function DialogView({ open, onClose }: { open: Open; onClose: (v: boolean | stri
 
   return (
     <Modal transparent visible animationType="fade" statusBarTranslucent navigationBarTranslucent onRequestClose={() => onClose(isPrompt ? null : false)}>
-      <KeyboardAvoidingView behavior="padding" className="flex-1">
+      <KeyboardView>
         <View className="flex-1 items-center justify-center bg-black/50 px-6">
           <AnimatedCard entering={ZoomIn.springify().damping(18).stiffness(260).withInitialValues({ transform: [{ scale: 0.92 }] })} className="w-full max-w-[420px] gap-4 rounded-3xl border border-border bg-card p-6 shadow-lg" accessibilityViewIsModal>
-            <Text className="text-lg font-bold tracking-tight text-foreground" accessibilityRole="header">
+            <Text className="text-lg font-bold tracking-tight text-foreground font-display" accessibilityRole="header">
               {o.title}
             </Text>
             {!!o.message && <Text className="text-[15px] leading-[22px] text-muted-foreground">{o.message}</Text>}
@@ -113,7 +114,7 @@ function DialogView({ open, onClose }: { open: Open; onClose: (v: boolean | stri
             </View>
           </AnimatedCard>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardView>
     </Modal>
   );
 }

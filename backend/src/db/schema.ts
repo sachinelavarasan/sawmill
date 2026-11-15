@@ -147,6 +147,32 @@ export const pushTokens = pgTable(
   (t) => [index('push_tokens_user_idx').on(t.userId)],
 );
 
+/**
+ * The in-app inbox: one row per person per workflow event that concerns them (the same events
+ * that send a push). Stored as data, not text, so the app shows it in the reader's language.
+ */
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: id(),
+    millId: millRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** IMPORT | PRODUCTION | EXPORT | ADJUSTMENT */
+    kind: text('kind').notNull(),
+    recordId: uuid('record_id').notNull(),
+    /** SUBMIT | APPROVE | REJECT */
+    action: text('action').notNull(),
+    code: text('code').notNull(),
+    actorName: text('actor_name').notNull(),
+    reason: text('reason'),
+    readAt: ts('read_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('notifications_user_created_idx').on(t.userId, t.createdAt)],
+);
+
 /** [OWNER-ONLY] Every important action, with before/after snapshots. */
 export const auditLogs = pgTable(
   'audit_logs',

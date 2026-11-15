@@ -50,7 +50,7 @@ export const Sheet = forwardRef<SheetHandle, { title?: string; children: ReactNo
       [],
     );
     const head = title ? (
-      <Text className="px-5 pb-4 pt-1 text-lg font-bold tracking-tight text-foreground" accessibilityRole="header">
+      <Text className="px-5 pb-4 pt-1 text-lg font-bold tracking-tight text-foreground font-display" accessibilityRole="header">
         {title}
       </Text>
     ) : null;
@@ -245,7 +245,7 @@ export const SelectSheet = forwardRef<
         contentContainerStyle={{ paddingBottom: 20 + insets.bottom }}
         ListHeaderComponent={
           <View className="gap-3 px-5 pb-2">
-            <Text className="text-lg font-bold text-foreground" accessibilityRole="header">
+            <Text className="text-lg font-bold text-foreground font-display" accessibilityRole="header">
               {title}
             </Text>
             {searchable && (
@@ -319,7 +319,7 @@ function useCalendarTheme() {
     textMonthFontSize: 16,
     textDayHeaderFontSize: 12,
     textDayFontFamily: 'Inter_500Medium',
-    textMonthFontFamily: 'Inter_700Bold',
+    textMonthFontFamily: 'Manrope_700Bold',
     textDayHeaderFontFamily: 'Inter_600SemiBold',
   };
 }

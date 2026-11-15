@@ -252,7 +252,7 @@ export function ApprovalsPage() {
                     <c.icon aria-hidden strokeWidth={1.75} />
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-[1.625rem] leading-tight font-semibold tracking-[-0.025em] tabular-nums">{c.count}</span>
+                    <span className="block text-[1.625rem] leading-tight font-semibold tracking-[-0.025em] tabular-nums font-display">{c.count}</span>
                     <span className="line-clamp-2 text-[0.8125rem] leading-snug font-medium text-muted-foreground">{c.label}</span>
                   </span>
                 </button>

@@ -12,7 +12,7 @@ export function BrandMark({ size = 'md', onDark = true, tagline }: { size?: 'sm'
     <View className={cn(row ? 'flex-row items-center gap-2.5' : 'items-center gap-3')} accessible accessibilityRole="header" accessibilityLabel={`${WORDMARK.main}${WORDMARK.accent}`}>
       <Image source={require('../../assets/icon-dark.png')} className={icon} resizeMode="contain" accessible={false} />
       <View className={cn(!row && 'items-center gap-1')}>
-        <Text className={cn('font-extrabold tracking-tight', word)}>
+        <Text className={cn('font-extrabold tracking-tight font-display', word)}>
           <Text className={onDark ? 'text-hero-foreground' : 'text-foreground'}>{WORDMARK.main}</Text>
           <Text className="text-saffron">{WORDMARK.accent}</Text>
         </Text>
