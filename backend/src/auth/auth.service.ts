@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { ROLE_PERMISSIONS } from '@sawmill/shared';
+import { ROLE_PERMISSIONS } from '@timbertrail/shared';
 import * as bcrypt from 'bcryptjs';
 import { createHash, randomBytes } from 'crypto';
 import { and, count, eq, gt, inArray, isNull, max, sql } from 'drizzle-orm';

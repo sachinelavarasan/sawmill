@@ -50,7 +50,7 @@ export default function ExpenseFormScreen() {
 
   const [save, busy, error] = useSubmit(async () => {
     const body = { date: f.date, category: f.category.trim(), amount, importLoadId: f.importLoadId || null, notes: f.notes.trim() };
-    await api(id ? `/expenses/${id}` : '/expenses', { method: id ? 'PATCH' : 'POST', body: JSON.stringify(body) });
+    await api(id ? `/expenses/${id}` : '/expenses', { method: id ? 'PATCH' : 'POST', body: body });
     release();
     await invalidate('/expenses', '/accounts', '/dashboard');
     toast(t('saved'));

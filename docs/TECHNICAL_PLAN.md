@@ -28,7 +28,7 @@ packages/shared  → roles, permissions, approval statuses, CFT formulas
 | Backend  | NestJS 10, Drizzle ORM + drizzle-kit migrations, PostgreSQL 16, JWT (access + rotating refresh), bcrypt, Helmet, rate-limited login |
 | Web      | React 18 + Vite + TypeScript, React Router, built-in EN/TA i18n |
 | Mobile   | Expo SDK 52 (React Native), expo-secure-store for tokens      |
-| Shared   | `@sawmill/shared` TypeScript package                         |
+| Shared   | `@timbertrail/shared` TypeScript package                         |
 
 ### Multi-sawmill (multi-tenant) design
 Every business table carries `millId`. The mill is taken from the logged-in

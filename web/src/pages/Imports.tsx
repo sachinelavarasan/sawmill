@@ -1,4 +1,4 @@
-import { durationMinutes, formatDuration, Permission, unloadingCharges } from '@sawmill/shared';
+import { durationMinutes, formatDuration, Permission, unloadingCharges } from '@timbertrail/shared';
 import { PlusIcon, RulerIcon, SaveIcon } from 'lucide-react';
 import { FormEvent, ReactNode, useId, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';

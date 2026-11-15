@@ -1,9 +1,8 @@
 /** English / Tamil. The words themselves live in packages/shared so web and Android agree. */
-import { translate, type Lang, type TKey } from '@sawmill/shared';
-import * as SecureStore from 'expo-secure-store';
+import { translate, type Lang, type TKey } from '@timbertrail/shared';
+import { KEYS, getStored, setStored } from './storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-const LANG_KEY = 'sawmill_lang';
 const isLang = (v: unknown): v is Lang => v === 'en' || v === 'ta';
 
 const LangCtx = createContext<{ lang: Lang; setLang: (l: Lang) => void; adopt: (l: string) => void }>({
@@ -18,7 +17,7 @@ export function LangProvider({ children }: { children: ReactNode }) {
   const [chosen, setChosen] = useState(false);
 
   useEffect(() => {
-    SecureStore.getItemAsync(LANG_KEY)
+    getStored(KEYS.lang)
       .then((v) => {
         if (isLang(v)) {
           setLangState(v);
@@ -31,7 +30,7 @@ export function LangProvider({ children }: { children: ReactNode }) {
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
     setChosen(true);
-    SecureStore.setItemAsync(LANG_KEY, l).catch(() => undefined);
+    setStored(KEYS.lang, l).catch(() => undefined);
   }, []);
 
   /** Use the account's preferred language unless one was picked on this phone. */

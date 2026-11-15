@@ -3,10 +3,11 @@
  * totals, approval, lorry details and (owner) the sale. Lines are picked from what is in
  * stock for this wood type; CFT = T × W × L × pieces / 144 (shared formula, 3 decimals).
  */
-import { exportPieceCft, Permission, sizeLabel } from '@sawmill/shared';
+import { exportPieceCft, Permission, sizeLabel } from '@timbertrail/shared';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Text } from '../../../../components/text';
 import { useConfirm } from '../../../../components/confirm';
 import { NumberField } from '../../../../components/form';
 import { HeaderButton, Page, ScreenHeader } from '../../../../components/header';
@@ -72,7 +73,7 @@ export default function ExportDetailScreen() {
 
   const [saveLine, saving, lineError] = useSubmit(async () => {
     if (!exp || !chosen || !okPieces) return;
-    const body = JSON.stringify({ importLoadId: chosen.importLoadId ?? undefined, thicknessIn: chosen.thicknessIn, widthIn: chosen.widthIn, lengthFt: chosen.lengthFt, pieces: N });
+    const body = { importLoadId: chosen.importLoadId ?? undefined, thicknessIn: chosen.thicknessIn, widthIn: chosen.widthIn, lengthFt: chosen.lengthFt, pieces: N };
     if (editing) await api(`/exports/${exp.id}/measurements/${editing.id}`, { method: 'PATCH', body });
     else await api(`/exports/${exp.id}/measurements`, { method: 'POST', body });
     await q.refetch();

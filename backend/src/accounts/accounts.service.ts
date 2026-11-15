@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { roundTo } from '@sawmill/shared';
+import { roundTo } from '@timbertrail/shared';
 import { and, asc, count, desc, eq, gte, lt, lte, sql, sum } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { millOffsetMinutes, Period, PeriodQuery, resolvePeriod } from '../common/period';
@@ -42,7 +42,7 @@ export class AccountsService {
         .leftJoin(importLoads, eq(importLoads.id, expenses.importLoadId))
         .innerJoin(users, eq(users.id, expenses.createdById))
         .where(where)
-        .orderBy(desc(expenses.date), desc(expenses.createdAt))
+        .orderBy(desc(expenses.date), desc(expenses.createdAt), desc(expenses.id))
         .limit(q.take)
         .offset(q.skip),
       this.db.select({ total: count(), amount: sum(expenses.amount) }).from(expenses).where(where),

@@ -1,4 +1,4 @@
-import { exportPieceCft, Permission, sizeLabel } from '@sawmill/shared';
+import { exportPieceCft, Permission, sizeLabel } from '@timbertrail/shared';
 import { AlertTriangleIcon, CheckIcon, PackageIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';

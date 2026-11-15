@@ -1,4 +1,4 @@
-import { sizeLabel } from '@sawmill/shared';
+import { sizeLabel } from '@timbertrail/shared';
 import { ArrowDownToLineIcon, ArrowUpFromLineIcon, CheckCheckIcon, ClockIcon, EyeIcon, FactoryIcon, LayersIcon, type LucideIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';

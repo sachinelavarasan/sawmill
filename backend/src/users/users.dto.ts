@@ -1,4 +1,4 @@
-import { Role } from '@sawmill/shared';
+import { Role } from '@timbertrail/shared';
 import {
   IsBoolean,
   IsIn,

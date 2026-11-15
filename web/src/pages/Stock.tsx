@@ -2,7 +2,7 @@
  * Stock — the reference page for the shadcn/ui migration. Built only from
  * src/components/ui, src/components/page.tsx and Tailwind classes.
  */
-import { exportPieceCft, Permission, sizeLabel } from '@sawmill/shared';
+import { exportPieceCft, Permission, sizeLabel } from '@timbertrail/shared';
 import { ArrowDownLeftIcon, ArrowDownToLineIcon, ArrowUpFromLineIcon, ArrowUpRightIcon, BoxesIcon, ChevronDownIcon, HistoryIcon, LayersIcon, type LucideIcon, PackageIcon, PlusIcon, ScissorsIcon, SlidersHorizontalIcon, TruckIcon, XIcon } from 'lucide-react';
 import { FormEvent, Fragment, ReactNode, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';

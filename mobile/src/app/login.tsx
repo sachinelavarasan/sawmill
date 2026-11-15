@@ -1,14 +1,87 @@
-import { useState } from 'react';
-import { Image, KeyboardAvoidingView, ScrollView, Text, View } from 'react-native';
+/**
+ * Logged out. First launch on a phone shows a short welcome (what the app does, Get started);
+ * after that it opens straight on Sign in. Navy brand band on top, the form on a rounded
+ * surface rising from the bottom, the Sign in button always above the keyboard.
+ */
+import { KEYS, getStored, setStored } from '../lib/storage';
+import { useEffect, useState } from 'react';
+import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BrandMark } from '../components/Brand';
 import { Field } from '../components/form';
-import { Button, ErrorBox, LangToggle, ThemeToggle } from '../components/ui';
+import { Appear } from '../components/motion';
+import { Text } from '../components/text';
+import { Button, cn, ErrorBox, Icon, type IconName, LangPills, ThemeToggle } from '../components/ui';
 import { ApiError } from '../lib/api';
 import { useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
 
-/** Slate hero with the TimberTrail mark, the form as a white sheet rising from the bottom. */
+
 export default function LoginScreen() {
+  // null until we know whether this phone has seen the welcome
+  const [step, setStep] = useState<'welcome' | 'signin' | null>(null);
+  useEffect(() => {
+    getStored(KEYS.welcomed)
+      .then((v) => setStep(v ? 'signin' : 'welcome'))
+      .catch(() => setStep('signin'));
+  }, []);
+
+  if (!step) return <View className="flex-1 bg-hero" />;
+  return step === 'welcome' ? (
+    <Welcome
+      onContinue={() => {
+        setStored(KEYS.welcomed, '1').catch(() => undefined);
+        setStep('signin');
+      }}
+    />
+  ) : (
+    <SignIn />
+  );
+}
+
+function Feature({ icon, text }: { icon: IconName; text: string }) {
+  return (
+    <View className="flex-row items-center gap-3.5">
+      <View className="h-10 w-10 items-center justify-center rounded-xl bg-hero-chip">
+        <Icon name={icon} size={19} colorClassName="accent-saffron" />
+      </View>
+      <Text className="flex-1 text-[15px] font-medium text-hero-foreground">{text}</Text>
+    </View>
+  );
+}
+
+function Welcome({ onContinue }: { onContinue: () => void }) {
+  const t = useT();
+  const insets = useSafeAreaInsets();
+  return (
+    <View className="flex-1 bg-hero" style={{ paddingTop: insets.top, paddingBottom: insets.bottom + 20 }}>
+      <View className="flex-row justify-end px-4 pt-2">
+        <ThemeToggle onDark />
+      </View>
+      <View className="flex-1 justify-center gap-12 px-7">
+        <Appear index={0}>
+          <BrandMark size="lg" tagline={t('appTagline')} />
+        </Appear>
+        <Appear index={2} className="gap-5">
+          <Text className="text-[26px] font-bold leading-[32px] tracking-tight text-hero-foreground">{t('welcomeHeadline')}</Text>
+          <View className="gap-4">
+            <Feature icon="ruler" text={t('loginFeature1')} />
+            <Feature icon="check-circle" text={t('loginFeature2')} />
+            <Feature icon="bar-chart-2" text={t('loginFeature3')} />
+          </View>
+        </Appear>
+      </View>
+      <Appear index={4} className="gap-3 px-6">
+        <Button title={t('getStarted')} icon="arrow-right" onPress={onContinue} />
+        <View className="items-center">
+          <LangPills onDark />
+        </View>
+      </Appear>
+    </View>
+  );
+}
+
+function SignIn() {
   const t = useT();
   const { login } = useSession();
   const insets = useSafeAreaInsets();
@@ -26,7 +99,7 @@ export default function LoginScreen() {
       await login(username.trim(), password); // the root layout then swaps to the app
     } catch (e) {
       const err = e as ApiError;
-      setError(err.status === 401 ? t('loginWrong') : err.status === 429 || err.status === 423 ? t('loginLocked') : err.status === 0 ? t('offline') : err.message);
+      setError(err.status === 401 ? t('loginWrong') : err.status === 429 || err.status === 423 ? t('loginLocked') : err.status === 0 ? (__DEV__ ? `${t('offline')} — ${err.message}` : t('offline')) : err.message);
       setBusy(false);
     }
   }
@@ -35,23 +108,23 @@ export default function LoginScreen() {
     <View className="flex-1 bg-hero">
       <KeyboardAvoidingView className="flex-1" behavior="padding">
         <ScrollView contentContainerClassName="grow" keyboardShouldPersistTaps="handled">
-          <View className="min-h-[240px] grow items-center justify-center gap-2 px-8" style={{ paddingTop: insets.top + 24 }}>
-            <Image source={require('../../assets/icon-dark.png')} className="mb-2 h-20 w-20" accessible={false} />
-            <Text className="text-3xl font-bold tracking-wide text-hero-foreground">TimberTrail</Text>
-            <Text className="text-[15px] text-hero-muted">{t('appTagline')}</Text>
+          {/* navy brand band: language + theme in the corners, the mark centred in the space left */}
+          <View className="min-h-[260px] grow px-5 pb-10" style={{ paddingTop: insets.top + 8 }}>
+            <View className="flex-row items-center justify-between">
+              <LangPills onDark />
+              <ThemeToggle onDark />
+            </View>
+            <Appear className="flex-1 items-center justify-center pt-6">
+              <BrandMark size="lg" tagline={t('appTagline')} />
+            </Appear>
           </View>
 
           {/* keep the Sign in button clear of Android's edge-to-edge navigation bar */}
-          <View className="gap-4 rounded-t-3xl bg-card px-6 pt-7" style={{ paddingBottom: 32 + insets.bottom }}>
-            <View className="flex-row items-start justify-between gap-3">
-              <View className="flex-1 gap-0.5">
-                <Text className="text-[22px] font-bold text-foreground">{t('loginWelcome')}</Text>
-                <Text className="text-[13px] text-muted-foreground">{t('loginSub')}</Text>
-              </View>
-              <ThemeToggle />
+          <Appear index={1} className="gap-5 rounded-t-[28px] bg-card px-6 pt-8">
+            <View className="gap-1">
+              <Text className="text-[26px] font-bold tracking-tight text-foreground">{t('loginWelcome')}</Text>
+              <Text className="text-[15px] text-muted-foreground">{t('loginSub')}</Text>
             </View>
-            <LangToggle />
-
             <Field
               label={t('username')}
               value={username}
@@ -62,23 +135,27 @@ export default function LoginScreen() {
               textContentType="username"
               returnKeyType="next"
             />
-            <Field
-              label={t('password')}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!show}
-              autoComplete="password"
-              textContentType="password"
-              onSubmitEditing={submit}
-              returnKeyType="go"
-            />
-            <Text onPress={() => setShow((s) => !s)} accessibilityRole="button" className="-mt-2 self-end py-1 text-[13px] font-semibold text-primary">
-              {show ? t('hidePassword') : t('showPassword')}
-            </Text>
+            <View className="gap-2">
+              <Field
+                label={t('password')}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!show}
+                autoComplete="password"
+                textContentType="password"
+                onSubmitEditing={submit}
+                returnKeyType="go"
+              />
+              <Pressable onPress={() => setShow((s) => !s)} accessibilityRole="button" className="min-h-10 flex-row items-center gap-1.5 self-end px-1">
+                <Icon name={show ? 'eye-off' : 'eye'} size={16} colorClassName="accent-muted-foreground" />
+                <Text className="text-[13px] font-semibold text-muted-foreground">{show ? t('hidePassword') : t('showPassword')}</Text>
+              </Pressable>
+            </View>
 
             {error && <ErrorBox message={error} />}
-            <Button title={busy ? t('signingIn') : t('signIn')} onPress={submit} busy={busy} disabled={!username || !password} />
-          </View>
+            <Button title={busy ? t('signingIn') : t('signIn')} icon={busy ? undefined : 'arrow-right'} onPress={submit} busy={busy} disabled={!username || !password} />
+            <View style={{ height: 8 + insets.bottom }} />
+          </Appear>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>

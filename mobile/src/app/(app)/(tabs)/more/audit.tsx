@@ -1,15 +1,16 @@
 /** [OWNER-ONLY] Who did what, and when. Read-only; filter by record type. */
-import type { TKey } from '@sawmill/shared';
+import type { TKey } from '@timbertrail/shared';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, ScrollView, Text, View } from 'react-native';
-import { ScreenHeader } from '../../../../components/header';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { Text } from '../../../../components/text';
+import { ScreenHeader, SheetList } from '../../../../components/header';
 import { Chip, EmptyState, ErrorBox, Icon, Muted, Pill, PressableCard, refresher, SkeletonList, type Tone } from '../../../../components/ui';
 import { api } from '../../../../lib/api';
 import { dateTime } from '../../../../lib/format';
 import { useT } from '../../../../lib/i18n';
-import { useRefetchOnFocus } from '../../../../lib/query';
+import { mergePages, rowKey, useRefetchOnFocus } from '../../../../lib/query';
 import type { AuditRow, Paged } from '../../../../lib/types';
 
 const ACTIONS: Record<string, { label: TKey; tone?: Tone }> = {
@@ -57,22 +58,21 @@ export default function AuditScreen() {
   const q = useInfiniteQuery({
     queryKey: ['api', `/audit-logs?${query}`, 'pages'],
     initialPageParam: 0,
-    queryFn: ({ pageParam }) => api<Paged<AuditRow>>(`/audit-logs?${query}&skip=${pageParam}`),
+    queryFn: ({ pageParam, signal }) => api<Paged<AuditRow>>(`/audit-logs?${query}&skip=${pageParam}`, { signal }),
     getNextPageParam: (last, all) => {
       const n = all.reduce((s, p) => s + p.items.length, 0);
       return n < last.total ? n : undefined;
     },
   });
   useRefetchOnFocus(q.refetch);
-  const items = q.data?.pages.flatMap((p) => p.items) ?? [];
+  const items = mergePages(q.data?.pages, (r) => r.id);
 
   return (
     <View className="flex-1 bg-background">
       <ScreenHeader title={t('auditLog')} back />
-      <FlatList
+      <SheetList
         data={items}
-        keyExtractor={(r) => r.id}
-        contentContainerClassName="gap-2.5 p-4 pb-6"
+        keyExtractor={rowKey('audit')}
         refreshControl={refresher(q.isRefetching && !q.isFetchingNextPage, () => void q.refetch())}
         onEndReachedThreshold={0.4}
         onEndReached={() => q.hasNextPage && !q.isFetchingNextPage && void q.fetchNextPage()}
@@ -112,7 +112,7 @@ export default function AuditScreen() {
           return page ? (
             <PressableCard onPress={() => router.push(page as never)}>{body}</PressableCard>
           ) : (
-            <View className="gap-2 rounded-xl border border-border bg-card p-4">{body}</View>
+            <View className="-mx-4 gap-2 border-b border-border px-4 py-4">{body}</View>
           );
         }}
       />

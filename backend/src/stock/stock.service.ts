@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { ACCOUNTANT_EDITABLE_STATUSES, exportPieceCft, hasPermission, Permission, roundTo } from '@sawmill/shared';
+import { ACCOUNTANT_EDITABLE_STATUSES, exportPieceCft, hasPermission, Permission, roundTo } from '@timbertrail/shared';
 import { and, asc, count, desc, eq, inArray, SQL, sql, sum } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
+import { NotificationsService } from '../notifications/notifications.module';
 import { nextCode } from '../common/codes';
 import { assertEditable, assertVisible, canEdit } from '../common/editability';
 import type { AuthUser } from '../common/types';
@@ -45,6 +46,7 @@ export class StockService {
   constructor(
     @InjectDb() private readonly db: Database,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ───────── balances ─────────
@@ -153,7 +155,7 @@ export class StockService {
         .innerJoin(importLoads, eq(importLoads.id, stockMovements.importLoadId))
         .innerJoin(users, eq(users.id, stockMovements.postedById))
         .where(where)
-        .orderBy(desc(stockMovements.createdAt), asc(stockMovements.kind))
+        .orderBy(desc(stockMovements.createdAt), asc(stockMovements.kind), desc(stockMovements.id))
         .limit(q.take)
         .offset(q.skip),
       this.db.select({ total: count() }).from(stockMovements).where(where),
@@ -205,7 +207,7 @@ export class StockService {
         .innerJoin(importLoads, eq(importLoads.id, stockAdjustments.importLoadId))
         .innerJoin(users, eq(users.id, stockAdjustments.createdById))
         .where(where)
-        .orderBy(desc(stockAdjustments.createdAt))
+        .orderBy(desc(stockAdjustments.createdAt), desc(stockAdjustments.id))
         .limit(q.take)
         .offset(q.skip),
       this.db.select({ total: count() }).from(stockAdjustments).where(where),
@@ -281,6 +283,7 @@ export class StockService {
         .returning();
       await this.audit.log({ millId: actor.millId, userId: actor.id, action: 'SUBMIT', entityType: 'StockAdjustment', entityId: id, before, after }, tx);
     });
+    this.notifications.workflow(actor, 'ADJUSTMENT', id, 'SUBMIT');
     return this.adjustment(actor, id);
   }
 
@@ -296,6 +299,7 @@ export class StockService {
       await this.postAdjustment(tx, actor, after);
       await this.audit.log({ millId: actor.millId, userId: actor.id, action: 'APPROVE', entityType: 'StockAdjustment', entityId: id, before, after }, tx);
     });
+    this.notifications.workflow(actor, 'ADJUSTMENT', id, 'APPROVE');
     return this.adjustment(actor, id);
   }
 
@@ -310,6 +314,7 @@ export class StockService {
         .returning();
       await this.audit.log({ millId: actor.millId, userId: actor.id, action: 'REJECT', entityType: 'StockAdjustment', entityId: id, before, after }, tx);
     });
+    this.notifications.workflow(actor, 'ADJUSTMENT', id, 'REJECT');
     return this.adjustment(actor, id);
   }
 

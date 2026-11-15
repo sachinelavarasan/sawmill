@@ -1,7 +1,8 @@
 /** Who is logged in, and what they may do. Screens read this; the root layout guards routes with it. */
-import type { Permission } from '@sawmill/shared';
+import type { Permission } from '@timbertrail/shared';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { auth, Profile, setSessionLostHandler } from './api';
+import { releasePushToken } from './push-token';
 import { queryClient } from './query';
 
 interface Session {
@@ -48,6 +49,7 @@ export function SessionProvider({ children, onLogin }: { children: ReactNode; on
   );
 
   const logout = useCallback(async () => {
+    await releasePushToken(); // while still signed in, so the API accepts it
     await auth.logout();
     queryClient.clear(); // nothing from this account stays in memory
     setUser(null);

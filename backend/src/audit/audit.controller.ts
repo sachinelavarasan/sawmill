@@ -1,5 +1,5 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { Permission } from '@sawmill/shared';
+import { Permission } from '@timbertrail/shared';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 import { CurrentUser, RequirePermissions } from '../common/decorators';

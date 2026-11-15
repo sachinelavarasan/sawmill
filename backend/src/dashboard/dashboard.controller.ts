@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { Permission } from '@sawmill/shared';
+import { Permission } from '@timbertrail/shared';
 import { CurrentUser, RequirePermissions } from '../common/decorators';
 import type { AuthUser } from '../common/types';
 import { ChartsService } from './charts.service';

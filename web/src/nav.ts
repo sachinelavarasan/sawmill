@@ -1,4 +1,4 @@
-import { Permission } from '@sawmill/shared';
+import { Permission } from '@timbertrail/shared';
 import {
   ArrowDownToLineIcon,
   ArrowUpFromLineIcon,

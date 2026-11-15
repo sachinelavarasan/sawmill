@@ -3,7 +3,7 @@
  * for new users, and the time zone used for "today" on the dashboards.
  */
 import { Body, Controller, Get, Injectable, Module, Patch } from '@nestjs/common';
-import { Permission } from '@sawmill/shared';
+import { Permission } from '@timbertrail/shared';
 import { Transform } from 'class-transformer';
 import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength, ValidateIf } from 'class-validator';
 import { eq } from 'drizzle-orm';

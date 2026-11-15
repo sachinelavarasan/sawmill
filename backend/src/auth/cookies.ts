@@ -2,7 +2,7 @@
  * Browser sessions. The web app keeps its tokens in httpOnly cookies, so page scripts can
  * never read them; the mobile app keeps using the JSON tokens with `Authorization: Bearer`.
  *
- * A request says it is the web app with the header `X-Sawmill-Client: web`. That header does
+ * A request says it is the web app with the header `X-TimberTrail-Client: web`. That header does
  * two jobs:
  *  - on login / refresh it asks for cookies instead of tokens in the response body;
  *  - on every cookie-authenticated request it is the CSRF check: another site can make a
@@ -11,17 +11,34 @@
  */
 import type { CookieOptions, Request, Response } from 'express';
 
-export const CLIENT_HEADER = 'x-sawmill-client';
+export const CLIENT_HEADER = 'x-timbertrail-client';
 export const WEB_CLIENT = 'web';
-export const ACCESS_COOKIE = 'sawmill_at';
-export const REFRESH_COOKIE = 'sawmill_rt';
+export const ACCESS_COOKIE = 'timbertrail_at';
+export const REFRESH_COOKIE = 'timbertrail_rt';
+
+/**
+ * Names used before the rename to TimberTrail. Still accepted so open browser tabs on the
+ * old web bundle, and sessions signed in before the update, keep working; cleared on the
+ * next sign-in / refresh / logout. Safe to delete once every session has rolled over
+ * (REFRESH_TOKEN_TTL_DAYS after the release).
+ */
+const LEGACY_CLIENT_HEADER = 'x-sawmill-client';
+const LEGACY_COOKIES: Record<string, string> = { [ACCESS_COOKIE]: 'sawmill_at', [REFRESH_COOKIE]: 'sawmill_rt' };
 /** The refresh cookie is only ever sent to the auth routes. */
 const REFRESH_PATH = '/api/auth';
 
-export const isWebClient = (req: Request) => req.headers[CLIENT_HEADER] === WEB_CLIENT;
+export const isWebClient = (req: Request) => req.headers[CLIENT_HEADER] === WEB_CLIENT || req.headers[LEGACY_CLIENT_HEADER] === WEB_CLIENT;
+
+/** One of our cookies from the request (falling back to its pre-rename name). */
+export function readCookie(req: Request, name: string): string | undefined {
+  const v = readRawCookie(req, name);
+  if (v !== undefined) return v;
+  const legacy = LEGACY_COOKIES[name];
+  return legacy ? readRawCookie(req, legacy) : undefined;
+}
 
 /** One cookie from the request, without a cookie-parsing dependency. */
-export function readCookie(req: Request, name: string): string | undefined {
+function readRawCookie(req: Request, name: string): string | undefined {
   const header = req.headers.cookie;
   if (!header) return undefined;
   for (const part of header.split(';')) {
@@ -55,11 +72,18 @@ export function setSessionCookies(res: Response, tokens: { accessToken: string; 
   const refreshDays = Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? 30);
   res.cookie(ACCESS_COOKIE, tokens.accessToken, { ...base(), path: '/api', maxAge: ttlMs(process.env.JWT_ACCESS_TTL) });
   res.cookie(REFRESH_COOKIE, tokens.refreshToken, { ...base(), path: REFRESH_PATH, maxAge: refreshDays * 86_400_000 });
+  clearLegacyCookies(res);
 }
 
 export function clearSessionCookies(res: Response) {
   res.clearCookie(ACCESS_COOKIE, { ...base(), path: '/api' });
   res.clearCookie(REFRESH_COOKIE, { ...base(), path: REFRESH_PATH });
+  clearLegacyCookies(res);
+}
+
+function clearLegacyCookies(res: Response) {
+  res.clearCookie(LEGACY_COOKIES[ACCESS_COOKIE], { ...base(), path: '/api' });
+  res.clearCookie(LEGACY_COOKIES[REFRESH_COOKIE], { ...base(), path: REFRESH_PATH });
 }
 
 /**

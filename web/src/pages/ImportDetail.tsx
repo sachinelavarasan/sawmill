@@ -1,4 +1,4 @@
-import { formatDuration, importLogCft, Permission, totalCft } from '@sawmill/shared';
+import { formatDuration, importLogCft, Permission, totalCft } from '@timbertrail/shared';
 import { CheckCircle2Icon, CheckIcon, ClockIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';

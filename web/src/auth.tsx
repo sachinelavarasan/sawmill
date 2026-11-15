@@ -1,4 +1,4 @@
-import type { Permission } from '@sawmill/shared';
+import type { Permission } from '@timbertrail/shared';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, auth, Profile, setSessionLostHandler } from './api';
 import { useI18n } from './i18n';

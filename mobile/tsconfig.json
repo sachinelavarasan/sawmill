@@ -3,7 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@sawmill/shared": [
+      "@timbertrail/shared": [
         "../packages/shared/src/index.ts"
       ]
     }

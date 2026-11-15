@@ -1,6 +1,6 @@
 import { Controller, Get, Module, Param, Query, Res, StreamableFile } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { Permission } from '@sawmill/shared';
+import { Permission } from '@timbertrail/shared';
 import { IsIn, IsOptional } from 'class-validator';
 import type { Response } from 'express';
 import { AccountsModule } from '../accounts/accounts.module';

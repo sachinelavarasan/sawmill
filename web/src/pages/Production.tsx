@@ -1,4 +1,4 @@
-import { recoveryPercent } from '@sawmill/shared';
+import { recoveryPercent } from '@timbertrail/shared';
 import { PlusIcon } from 'lucide-react';
 import { FormEvent, ReactNode, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';

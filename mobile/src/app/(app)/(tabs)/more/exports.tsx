@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { View } from 'react-native';
 import { ExportCard } from '../../../../components/cards';
-import { ScreenHeader } from '../../../../components/header';
+import { HeaderButton, ScreenHeader, StickyFooter } from '../../../../components/header';
 import { RecordList } from '../../../../components/RecordList';
 import { Button } from '../../../../components/ui';
 import { useT } from '../../../../lib/i18n';
@@ -12,7 +12,7 @@ export default function ExportsScreen() {
   const router = useRouter();
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader title={t('exports')} back right={<Button size="md" icon="plus" title={t('newExport')} onPress={() => router.push('/exports/new')} className="mr-2" />} />
+      <ScreenHeader title={t('exports')} back right={<HeaderButton icon="plus" label={t('newExport')} onPress={() => router.push('/exports/new')} />} />
       <RecordList<ExportSummary>
         path="/exports"
         search={t('searchRecords')}
@@ -20,6 +20,9 @@ export default function ExportsScreen() {
         renderItem={(i) => <ExportCard item={i} />}
         empty={{ icon: 'upload', title: t('noExports'), action: { label: t('newExport'), onPress: () => router.push('/exports/new') } }}
       />
+      <StickyFooter tabBar>
+        <Button icon="plus" title={t('newExport')} onPress={() => router.push('/exports/new')} />
+      </StickyFooter>
     </View>
   );
 }

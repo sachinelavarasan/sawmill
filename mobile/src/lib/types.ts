@@ -252,6 +252,18 @@ export interface OwnerDashboard {
   }[];
 }
 
+/** GET /dashboard/owner/charts — zero-filled series (backend dashboard/charts.service.ts). */
+export interface OwnerCharts {
+  flow: { day: string; receivedCft: number; shippedCft: number }[];
+  stockByWood: { woodType: string; rawCft: number; finishedCft: number }[];
+  cash: { month: string; sales: number; expenses: number }[];
+}
+
+/** GET /dashboard/accountant/charts — the accountant's own measuring, last 14 days. */
+export interface AccountantCharts {
+  logsByDay: { day: string; logs: number; cft: number }[];
+}
+
 export interface AccountantDashboard {
   kpis: {
     todayImports: number;

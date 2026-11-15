@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { View } from 'react-native';
 import { ImportCard } from '../../../../components/cards';
-import { ScreenHeader } from '../../../../components/header';
+import { HeaderButton, ScreenHeader, StickyFooter } from '../../../../components/header';
 import { RecordList } from '../../../../components/RecordList';
 import { Button } from '../../../../components/ui';
 import { useT } from '../../../../lib/i18n';
@@ -12,7 +12,7 @@ export default function ImportsScreen() {
   const router = useRouter();
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader title={t('imports')} back right={<Button size="md" icon="plus" title={t('newImport')} onPress={() => router.push('/imports/new')} className="mr-2" />} />
+      <ScreenHeader title={t('imports')} back right={<HeaderButton icon="plus" label={t('newImport')} onPress={() => router.push('/imports/new')} />} />
       <RecordList<ImportSummary>
         path="/imports"
         search={t('searchImports')}
@@ -20,6 +20,9 @@ export default function ImportsScreen() {
         renderItem={(i) => <ImportCard item={i} />}
         empty={{ icon: 'download', title: t('noImports'), action: { label: t('newImport'), onPress: () => router.push('/imports/new') } }}
       />
+      <StickyFooter tabBar>
+        <Button icon="plus" title={t('newImport')} onPress={() => router.push('/imports/new')} />
+      </StickyFooter>
     </View>
   );
 }

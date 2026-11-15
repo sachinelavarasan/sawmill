@@ -5,7 +5,7 @@
  * and the stock posting — this module only reads.
  */
 import { Controller, Get, Injectable, Module } from '@nestjs/common';
-import { Permission } from '@sawmill/shared';
+import { Permission } from '@timbertrail/shared';
 import { and, asc, count, eq } from 'drizzle-orm';
 import { CurrentUser, RequirePermissions } from '../common/decorators';
 import type { AuthUser } from '../common/types';

@@ -8,9 +8,10 @@ import {
   productionWaste,
   recoveryPercent,
   roundTo,
-} from '@sawmill/shared';
+} from '@timbertrail/shared';
 import { and, asc, count, desc, eq, SQL, sum } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
+import { NotificationsService } from '../notifications/notifications.module';
 import { nextCode } from '../common/codes';
 import { assertEditable, assertVisible, canEdit } from '../common/editability';
 import { textSearch } from '../common/search';
@@ -65,6 +66,7 @@ export class ProductionService {
   constructor(
     @InjectDb() private readonly db: Database,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async list(actor: AuthUser, q: ListProductionQuery) {
@@ -83,7 +85,7 @@ export class ProductionService {
         .innerJoin(users, eq(users.id, productionRuns.createdById))
         .innerJoin(importLoads, eq(importLoads.id, productionRuns.importLoadId))
         .where(where)
-        .orderBy(desc(productionRuns.productionDate), desc(productionRuns.createdAt))
+        .orderBy(desc(productionRuns.productionDate), desc(productionRuns.createdAt), desc(productionRuns.id))
         .limit(q.take)
         .offset(q.skip),
       // joined like the list, because the search can match the import code
@@ -270,6 +272,7 @@ export class ProductionService {
         .returning();
       await this.audit.log({ millId: actor.millId, userId: actor.id, action: 'SUBMIT', entityType: 'ProductionRun', entityId: id, before, after }, tx);
     });
+    this.notifications.workflow(actor, 'PRODUCTION', id, 'SUBMIT');
     return this.detail(actor, id);
   }
 
@@ -286,6 +289,7 @@ export class ProductionService {
       await this.postStock(tx, actor, after);
       await this.audit.log({ millId: actor.millId, userId: actor.id, action: 'APPROVE', entityType: 'ProductionRun', entityId: id, before, after }, tx);
     });
+    this.notifications.workflow(actor, 'PRODUCTION', id, 'APPROVE');
     return this.detail(actor, id);
   }
 
@@ -300,6 +304,7 @@ export class ProductionService {
         .returning();
       await this.audit.log({ millId: actor.millId, userId: actor.id, action: 'REJECT', entityType: 'ProductionRun', entityId: id, before, after }, tx);
     });
+    this.notifications.workflow(actor, 'PRODUCTION', id, 'REJECT');
     return this.detail(actor, id);
   }
 

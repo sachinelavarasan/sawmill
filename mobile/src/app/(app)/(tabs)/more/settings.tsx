@@ -1,117 +1,176 @@
 /**
- * Settings. Everyone: language and theme on this phone. Owner: the mill's name, standard
- * unloading rate, language for new users and time zone (same fields as the web).
+ * Settings: who you are (on the navy), then grouped rows — appearance and language on this
+ * phone, the mill's settings (owner, opens its own form), help, about, and log out.
  */
-import { Permission } from '@sawmill/shared';
+import { Permission } from '@timbertrail/shared';
+import Constants from 'expo-constants';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
-import { Field, FormSection, NumberField } from '../../../../components/form';
+import { Linking, ScrollView, View } from 'react-native';
+import { BrandMark } from '../../../../components/Brand';
+import { useConfirm } from '../../../../components/confirm';
 import { Page, ScreenHeader } from '../../../../components/header';
-import { SelectField } from '../../../../components/sheet';
-import { toast } from '../../../../components/toast';
-import { Button, ErrorBox, LangToggle, Muted, Segmented, SkeletonList } from '../../../../components/ui';
-import { api } from '../../../../lib/api';
-import { parseNum } from '../../../../lib/format';
-import { useSubmit, useUnsavedGuard } from '../../../../lib/hooks';
+import { Appear } from '../../../../components/motion';
+import { Sheet, useSheet } from '../../../../components/sheet';
+import { Text } from '../../../../components/text';
+import { Avatar, Chip, Icon, KV, LangPills, MenuGroup, MenuRow, Muted, Overline, Pill, Toggle } from '../../../../components/ui';
+import { APP_NAME } from '../../../../lib/brand';
 import { useT } from '../../../../lib/i18n';
-import { invalidate, useApi } from '../../../../lib/query';
-import { useSession } from '../../../../lib/session';
+import { useSession, useUser } from '../../../../lib/session';
 import { useThemeToggle } from '../../../../lib/theme';
-import type { MillSettings } from '../../../../lib/types';
-
-const OFFSETS = [-300, -240, 0, 60, 120, 180, 240, 270, 300, 330, 345, 360, 390, 420, 480, 540, 570, 600, 660, 720];
-const offsetLabel = (m: number) => {
-  const a = Math.abs(m);
-  return `UTC${m < 0 ? '−' : '+'}${String(Math.floor(a / 60)).padStart(2, '0')}:${String(a % 60).padStart(2, '0')}${m === 330 ? ' (IST)' : ''}`;
-};
+import { applyReminder, DEFAULT_REMINDER, loadReminder, type ReminderSetting, useNotifications } from '../../../../lib/notifications';
 
 export default function SettingsScreen() {
   const t = useT();
-  const { can } = useSession();
+  const user = useUser();
+  const router = useRouter();
+  const { can, logout } = useSession();
+  const confirm = useConfirm();
   const { dark, toggle } = useThemeToggle();
+  const help = useSheet();
+  const about = useSheet();
+  const version = Constants.expoConfig?.version ?? '';
+
   return (
-    <View className="flex-1 bg-background">
+    <View className="flex-1 bg-hero">
       <ScreenHeader title={t('settings')} back />
-      <Page bottomInset={false}>
-        <FormSection title={t('appPreferences')}>
-          <View className="gap-1.5">
-            <Muted>{t('language')}</Muted>
-            <LangToggle />
-          </View>
-          <View className="gap-1.5">
-            <Muted>{t('theme')}</Muted>
-            <Segmented
-              value={dark ? 'dark' : 'light'}
-              onChange={(v) => (v === 'dark') !== dark && toggle()}
-              options={[
-                { value: 'light', label: t('themeLight') },
-                { value: 'dark', label: t('themeDark') },
-              ]}
-            />
-          </View>
-        </FormSection>
-        {can(Permission.SETTINGS_MANAGE) && <MillSettingsForm />}
+      <Page
+        bottomInset={false}
+        hero={
+          <Appear className="items-center gap-3 pb-1">
+            <Avatar name={user.name} size="lg" tone="saffron" />
+            <View className="items-center gap-1">
+              <Text className="text-xl font-bold tracking-tight text-hero-foreground">{user.name}</Text>
+              <Text className="text-[13px] text-hero-muted">
+                @{user.username} · {can(Permission.DASHBOARD_OWNER) ? t('owner') : t('accountant')}
+              </Text>
+            </View>
+            <View className="flex-row items-center gap-2 rounded-full bg-hero-chip py-1.5 pl-2.5 pr-3.5">
+              <Icon name="building" size={14} colorClassName="accent-saffron" />
+              <Text className="text-[13px] font-medium text-hero-foreground">{user.mill.name}</Text>
+            </View>
+          </Appear>
+        }
+      >
+        <Overline className="px-1">{t('appearance')}</Overline>
+        <MenuGroup>
+          <MenuRow icon={dark ? 'moon' : 'sun'} title={t('darkMode')} right={<Toggle value={dark} onChange={toggle} label={t('darkMode')} />} />
+          <MenuRow icon="languages" title={t('language')} last right={<LangPills />} />
+        </MenuGroup>
+
+        <NotificationSettings />
+
+        {can(Permission.SETTINGS_MANAGE) && (
+          <>
+            <Overline className="mt-3 px-1">{t('navAdmin')}</Overline>
+            <MenuGroup>
+              <MenuRow icon="building" title={t('millSettings')} subtitle={t('millSettingsSub')} last onPress={() => router.push('/mill-settings')} />
+            </MenuGroup>
+          </>
+        )}
+
+        <Overline className="mt-3 px-1">{t('support')}</Overline>
+        <MenuGroup>
+          <MenuRow icon="help" title={t('helpSupport')} onPress={help.open} />
+          <MenuRow icon="info" title={t('aboutApp')} value={`v${version}`} last onPress={about.open} />
+        </MenuGroup>
+
+        <MenuGroup>
+          <MenuRow
+            icon="log-out"
+            tone="bad"
+            title={t('logout')}
+            last
+            onPress={async () => {
+              if (await confirm({ title: t('logout'), message: t('logoutConfirm'), confirmText: t('logout'), cancelText: t('cancel'), destructive: true })) await logout();
+            }}
+          />
+        </MenuGroup>
+
+        <Muted className="pt-2 text-center">
+          {APP_NAME} · {t('version')} {version}
+        </Muted>
       </Page>
+
+      <Sheet ref={help.ref} title={t('helpSupport')}>
+        <View className="gap-4 px-5">
+          {(['helpStep1', 'helpStep2', 'helpStep3'] as const).map((k, i) => (
+            <View key={k} className="flex-row gap-3.5">
+              <View className="h-8 w-8 items-center justify-center rounded-full bg-saffron">
+                <Text className="text-[13px] font-bold text-saffron-foreground">{i + 1}</Text>
+              </View>
+              <Text className="flex-1 pt-1 text-[15px] leading-[22px] text-foreground">{t(k)}</Text>
+            </View>
+          ))}
+          <View className="mt-1 flex-row gap-3 rounded-2xl bg-background p-4">
+            <Icon name="info" size={18} colorClassName="accent-muted-foreground" />
+            <Text className="flex-1 text-[13px] leading-[19px] text-muted-foreground">{t('helpContact')}</Text>
+          </View>
+        </View>
+      </Sheet>
+
+      <Sheet ref={about.ref}>
+        <View className="gap-5 px-5 pb-2">
+          <View className="items-center rounded-3xl bg-hero py-8">
+            <BrandMark size="md" tagline={t('appTagline')} />
+          </View>
+          <View className="gap-2.5 px-1">
+            <KV label={t('version')} value={version || '—'} />
+            <KV label={t('millName')} value={user.mill.name} />
+            <KV label={t('millCode')} value={user.mill.code} />
+          </View>
+          <Muted className="text-center">© {new Date().getFullYear()} {APP_NAME}</Muted>
+        </View>
+      </Sheet>
     </View>
   );
 }
 
-function MillSettingsForm() {
+const REMINDER_HOURS = [16, 17, 18, 19, 20, 21];
+const hourLabel = (h: number) => `${((h + 11) % 12) + 1} ${h < 12 ? 'AM' : 'PM'}`;
+
+/** Push permission for this phone, and the daily reminder (a local notification). */
+function NotificationSettings() {
   const t = useT();
-  const q = useApi<MillSettings>('/settings');
-  const [initial, setInitial] = useState<{ name: string; rate: string; lang: 'en' | 'ta'; offset: string } | null>(null);
-  const [f, setF] = useState(initial);
-
+  const { status, refresh } = useNotifications();
+  const [reminder, setReminder] = useState<ReminderSetting>(DEFAULT_REMINDER);
   useEffect(() => {
-    if (!q.data) return;
-    const v = { name: q.data.name, rate: q.data.defaultUnloadingRatePerHour != null ? String(q.data.defaultUnloadingRatePerHour) : '', lang: q.data.defaultLanguage, offset: String(q.data.utcOffsetMinutes) };
-    setInitial(v);
-    setF(v);
-  }, [q.data]);
-
-  const dirty = !!f && JSON.stringify(f) !== JSON.stringify(initial);
-  useUnsavedGuard(dirty);
-  const nameOk = !!f && f.name.trim().length >= 2;
-
-  const [save, busy, error] = useSubmit(async () => {
-    if (!f) return;
-    await api('/settings', {
-      method: 'PATCH',
-      body: JSON.stringify({ name: f.name.trim(), defaultUnloadingRatePerHour: parseNum(f.rate), defaultLanguage: f.lang, utcOffsetMinutes: Number(f.offset) }),
-    });
-    setInitial(f);
-    await invalidate('/settings', '/auth/me');
-    toast(t('saved'));
-  });
-
-  if (q.error) return <ErrorBox message={(q.error as Error).message} onRetry={() => void q.refetch()} />;
-  if (!f || !q.data) return <SkeletonList rows={2} />;
-  const offsets = OFFSETS.includes(Number(f.offset)) ? OFFSETS : [...OFFSETS, Number(f.offset)].sort((a, b) => a - b);
+    void loadReminder().then(setReminder);
+  }, []);
+  const save = async (r: ReminderSetting) => {
+    setReminder(r); // feels instant; corrected below if permission is refused
+    setReminder(await applyReminder(r, { title: t('reminderTitle'), body: t('reminderBody') }));
+  };
+  const on = status === 'granted';
 
   return (
     <>
-      <FormSection title={t('secMillInfo')} subtitle={t('secMillInfoSub')}>
-        <Field label={t('millName')} required value={f.name} onChangeText={(name) => setF({ ...f, name })} error={nameOk ? undefined : t('minChars', { n: 2 })} />
-        <Field label={t('millCode')} value={q.data.code} editable={false} hint={t('millCodeHint')} />
-      </FormSection>
-      <FormSection title={t('secUnloadingRate')} subtitle={t('secUnloadingRateSub')}>
-        <NumberField label={t('defaultUnloadingRate')} unit="₹/h" value={f.rate} onChangeText={(rate) => setF({ ...f, rate })} hint={t('defaultUnloadingRateHint')} />
-      </FormSection>
-      <FormSection title={t('secNewUserLanguage')} subtitle={t('secNewUserLanguageSub')}>
-        <Segmented
-          value={f.lang}
-          onChange={(lang) => setF({ ...f, lang })}
-          options={[
-            { value: 'en', label: 'English' },
-            { value: 'ta', label: 'தமிழ்' },
-          ]}
+      <Overline className="mt-3 px-1">{t('notifications')}</Overline>
+      <MenuGroup>
+        <MenuRow
+          icon="bell"
+          title={t('pushNotifications')}
+          subtitle={on ? t('pushOnSub') : status === 'unavailable' ? undefined : t('pushOffSub')}
+          right={<Pill tone={on ? 'good' : status === 'denied' ? 'bad' : undefined} text={on ? 'ON' : 'OFF'} />}
+          onPress={on ? undefined : () => (status === 'denied' ? void Linking.openSettings() : refresh())}
         />
-      </FormSection>
-      <FormSection title={t('secTimeZone')} subtitle={t('secTimeZoneSub')}>
-        <SelectField label={t('timeZone')} value={f.offset} options={offsets.map((m) => ({ value: String(m), label: offsetLabel(m) }))} onChange={(offset) => offset && setF({ ...f, offset })} hint={t('timeZoneHint')} />
-      </FormSection>
-      {error && <ErrorBox message={error} />}
-      <Button title={t('saveChanges')} icon="check" busy={busy} disabled={!dirty || !nameOk} onPress={() => void save()} />
+        <MenuRow
+          icon="clock"
+          title={t('dailyReminder')}
+          subtitle={reminder.on ? `${t('remindAt')} ${hourLabel(reminder.hour)}` : t('dailyReminderSub')}
+          last={!reminder.on}
+          right={<Toggle value={reminder.on} onChange={(v) => void save({ ...reminder, on: v })} label={t('dailyReminder')} />}
+        />
+        {reminder.on && (
+          <View className="px-4 pb-4">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2 pl-[52px]">
+              {REMINDER_HOURS.map((h) => (
+                <Chip key={h} text={hourLabel(h)} on={reminder.hour === h} onPress={() => void save({ ...reminder, hour: h })} />
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </MenuGroup>
     </>
   );
 }

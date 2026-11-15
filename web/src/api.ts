@@ -1,4 +1,4 @@
-import type { Permission, Role } from '@sawmill/shared';
+import type { Permission, Role } from '@timbertrail/shared';
 
 export interface Profile {
   id: string;
@@ -25,8 +25,9 @@ const BASE = import.meta.env.VITE_API_URL ?? '/api';
  * injected into the page) can never read the tokens. This header tells the API we are the
  * web app — it answers login / refresh with cookies, and it is the CSRF check on every request.
  */
-const CLIENT = { 'X-Sawmill-Client': 'web' };
+const CLIENT = { 'X-TimberTrail-Client': 'web' };
 /** Where older versions kept the refresh token; moved into a cookie the first time it is seen. */
+/** where versions before httpOnly cookies kept the token — keep this old name, it is what they wrote */
 const LEGACY_REFRESH_KEY = 'sawmill.refresh';
 
 let refreshInFlight: Promise<boolean> | null = null;
@@ -50,7 +51,7 @@ function takeLegacyToken(): string | null {
 async function raw<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body) headers.set('Content-Type', 'application/json');
-  headers.set('X-Sawmill-Client', CLIENT['X-Sawmill-Client']);
+  headers.set('X-TimberTrail-Client', CLIENT['X-TimberTrail-Client']);
   const res = await fetch(`${BASE}${path}`, { ...init, headers, credentials: 'include' });
   if (!res.ok) {
     let message = res.statusText;

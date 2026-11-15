@@ -2,12 +2,13 @@
  * Owner's approval queue: everything submitted, oldest first. Tap a card to open the full
  * record, where Approve / Reject live (with the stock effect spelled out before approving).
  */
-import { type TKey } from '@sawmill/shared';
+import { type TKey } from '@timbertrail/shared';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, ScrollView, Text, View } from 'react-native';
-import { ScreenHeader } from '../../../../components/header';
-import { Chip, EmptyState, ErrorBox, Icon, type IconName, Muted, PressableCard, refresher, SkeletonList } from '../../../../components/ui';
+import { ScrollView, View } from 'react-native';
+import { Text } from '../../../../components/text';
+import { ScreenHeader, SheetList } from '../../../../components/header';
+import { Chip, EmptyState, ErrorBox, Icon, type IconName, IconTile, Muted, PressableCard, refresher, SkeletonList } from '../../../../components/ui';
 import { dateTime, int, num3, signed3, signedInt } from '../../../../lib/format';
 import { useT } from '../../../../lib/i18n';
 import { useApi } from '../../../../lib/query';
@@ -43,10 +44,9 @@ export default function ApprovalsScreen() {
   return (
     <View className="flex-1 bg-background">
       <ScreenHeader title={t('approvals')} back />
-      <FlatList
+      <SheetList
         data={items}
-        keyExtractor={(i) => `${i.type}-${i.id}`}
-        contentContainerClassName="gap-2.5 p-4 pb-6"
+        keyExtractor={(i) => `${i.type.toLowerCase()}:${i.id}`}
         refreshControl={refresher(q.isRefetching, () => void q.refetch())}
         ListHeaderComponent={
           <View className="gap-3 pb-1">
@@ -65,18 +65,18 @@ export default function ApprovalsScreen() {
         renderItem={({ item }) => (
           <PressableCard onPress={() => router.push(KIND[item.type].href(item.id) as never)}>
             <View className="flex-row items-center gap-2.5">
-              <View className="h-9 w-9 items-center justify-center rounded-lg bg-saffron-soft">
-                <Icon name={KIND[item.type].icon} size={17} colorClassName="accent-warning" />
-              </View>
+              <IconTile icon={KIND[item.type].icon} />
               <View className="flex-1">
-                <Text className="text-[15px] font-bold text-foreground">{item.code}</Text>
+                <Text className="text-[15px] font-semibold text-foreground">{item.code}</Text>
                 <Muted>
                   {t(KIND[item.type].labelKey)} · {item.woodType}
                 </Muted>
               </View>
               <Icon name="chevron-right" size={18} colorClassName="accent-muted-foreground" />
             </View>
-            <Text className="text-sm tabular-nums text-foreground">{summary(item)}</Text>
+            <View className="rounded-xl bg-secondary px-3.5 py-2.5">
+              <Text className="text-sm font-medium tabular-nums text-foreground">{summary(item)}</Text>
+            </View>
             {item.type === 'ADJUSTMENT' && <Muted lines={2}>{item.reason}</Muted>}
             <Muted>
               {t('submittedBy')} {item.createdByName} · {dateTime(item.submittedAt)}

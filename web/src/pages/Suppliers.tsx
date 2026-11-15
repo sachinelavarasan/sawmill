@@ -1,4 +1,4 @@
-import { Permission } from '@sawmill/shared';
+import { Permission } from '@timbertrail/shared';
 import { HandshakeIcon, type LucideIcon, PencilIcon, PhoneIcon, PlusIcon, TruckIcon } from 'lucide-react';
 import { FormEvent, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';

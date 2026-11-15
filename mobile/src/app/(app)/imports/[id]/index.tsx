@@ -1,8 +1,9 @@
 /** One import load: status and approval, measured totals, unloading vehicles, lorry details, and (owner) purchase. */
-import { formatDuration, Permission } from '@sawmill/shared';
+import { formatDuration, Permission } from '@timbertrail/shared';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '../../../../components/text';
 import { useConfirm } from '../../../../components/confirm';
 import { NumberField, Field } from '../../../../components/form';
 import { HeaderButton, Page, ScreenHeader } from '../../../../components/header';

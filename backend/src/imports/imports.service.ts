@@ -8,9 +8,10 @@ import {
   roundTo,
   UnloadingInputError,
   unloadingCharges,
-} from '@sawmill/shared';
+} from '@timbertrail/shared';
 import { and, asc, count, desc, eq, inArray, max, ne, SQL, sum } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
+import { NotificationsService } from '../notifications/notifications.module';
 import { nextCode } from '../common/codes';
 import { textSearch } from '../common/search';
 import type { AuthUser } from '../common/types';
@@ -106,6 +107,7 @@ export class ImportsService {
   constructor(
     @InjectDb() private readonly db: Database,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ───────── loads ─────────
@@ -126,7 +128,7 @@ export class ImportsService {
         .from(importLoads)
         .innerJoin(users, eq(users.id, importLoads.createdById))
         .where(where)
-        .orderBy(desc(importLoads.arrivalAt), desc(importLoads.createdAt))
+        .orderBy(desc(importLoads.arrivalAt), desc(importLoads.createdAt), desc(importLoads.id))
         .limit(q.take)
         .offset(q.skip),
       this.db.select({ total: count() }).from(importLoads).where(where),
@@ -427,6 +429,7 @@ export class ImportsService {
         .returning();
       await this.audit.log({ millId: actor.millId, userId: actor.id, action: 'SUBMIT', entityType: 'ImportLoad', entityId: id, before, after }, tx);
     });
+    this.notifications.workflow(actor, 'IMPORT', id, 'SUBMIT');
     return this.detail(actor, id);
   }
 
@@ -446,6 +449,7 @@ export class ImportsService {
       await this.repostStock(tx, actor, id);
       await this.audit.log({ millId: actor.millId, userId: actor.id, action: 'APPROVE', entityType: 'ImportLoad', entityId: id, before, after }, tx);
     });
+    this.notifications.workflow(actor, 'IMPORT', id, 'APPROVE');
     return this.detail(actor, id);
   }
 
@@ -461,6 +465,7 @@ export class ImportsService {
         .returning();
       await this.audit.log({ millId: actor.millId, userId: actor.id, action: 'REJECT', entityType: 'ImportLoad', entityId: id, before, after }, tx);
     });
+    this.notifications.workflow(actor, 'IMPORT', id, 'REJECT');
     return this.detail(actor, id);
   }
 

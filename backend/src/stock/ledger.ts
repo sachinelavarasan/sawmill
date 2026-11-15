@@ -6,7 +6,7 @@
  * between what the record says now and what it has already posted.
  */
 import { ConflictException } from '@nestjs/common';
-import { formatCft, roundTo, sizeLabel } from '@sawmill/shared';
+import { formatCft, roundTo, sizeLabel } from '@timbertrail/shared';
 import { and, asc, eq, inArray, sql, sum } from 'drizzle-orm';
 import type { DbOrTx } from '../db/db.module';
 import { importLoads, stockMovements } from '../db/schema';

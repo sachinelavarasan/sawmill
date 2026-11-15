@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtModule, type JwtSignOptions } from '@nestjs/jwt';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuditModule } from './audit/audit.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { validateEnv } from './config/env';
@@ -41,6 +42,7 @@ import { UsersModule } from './users/users.module';
     }),
     DbModule,
     AuditModule,
+    NotificationsModule,
     AuthModule,
     UsersModule,
     DashboardModule,

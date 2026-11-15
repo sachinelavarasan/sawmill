@@ -1,11 +1,13 @@
 /**
- * What each person can open, by permission — the same rules as the web menu (web/src/nav.ts).
+ * Navigation map, by permission — the same rules as the web menu (web/src/nav.ts).
  * The API checks every request again; hiding an item is only presentation.
+ *
+ * Bottom bar: Home · Inventory · Production · Reports · More.
+ * Everything else (loads in and out, measuring, approvals, parties, money, admin) lives under More.
  */
-import type { Feather } from '@expo/vector-icons';
-import { Permission, type TKey } from '@sawmill/shared';
-
-type IconName = keyof typeof Feather.glyphMap;
+import { Permission, type TKey } from '@timbertrail/shared';
+import type { IconName } from '../components/icon';
+import type { TileTone } from '../components/ui';
 
 export interface MenuItem {
   key: string;
@@ -13,6 +15,8 @@ export interface MenuItem {
   labelKey: TKey;
   subKey?: TKey;
   icon: IconName;
+  /** accent of its tile in the More launcher */
+  tone?: TileTone;
   permission?: Permission;
   /** not offered to whoever holds this permission */
   unless?: Permission;
@@ -20,51 +24,47 @@ export interface MenuItem {
 
 export const visible = (m: MenuItem, can: (p: Permission) => boolean) => (!m.permission || can(m.permission)) && !(m.unless && can(m.unless));
 
-/** Transactions tab. */
-export const TRANSACTION_ITEMS: MenuItem[] = [
-  { key: 'imports', href: '/transactions/imports', labelKey: 'imports', subKey: 'importsSub', icon: 'download', permission: Permission.OPERATIONS_CREATE },
-  { key: 'measurement', href: '/transactions/measurement', labelKey: 'measurement', subKey: 'measurementSub', icon: 'edit-3', permission: Permission.OPERATIONS_CREATE },
-  { key: 'production', href: '/transactions/production', labelKey: 'production', subKey: 'productionSub', icon: 'settings', permission: Permission.OPERATIONS_CREATE },
-  { key: 'exports', href: '/transactions/exports', labelKey: 'exports', subKey: 'exportsSub', icon: 'upload', permission: Permission.OPERATIONS_CREATE },
-  { key: 'approvals', href: '/transactions/approvals', labelKey: 'approvals', subKey: 'approvalsSubtitle', icon: 'check-circle', permission: Permission.OPERATIONS_APPROVE },
-];
-
 /** More tab, in groups. */
 export const MORE_GROUPS: { labelKey: TKey; items: MenuItem[] }[] = [
   {
     labelKey: 'operations',
-    items: [{ key: 'stock', href: '/more/stock', labelKey: 'stock', subKey: 'stockSub', icon: 'layers', permission: Permission.OPERATIONS_CREATE }],
+    items: [
+      { key: 'approvals', href: '/more/approvals', labelKey: 'approvals', subKey: 'approvalsSubtitle', icon: 'check-circle', tone: 'saffron', permission: Permission.OPERATIONS_APPROVE },
+      { key: 'imports', href: '/more/imports', labelKey: 'imports', subKey: 'importsSub', icon: 'download', tone: 'info', permission: Permission.OPERATIONS_CREATE },
+      { key: 'measurement', href: '/more/measurement', labelKey: 'measurement', subKey: 'measurementSub', icon: 'edit-3', tone: 'saffron', permission: Permission.OPERATIONS_CREATE },
+      { key: 'exports', href: '/more/exports', labelKey: 'exports', subKey: 'exportsSub', icon: 'upload', tone: 'good', permission: Permission.OPERATIONS_CREATE },
+    ],
   },
   {
     labelKey: 'navParties',
     items: [
-      { key: 'clients', href: '/more/clients', labelKey: 'clients', subKey: 'clientsSub', icon: 'users', permission: Permission.CLIENTS_MANAGE },
-      { key: 'suppliers', href: '/more/suppliers', labelKey: 'suppliers', subKey: 'suppliersSub', icon: 'truck', permission: Permission.SUPPLIERS_MANAGE },
+      { key: 'clients', href: '/more/clients', labelKey: 'clients', subKey: 'clientsSub', icon: 'users', tone: 'navy', permission: Permission.CLIENTS_MANAGE },
+      { key: 'suppliers', href: '/more/suppliers', labelKey: 'suppliers', subKey: 'suppliersSub', icon: 'truck', tone: 'warn', permission: Permission.SUPPLIERS_MANAGE },
     ],
   },
   {
     labelKey: 'accounts',
     items: [
-      { key: 'expenses', href: '/more/expenses', labelKey: 'otherExpenses', icon: 'credit-card', permission: Permission.FINANCE_VIEW },
-      { key: 'accounts', href: '/more/accounts', labelKey: 'accounts', subKey: 'accountsSub', icon: 'pie-chart', permission: Permission.FINANCE_VIEW },
+      { key: 'accounts', href: '/more/accounts', labelKey: 'accounts', subKey: 'accountsSub', icon: 'wallet', tone: 'good', permission: Permission.FINANCE_VIEW },
+      { key: 'expenses', href: '/more/expenses', labelKey: 'otherExpenses', icon: 'receipt', tone: 'warn', permission: Permission.FINANCE_VIEW },
     ],
   },
   {
     labelKey: 'navAdmin',
     items: [
-      { key: 'users', href: '/more/users', labelKey: 'users', subKey: 'usersSub', icon: 'user-check', permission: Permission.USERS_MANAGE },
-      { key: 'audit', href: '/more/audit', labelKey: 'auditLog', subKey: 'auditSub', icon: 'file-text', permission: Permission.AUDIT_VIEW },
-      { key: 'settings', href: '/more/settings', labelKey: 'settings', icon: 'sliders' },
+      { key: 'users', href: '/more/users', labelKey: 'users', subKey: 'usersSub', icon: 'user-check', tone: 'info', permission: Permission.USERS_MANAGE },
+      { key: 'audit', href: '/more/audit', labelKey: 'auditLog', subKey: 'auditSub', icon: 'shield', tone: 'navy', permission: Permission.AUDIT_VIEW },
+      { key: 'settings', href: '/more/settings', labelKey: 'settings', icon: 'settings-2', tone: 'neutral' },
     ],
   },
 ];
 
-/** Quick Add sheet. */
+/** Quick Add sheet and the dashboard's quick actions. */
 export const QUICK_ADD: MenuItem[] = [
   { key: 'newImport', href: '/imports/new', labelKey: 'newImport', icon: 'download', permission: Permission.OPERATIONS_CREATE },
-  { key: 'measure', href: '/transactions/measurement', labelKey: 'measurement', icon: 'edit-3', permission: Permission.OPERATIONS_CREATE },
+  { key: 'measure', href: '/more/measurement', labelKey: 'measure', icon: 'edit-3', permission: Permission.OPERATIONS_CREATE },
   { key: 'newProduction', href: '/production/new', labelKey: 'newProduction', icon: 'settings', permission: Permission.OPERATIONS_CREATE },
   { key: 'newExport', href: '/exports/new', labelKey: 'newExport', icon: 'upload', permission: Permission.OPERATIONS_CREATE },
   { key: 'newAdjustment', href: '/stock/adjustments/new', labelKey: 'newAdjustment', icon: 'sliders', permission: Permission.OPERATIONS_CREATE },
-  { key: 'addExpense', href: '/expenses/form', labelKey: 'addExpense', icon: 'credit-card', permission: Permission.FINANCE_VIEW },
+  { key: 'addExpense', href: '/expenses/form', labelKey: 'addExpense', icon: 'receipt', permission: Permission.FINANCE_VIEW },
 ];

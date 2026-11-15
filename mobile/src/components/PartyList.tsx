@@ -1,19 +1,21 @@
 /** [OWNER-ONLY] Clients or suppliers: searchable list with what each one owes / is owed this year. */
-import type { TKey } from '@sawmill/shared';
+import type { TKey } from '@timbertrail/shared';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { FlatList, Text, View } from 'react-native';
+import { View } from 'react-native';
 import { inr, periodQuery, presets } from '../lib/format';
 import { useT } from '../lib/i18n';
-import { useApi } from '../lib/query';
+import { rowKey, useApi } from '../lib/query';
 import type { AccountsSummary, Party } from '../lib/types';
-import { ScreenHeader } from './header';
-import { Button, EmptyState, ErrorBox, type IconName, Muted, PressableCard, refresher, SearchBar, SkeletonList } from './ui';
+import { HeaderButton, ScreenHeader, SheetList, StickyFooter } from './header';
+import { Text } from './text';
+import { Avatar, Button, Chip, EmptyState, ErrorBox, Icon, type IconName, Muted, PressableCard, refresher, SearchBar, SkeletonList } from './ui';
 
 export function PartyList({ kind }: { kind: 'clients' | 'suppliers' }) {
   const t = useT();
   const router = useRouter();
   const [q, setQ] = useState('');
+  const [owing, setOwing] = useState(false);
   const list = useApi<Party[]>(`/${kind}`);
   const summary = useApi<AccountsSummary>(`/accounts/summary?${periodQuery(presets().thisYear)}`);
   const balances = useMemo(() => {
@@ -28,41 +30,63 @@ export function PartyList({ kind }: { kind: 'clients' | 'suppliers' }) {
   }[kind] as { title: TKey; sub: TKey; add: TKey; empty: TKey; icon: IconName };
 
   const needle = q.trim().toLowerCase();
-  const items = (list.data ?? []).filter((p) => !needle || `${p.name} ${p.phone ?? ''} ${p.gstNumber ?? ''}`.toLowerCase().includes(needle));
+  const items = (list.data ?? []).filter(
+    (p) => (!owing || (balances.get(p.id) ?? 0) > 0) && (!needle || `${p.name} ${p.phone ?? ''} ${p.gstNumber ?? ''}`.toLowerCase().includes(needle)),
+  );
+  const owingCount = (list.data ?? []).filter((p) => (balances.get(p.id) ?? 0) > 0).length;
   const add = () => router.push({ pathname: '/parties/form', params: { kind } });
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader title={t(L.title)} back right={<Button size="md" icon="plus" title={t(L.add)} onPress={add} className="mr-2" />} />
-      <FlatList
+      <ScreenHeader title={t(L.title)} subtitle={t(L.sub)} back right={<HeaderButton icon="plus" label={t(L.add)} onPress={add} />} />
+      <SheetList
         data={items}
-        keyExtractor={(p) => p.id}
-        contentContainerClassName="gap-2.5 p-4 pb-6"
-        keyboardShouldPersistTaps="handled"
+        keyExtractor={rowKey('party')}
         refreshControl={refresher(list.isRefetching, () => void list.refetch())}
         ListHeaderComponent={
           <View className="gap-3 pb-1">
-            <Muted>{t(L.sub)}</Muted>
             <SearchBar value={q} onChange={setQ} placeholder={t('search')} />
+            <View className="flex-row gap-2">
+              <Chip text={t('all')} on={!owing} count={list.data?.length} onPress={() => setOwing(false)} />
+              <Chip text={t('outstandingBalances')} on={owing} count={owingCount} onPress={() => setOwing(true)} />
+            </View>
             {list.error && <ErrorBox message={(list.error as Error).message} onRetry={() => void list.refetch()} />}
             {list.isPending && <SkeletonList rows={3} />}
           </View>
         }
-        ListEmptyComponent={list.isPending ? null : needle ? <EmptyState icon="search" title={t('noResults')} /> : <EmptyState icon={L.icon} title={t(L.empty)} action={{ label: t(L.add), onPress: add }} />}
+        ListEmptyComponent={list.isPending ? null : needle || owing ? <EmptyState icon="search" title={t('noResults')} /> : <EmptyState icon={L.icon} title={t(L.empty)} action={{ label: t(L.add), onPress: add }} />}
         renderItem={({ item: p }) => {
           const bal = balances.get(p.id) ?? 0;
           return (
-            <PressableCard onPress={() => router.push({ pathname: '/parties/form', params: { kind, id: p.id } })}>
-              <View className="flex-row items-center justify-between gap-2">
-                <Text className="flex-1 text-[15px] font-bold text-foreground">{p.name}</Text>
-                {bal > 0 && <Text className="text-sm font-bold tabular-nums text-warning">{inr(bal)}</Text>}
+            <PressableCard label={p.name} onPress={() => router.push({ pathname: '/parties/form', params: { kind, id: p.id } })}>
+              <View className="flex-row items-center gap-3">
+                <Avatar name={p.name} />
+                <View className="flex-1 gap-0.5">
+                  <Text className="text-[15px] font-semibold text-foreground" numberOfLines={1}>
+                    {p.name}
+                  </Text>
+                  {p.phone || p.gstNumber ? (
+                    <Muted lines={1}>{[p.phone, p.gstNumber && `GST ${p.gstNumber}`].filter(Boolean).join(' · ')}</Muted>
+                  ) : p.address ? (
+                    <Muted lines={1}>{p.address}</Muted>
+                  ) : null}
+                </View>
+                {bal > 0 ? (
+                  <View className="items-end">
+                    <Text className="text-[15px] font-bold tabular-nums text-warning">{inr(bal)}</Text>
+                    <Text className="text-[11px] text-muted-foreground">{t(kind === 'clients' ? 'pendingReceivables' : 'pendingPayables')}</Text>
+                  </View>
+                ) : (
+                  <Icon name="chevron-right" size={18} colorClassName="accent-muted-foreground" />
+                )}
               </View>
-              {(p.phone || p.gstNumber) && <Muted>{[p.phone, p.gstNumber && `GST ${p.gstNumber}`].filter(Boolean).join(' · ')}</Muted>}
-              {!!p.address && <Muted lines={2}>{p.address}</Muted>}
             </PressableCard>
           );
         }}
       />
+      <StickyFooter tabBar>
+        <Button icon="plus" title={t(L.add)} onPress={add} />
+      </StickyFooter>
     </View>
   );
 }

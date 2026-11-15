@@ -3,10 +3,11 @@
  * Sizes are added in a sheet that keeps thickness and width for the next size, so a run
  * of many lengths is quick to enter. CFT = T × W × L × pieces / 144 (shared formula, 3 decimals).
  */
-import { exportPieceCft, sizeLabel } from '@sawmill/shared';
+import { exportPieceCft, sizeLabel } from '@timbertrail/shared';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Text } from '../../../../components/text';
 import { useConfirm } from '../../../../components/confirm';
 import { NumberField, Row } from '../../../../components/form';
 import { HeaderButton, Page, ScreenHeader } from '../../../../components/header';
@@ -61,7 +62,7 @@ export default function ProductionDetailScreen() {
 
   const [saveSize, saving, sizeError] = useSubmit(async () => {
     if (!run || !valid) return;
-    const body = JSON.stringify({ thicknessIn: T, widthIn: W, lengthFt: L, pieces: N });
+    const body = { thicknessIn: T, widthIn: W, lengthFt: L, pieces: N };
     if (editing) await api(`/production/${run.id}/outputs/${editing.id}`, { method: 'PATCH', body });
     else await api(`/production/${run.id}/outputs`, { method: 'POST', body });
     await q.refetch();

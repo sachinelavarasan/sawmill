@@ -5,13 +5,14 @@
  * and each saved log gets the next number from the server. Every log stays listed below,
  * newest first: tap to correct it, long-press to delete.
  */
-import { importLogCft } from '@sawmill/shared';
+import { importLogCft } from '@timbertrail/shared';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+import { Text } from '../../../../components/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useConfirm } from '../../../../components/confirm';
-import { ScreenHeader } from '../../../../components/header';
+import { Page, ScreenHeader } from '../../../../components/header';
 import { toast } from '../../../../components/toast';
 import { Button, cn, ErrorBox, Icon, MenuGroup, Muted, Notice, SectionTitle, SkeletonList, StatPair } from '../../../../components/ui';
 import { ApiError } from '../../../../lib/api';
@@ -166,13 +167,26 @@ export default function MeasureScreen() {
       )}
 
       {load && (
-        <ScrollView contentContainerClassName="gap-3 p-4" contentContainerStyle={{ paddingBottom: 24 + insets.bottom }}>
-          <StatPair a={{ label: t('logsMeasured'), value: int(load.totalLogs) }} b={{ label: t('totalCft'), value: num3(load.totalCft) }} />
+        <Page
+          hero={
+            <View className="flex-row gap-6">
+              {[
+                { label: t('totalCft'), value: num3(load.totalCft), big: true },
+                { label: t('logsMeasured'), value: int(load.totalLogs), big: false },
+              ].map((x) => (
+                <View key={x.label} className={x.big ? 'flex-1 gap-1' : 'gap-1'}>
+                  <Text className="text-[13px] text-hero-muted">{x.label}</Text>
+                  <Text className={x.big ? 'text-[34px] font-bold tracking-tight tabular-nums text-hero-foreground' : 'text-[34px] font-bold tracking-tight tabular-nums text-saffron'}>{x.value}</Text>
+                </View>
+              ))}
+            </View>
+          }
+        >
 
           {!load.editable && <Notice icon="lock">{t('lockedRecord')}</Notice>}
 
           {load.editable && (
-            <View className="gap-3 rounded-xl border border-border bg-card p-4">
+            <View className="gap-3 rounded-2xl bg-background p-4">
               <View className="flex-row items-baseline justify-between">
                 <Text className="text-lg font-bold text-foreground">
                   {editing ? t('edit') : t('thisLog')} · {t('logNo')}
@@ -269,7 +283,7 @@ export default function MeasureScreen() {
               ))}
             </MenuGroup>
           )}
-        </ScrollView>
+        </Page>
       )}
     </View>
   );

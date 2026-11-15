@@ -4,7 +4,8 @@
  * decides what to offer. Stock changes only when the server approves.
  */
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from './text';
 import { api } from '../lib/api';
 import { useT } from '../lib/i18n';
 import { invalidateOperations } from '../lib/query';
@@ -47,7 +48,7 @@ export function WorkflowBar({
     setBusy(kind);
     setError(null);
     try {
-      await api(`${base}/${kind}`, { method: 'POST', body: body ? JSON.stringify(body) : undefined });
+      await api(`${base}/${kind}`, { method: 'POST', body });
       await invalidateOperations();
       if (kind === 'approve') toast(t('approvedToast', { code }));
       else if (kind === 'reject') toast(t('rejectedToast', { code }), 'info');

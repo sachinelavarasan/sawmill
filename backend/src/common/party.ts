@@ -5,7 +5,7 @@
  */
 import { BadRequestException, Body, Controller, DynamicModule, Get, Inject, Injectable, NotFoundException, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { PartialType } from '@nestjs/mapped-types';
-import type { Permission } from '@sawmill/shared';
+import type { Permission } from '@timbertrail/shared';
 import { IsNotEmpty, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 import { and, asc, eq } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';

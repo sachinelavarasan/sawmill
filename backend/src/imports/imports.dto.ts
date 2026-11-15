@@ -1,4 +1,4 @@
-import { ApprovalStatus } from '@sawmill/shared';
+import { ApprovalStatus } from '@timbertrail/shared';
 import { Transform, Type } from 'class-transformer';
 import {
   IsIn,

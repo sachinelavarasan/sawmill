@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { ACCOUNTANT_EDITABLE_STATUSES, exportPieceCft, hasPermission, Permission, roundTo, sizeLabel } from '@sawmill/shared';
+import { ACCOUNTANT_EDITABLE_STATUSES, exportPieceCft, hasPermission, Permission, roundTo, sizeLabel } from '@timbertrail/shared';
 import { and, asc, count, desc, eq, inArray, max, SQL, sum } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
+import { NotificationsService } from '../notifications/notifications.module';
 import { nextCode } from '../common/codes';
 import { assertEditable, assertVisible, canEdit } from '../common/editability';
 import { textSearch } from '../common/search';
@@ -59,6 +60,7 @@ export class ExportsService {
   constructor(
     @InjectDb() private readonly db: Database,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async list(actor: AuthUser, q: ListExportsQuery) {
@@ -74,7 +76,7 @@ export class ExportsService {
         .from(exportLoads)
         .innerJoin(users, eq(users.id, exportLoads.createdById))
         .where(where)
-        .orderBy(desc(exportLoads.exportDate), desc(exportLoads.createdAt))
+        .orderBy(desc(exportLoads.exportDate), desc(exportLoads.createdAt), desc(exportLoads.id))
         .limit(q.take)
         .offset(q.skip),
       this.db.select({ total: count() }).from(exportLoads).where(where),
@@ -279,6 +281,7 @@ export class ExportsService {
         .returning();
       await this.audit.log({ millId: actor.millId, userId: actor.id, action: 'SUBMIT', entityType: 'ExportLoad', entityId: id, before, after }, tx);
     });
+    this.notifications.workflow(actor, 'EXPORT', id, 'SUBMIT');
     return this.detail(actor, id);
   }
 
@@ -295,6 +298,7 @@ export class ExportsService {
       await this.postStock(tx, actor, after);
       await this.audit.log({ millId: actor.millId, userId: actor.id, action: 'APPROVE', entityType: 'ExportLoad', entityId: id, before, after }, tx);
     });
+    this.notifications.workflow(actor, 'EXPORT', id, 'APPROVE');
     return this.detail(actor, id);
   }
 
@@ -309,6 +313,7 @@ export class ExportsService {
         .returning();
       await this.audit.log({ millId: actor.millId, userId: actor.id, action: 'REJECT', entityType: 'ExportLoad', entityId: id, before, after }, tx);
     });
+    this.notifications.workflow(actor, 'EXPORT', id, 'REJECT');
     return this.detail(actor, id);
   }
 

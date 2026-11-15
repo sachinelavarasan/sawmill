@@ -59,11 +59,11 @@ export default function UserFormScreen() {
   };
 
   const [save, busy, error] = useSubmit(async () => {
-    if (id) await api(`/users/${id}`, { method: 'PATCH', body: JSON.stringify({ name: f.name.trim(), phone: f.phone.trim() || undefined }) });
+    if (id) await api(`/users/${id}`, { method: 'PATCH', body: { name: f.name.trim(), phone: f.phone.trim() || undefined } });
     else
       await api('/users', {
         method: 'POST',
-        body: JSON.stringify({ name: f.name.trim(), username: f.username.trim(), phone: f.phone.trim() || undefined, password: f.password, role: 'ACCOUNTANT', preferredLanguage: f.preferredLanguage }),
+        body: { name: f.name.trim(), username: f.username.trim(), phone: f.phone.trim() || undefined, password: f.password, role: 'ACCOUNTANT', preferredLanguage: f.preferredLanguage },
       });
     release();
     await done(t('saved'));
@@ -73,7 +73,7 @@ export default function UserFormScreen() {
   const [toggle, toggling, toggleError] = useSubmit(async () => {
     if (!u) return;
     if (u.isActive && !(await confirm({ title: t('disableUserTitle'), message: t('disableUserBody'), confirmText: t('disable'), cancelText: t('cancel'), destructive: true }))) return;
-    await api(`/users/${u.id}`, { method: 'PATCH', body: JSON.stringify({ isActive: !u.isActive }) });
+    await api(`/users/${u.id}`, { method: 'PATCH', body: { isActive: !u.isActive } });
     await done(t(u.isActive ? 'userDisabledToast' : 'userEnabledToast', { name: u.name }));
   });
 
@@ -82,7 +82,7 @@ export default function UserFormScreen() {
     const pw = await prompt({ title: t('resetPassword'), message: `${t('resetPasswordBody')}\n${t('passwordRule')}`, placeholder: t('newPassword'), confirmText: t('resetPassword'), minLength: 8 });
     if (!pw) return;
     if (!PASSWORD.test(pw)) throw new Error(t('passwordRule'));
-    await api(`/users/${u.id}/reset-password`, { method: 'POST', body: JSON.stringify({ password: pw }) });
+    await api(`/users/${u.id}/reset-password`, { method: 'POST', body: { password: pw } });
     await done(t('saved'));
   });
 

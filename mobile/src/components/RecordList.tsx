@@ -4,12 +4,15 @@
  */
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { ReactElement, ReactNode, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { Text } from './text';
 import { api } from '../lib/api';
 import { useDebounced } from '../lib/hooks';
 import { useT } from '../lib/i18n';
-import { useRefetchOnFocus } from '../lib/query';
+import { mergePages, useRefetchOnFocus } from '../lib/query';
 import { type Paged, STATUSES } from '../lib/types';
+import { SheetList } from './header';
+import { Appear } from './motion';
 import { Chip, EmptyState, ErrorBox, type IconName, refresher, SearchBar, SkeletonList } from './ui';
 
 const PAGE = 30;
@@ -22,6 +25,7 @@ export function RecordList<T extends { id: string }>({
   renderItem,
   empty,
   header,
+  hero,
   bottomPad = 24,
 }: {
   /** e.g. '/imports' */
@@ -34,6 +38,8 @@ export function RecordList<T extends { id: string }>({
   renderItem: (item: T) => ReactElement;
   empty: { icon?: IconName; title: string; body?: string; action?: { label: string; onPress: () => void } };
   header?: ReactNode;
+  /** navy content above the sheet (a headline figure) */
+  hero?: ReactNode;
   /** room below the last card (for a floating button) */
   bottomPad?: number;
 }) {
@@ -52,7 +58,7 @@ export function RecordList<T extends { id: string }>({
   const list = useInfiniteQuery({
     queryKey: ['api', `${path}?${query}`, 'pages'],
     initialPageParam: 0,
-    queryFn: ({ pageParam }) => api<Paged<T>>(`${path}?${query}&skip=${pageParam}`),
+    queryFn: ({ pageParam, signal }) => api<Paged<T>>(`${path}?${query}&skip=${pageParam}`, { signal }),
     getNextPageParam: (last, all) => {
       const loaded = all.reduce((n, p) => n + p.items.length, 0);
       return loaded < last.total ? loaded : undefined;
@@ -60,17 +66,15 @@ export function RecordList<T extends { id: string }>({
   });
   useRefetchOnFocus(list.refetch);
 
-  const items = list.data?.pages.flatMap((p) => p.items) ?? [];
+  const items = mergePages(list.data?.pages, (i) => i.id);
   const filtered = !!dq || !!status;
 
   return (
-    <FlatList
-      className="flex-1 bg-background"
+    <SheetList
+      hero={hero}
+      bottomPad={bottomPad}
       data={items}
-      keyExtractor={(i) => i.id}
-      contentContainerClassName="gap-2.5 p-4"
-      contentContainerStyle={{ paddingBottom: bottomPad }}
-      keyboardShouldPersistTaps="handled"
+      keyExtractor={(i) => `${path}:${i.id}`}
       refreshControl={refresher(list.isRefetching && !list.isFetchingNextPage, () => void list.refetch())}
       onEndReachedThreshold={0.4}
       onEndReached={() => list.hasNextPage && !list.isFetchingNextPage && void list.fetchNextPage()}
@@ -104,7 +108,7 @@ export function RecordList<T extends { id: string }>({
           <Text className="py-3 text-center text-xs text-muted-foreground">{t('endOfList')}</Text>
         ) : null
       }
-      renderItem={({ item }) => renderItem(item)}
+      renderItem={({ item, index }) => <Appear index={index % 30}>{renderItem(item)}</Appear>}
     />
   );
 }

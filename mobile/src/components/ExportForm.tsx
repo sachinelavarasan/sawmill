@@ -106,13 +106,13 @@ export function ExportForm({ id }: { id?: string }) {
       endAt: form.endAt || null,
     };
     if (id) {
-      await api(`/exports/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+      await api(`/exports/${id}`, { method: 'PATCH', body: body });
       release();
       await invalidateOperations();
       toast(t('saved'));
       router.back();
     } else {
-      const created = await api<{ id: string; code: string }>('/exports', { method: 'POST', body: JSON.stringify(body) });
+      const created = await api<{ id: string; code: string }>('/exports', { method: 'POST', body: body });
       release();
       await invalidateOperations();
       toast(t('saved'), 'success', created.code);

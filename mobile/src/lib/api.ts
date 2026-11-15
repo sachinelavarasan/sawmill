@@ -1,6 +1,17 @@
-import type { Permission, Role } from '@sawmill/shared';
+/**
+ * HTTP client for the TimberTrail API (axios). Screens don't call this directly for reads —
+ * they go through TanStack Query (src/lib/query.ts), which caches by path and passes an
+ * AbortSignal so leaving a screen cancels its requests.
+ *
+ * Auth: a short-lived access token in memory (sent as `Authorization: Bearer`), and the
+ * refresh token in the secure store. A 401 triggers one shared refresh, then the request is
+ * retried once; if the refresh fails the session is ended (onSessionLost → login screen).
+ */
+import type { Permission, Role } from '@timbertrail/shared';
+import axios, { AxiosError, type AxiosRequestConfig, type Method } from 'axios';
 import { Directory, File, Paths } from 'expo-file-system';
-import * as SecureStore from 'expo-secure-store';
+import { API_URL } from './env';
+import { deleteStored, getStored, KEYS, setStored } from './storage';
 
 export interface Profile {
   id: string;
@@ -18,6 +29,7 @@ interface AuthResponse {
   user: Profile;
 }
 
+/** Every failed request becomes one of these. status 0 = the server could not be reached. */
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -27,8 +39,20 @@ export class ApiError extends Error {
   }
 }
 
-const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:3000/api';
-const REFRESH_KEY = 'sawmill_refresh';
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    /** login / refresh / logout: a 401 there is an answer, not an expired token */
+    skipAuthRefresh?: boolean;
+    /** set on the one retry after a refresh */
+    _retried?: boolean;
+  }
+}
+
+export const http = axios.create({
+  baseURL: API_URL,
+  timeout: 20_000,
+  headers: { Accept: 'application/json' },
+});
 
 let accessToken: string | null = null;
 let refreshInFlight: Promise<boolean> | null = null;
@@ -38,79 +62,87 @@ export function setSessionLostHandler(fn: () => void) {
   onSessionLost = fn;
 }
 
+http.interceptors.request.use((config) => {
+  if (accessToken) config.headers.set('Authorization', `Bearer ${accessToken}`);
+  return config;
+});
+
+http.interceptors.response.use(undefined, async (error: unknown) => {
+  if (axios.isCancel(error) || !(error instanceof AxiosError)) throw error;
+  const config = error.config;
+  if (error.response?.status === 401 && config && !config.skipAuthRefresh && !config._retried) {
+    if (await tryRefresh()) return http.request({ ...config, _retried: true });
+    onSessionLost();
+  }
+  throw toApiError(error);
+});
+
+/** Turn an axios failure into an ApiError with the server's own message where it gave one. */
+function toApiError(e: AxiosError): ApiError {
+  if (!e.response) {
+    const timedOut = e.code === AxiosError.ECONNABORTED || e.code === AxiosError.ETIMEDOUT;
+    return new ApiError(0, timedOut ? `The server took too long to answer (${API_URL})` : `Cannot reach server (${API_URL})`);
+  }
+  const data = e.response.data as { message?: string | string[] } | undefined;
+  const msg = data?.message;
+  return new ApiError(e.response.status, Array.isArray(msg) ? msg.join(', ') : (msg ?? `HTTP ${e.response.status}`));
+}
+
 async function applyAuth(res: AuthResponse) {
   accessToken = res.accessToken;
-  await SecureStore.setItemAsync(REFRESH_KEY, res.refreshToken);
+  await setStored(KEYS.refresh, res.refreshToken);
   return res.user;
 }
 
-async function raw<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  if (init.body) headers['Content-Type'] = 'application/json';
-  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-  let res: Response;
-  try {
-    res = await fetch(`${BASE}${path}`, { ...init, headers });
-  } catch {
-    throw new ApiError(0, `Cannot reach server (${BASE})`);
-  }
-  if (!res.ok) {
-    let message = `HTTP ${res.status}`;
+/** One refresh at a time, however many requests hit a 401 together. */
+function tryRefresh(): Promise<boolean> {
+  refreshInFlight ??= (async () => {
+    const token = await getStored(KEYS.refresh);
+    if (!token) return false;
     try {
-      const body = await res.json();
-      message = Array.isArray(body.message) ? body.message.join(', ') : (body.message ?? message);
-    } catch {
-      /* not JSON */
-    }
-    throw new ApiError(res.status, message);
-  }
-  return res.status === 204 ? (undefined as T) : res.json();
-}
-
-async function tryRefresh(): Promise<boolean> {
-  const token = await SecureStore.getItemAsync(REFRESH_KEY);
-  if (!token) return false;
-  refreshInFlight ??= raw<AuthResponse>('/auth/refresh', { method: 'POST', body: JSON.stringify({ refreshToken: token }) })
-    .then(async (r) => {
-      await applyAuth(r);
+      const { data } = await http.post<AuthResponse>('/auth/refresh', { refreshToken: token }, { skipAuthRefresh: true });
+      await applyAuth(data);
       return true;
-    })
-    .catch(async (e) => {
+    } catch (e) {
       // keep the token if the server was merely unreachable
       if (e instanceof ApiError && e.status !== 0) {
         accessToken = null;
-        await SecureStore.deleteItemAsync(REFRESH_KEY);
+        await deleteStored(KEYS.refresh);
       }
       return false;
-    })
-    .finally(() => {
-      refreshInFlight = null;
-    });
+    }
+  })().finally(() => {
+    refreshInFlight = null;
+  });
   return refreshInFlight;
 }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  try {
-    return await raw<T>(path, init);
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 401) {
-      if (await tryRefresh()) return raw<T>(path, init);
-      onSessionLost();
-    }
-    throw err;
-  }
+export interface ApiOptions {
+  method?: Method;
+  /** sent as JSON */
+  body?: unknown;
+  /** from TanStack Query: cancels the request when it is no longer needed */
+  signal?: AbortSignal;
+  params?: AxiosRequestConfig['params'];
+}
+
+/** Call the API: `api<T>('/imports?take=30')`, `api('/imports', { method: 'POST', body })`. */
+export async function api<T>(path: string, { method = 'GET', body, signal, params }: ApiOptions = {}): Promise<T> {
+  const res = await http.request<T>({ url: path, method, data: body, signal, params });
+  return res.data;
 }
 
 /**
  * Download a file from the API (an Excel report) into the app's cache folder, using
  * the same login and refresh as api(). Returns the saved file; nothing is kept elsewhere.
+ * (expo-file-system streams straight to disk, which axios can't do in React Native.)
  */
 export async function downloadToCache(path: string, filename: string): Promise<File> {
   const dir = new Directory(Paths.cache, 'reports');
   dir.create({ idempotent: true });
   const target = new File(dir, filename);
   const get = () =>
-    File.downloadFileAsync(`${BASE}${path}`, target, {
+    File.downloadFileAsync(`${API_URL}${path}`, target, {
       headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       idempotent: true,
     });
@@ -126,17 +158,17 @@ export async function downloadToCache(path: string, filename: string): Promise<F
 
 export const auth = {
   login: async (username: string, password: string) =>
-    applyAuth(await raw<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) })),
-  restore: async (): Promise<Profile | null> => ((await tryRefresh()) ? raw<Profile>('/auth/me') : null),
+    applyAuth((await http.post<AuthResponse>('/auth/login', { username, password }, { skipAuthRefresh: true })).data),
+  restore: async (): Promise<Profile | null> => ((await tryRefresh()) ? api<Profile>('/auth/me') : null),
   logout: async () => {
-    const refreshToken = (await SecureStore.getItemAsync(REFRESH_KEY)) ?? undefined;
+    const refreshToken = (await getStored(KEYS.refresh)) ?? undefined;
     try {
-      if (accessToken) await raw('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) });
+      if (accessToken) await http.post('/auth/logout', { refreshToken }, { skipAuthRefresh: true });
     } catch {
       /* offline logout still clears the device */
     } finally {
       accessToken = null;
-      await SecureStore.deleteItemAsync(REFRESH_KEY);
+      await deleteStored(KEYS.refresh);
     }
   },
 };

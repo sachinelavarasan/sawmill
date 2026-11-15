@@ -1,4 +1,4 @@
-import type { Role } from '@sawmill/shared';
+import type { Role } from '@timbertrail/shared';
 
 /** The authenticated user attached to every request (always re-loaded from the DB). */
 export interface AuthUser {

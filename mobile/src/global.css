@@ -1,12 +1,17 @@
 /*
- * TimberTrail on Android — Tailwind v4 through Uniwind.
+ * TimberTrail on Android — design tokens. Tailwind v4 through Uniwind.
  *
- * Brand: slate text and surfaces, saffron (#E5A000) for the primary action and the
- * selected tab, soft neutral backgrounds, 8–12px corners.
+ * Premium industrial minimalism: deep navy for structure (app bars, hero cards, the
+ * selected state), one saffron accent for the primary action, white / deep-navy
+ * surfaces separated by hairline borders rather than shadows.
  *
- * The colour names are the same ones the web dashboard uses (bg-background,
- * text-muted-foreground, bg-success-soft, …) and the values mirror
- * web/src/tokens.css. Change both together; never put colours in components.
+ * This file is the single source of truth for colour and radius. Components only ever
+ * use these names (bg-card, text-muted-foreground, bg-saffron-soft …) — never hex.
+ * Type lives in src/components/text.tsx (Inter), icons in src/components/icon.tsx (Lucide).
+ *
+ * Dark theme is designed, not inverted: surfaces step *up* in lightness as they rise
+ * (background → card → secondary), borders stay low-contrast, saffron is a touch
+ * warmer so it holds its weight on navy, and status colours are desaturated pastels.
  */
 @import 'tailwindcss';
 @import 'uniwind';
@@ -15,116 +20,142 @@
 @source '../../packages/shared/src';
 
 @theme {
-  --color-background: #f8fafc;
-  --color-foreground: #1e293b;
+  /* ── surfaces ── */
+  --color-background: #f4f6f9;
+  --color-foreground: #0f172a;
   --color-card: #ffffff;
-  --color-secondary: #f1f5f9;
-  --color-border: #e2e8f0;
-  --color-input: #cbd5e1;
+  --color-secondary: #eef1f5;
+  --color-border: #e3e8ef;
+  --color-input: #d3dae4;
   --color-muted-foreground: #64748b;
 
-  --color-primary: #334155;
+  /* ── brand: navy ── */
+  --color-primary: #13213a;
   --color-primary-foreground: #ffffff;
-  --color-primary-soft: #f1f5f9;
+  --color-primary-soft: #e8edf5;
 
-  --color-saffron: #e5a000;
-  --color-saffron-foreground: #1e293b;
-  --color-saffron-soft: #fef3c7;
+  /* ── brand: saffron accent ── */
+  --color-saffron: #f59e0b;
+  --color-saffron-foreground: #1c1305;
+  --color-saffron-soft: #fff3dc;
+  /* saffron as text / icon on light surfaces (AA on white) */
+  --color-saffron-strong: #b45309;
 
+  /* ── status ── */
   --color-success: #15803d;
   --color-success-soft: #dcfce7;
-  --color-warning: #92400e;
+  --color-warning: #a14a06;
   --color-warning-soft: #fef3c7;
-  --color-destructive: #b42318;
-  --color-destructive-soft: #fee4e2;
+  --color-destructive: #c2261b;
+  --color-destructive-soft: #fde8e6;
   --color-info: #1d4ed8;
-  --color-info-soft: #dbeafe;
+  --color-info-soft: #dfe9fd;
 
-  /* app bar and sidebar: dark slate in both themes */
-  --color-hero: #1e293b;
+  /* ── navy chrome: app bars, hero cards, drawer ── */
+  --color-hero: #0f1b2e;
   --color-hero-foreground: #ffffff;
-  --color-hero-muted: #cbd5e1;
-  --color-hero-chip: #334155;
-  --color-sidebar: #1e293b;
+  --color-hero-muted: #a3afc2;
+  --color-hero-chip: #1d2b44;
+  --color-hero-border: #263652;
+  --color-sidebar: #0f1b2e;
   --color-sidebar-foreground: #ffffff;
-  --color-sidebar-muted: #cbd5e1;
-  --color-sidebar-active: #334155;
-  --color-sidebar-accent: #e5a000;
+  --color-sidebar-muted: #a3afc2;
+  --color-sidebar-active: #1d2b44;
+  --color-sidebar-accent: #f59e0b;
 
-  /* controls 8px, cards 12px — as on the web */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  /* ── chart series ── */
+  --color-chart-1: #f59e0b;
+  --color-chart-2: #13213a;
+  --color-chart-3: #94a3b8;
+
+  /* ── radius: controls 12, cards 16, sheets 24 ── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
   --radius-xl: 12px;
   --radius-2xl: 16px;
+  --radius-3xl: 24px;
 }
 
 @layer theme {
   :root {
     @variant light {
-      --color-background: #f8fafc;
-      --color-foreground: #1e293b;
+      --color-background: #f4f6f9;
+      --color-foreground: #0f172a;
       --color-card: #ffffff;
-      --color-secondary: #f1f5f9;
-      --color-border: #e2e8f0;
-      --color-input: #cbd5e1;
+      --color-secondary: #eef1f5;
+      --color-border: #e3e8ef;
+      --color-input: #d3dae4;
       --color-muted-foreground: #64748b;
-      --color-primary: #334155;
+      --color-primary: #13213a;
       --color-primary-foreground: #ffffff;
-      --color-primary-soft: #f1f5f9;
-      --color-saffron: #e5a000;
-      --color-saffron-foreground: #1e293b;
-  --color-saffron-soft: #fef3c7;
+      --color-primary-soft: #e8edf5;
+      --color-saffron: #f59e0b;
+      --color-saffron-foreground: #1c1305;
+      --color-saffron-soft: #fff3dc;
+      --color-saffron-strong: #b45309;
       --color-success: #15803d;
       --color-success-soft: #dcfce7;
-      --color-warning: #92400e;
+      --color-warning: #a14a06;
       --color-warning-soft: #fef3c7;
-      --color-destructive: #b42318;
-      --color-destructive-soft: #fee4e2;
+      --color-destructive: #c2261b;
+      --color-destructive-soft: #fde8e6;
       --color-info: #1d4ed8;
-      --color-info-soft: #dbeafe;
-      --color-hero: #1e293b;
+      --color-info-soft: #dfe9fd;
+      --color-hero: #0f1b2e;
       --color-hero-foreground: #ffffff;
-      --color-hero-muted: #cbd5e1;
-      --color-hero-chip: #334155;
-      --color-sidebar: #1e293b;
+      --color-hero-muted: #a3afc2;
+      --color-hero-chip: #1d2b44;
+      --color-hero-border: #263652;
+      --color-sidebar: #0f1b2e;
       --color-sidebar-foreground: #ffffff;
-      --color-sidebar-muted: #cbd5e1;
-      --color-sidebar-active: #334155;
-      --color-sidebar-accent: #e5a000;
+      --color-sidebar-muted: #a3afc2;
+      --color-sidebar-active: #1d2b44;
+      --color-sidebar-accent: #f59e0b;
+      --color-chart-1: #f59e0b;
+      --color-chart-2: #13213a;
+      --color-chart-3: #94a3b8;
     }
 
     @variant dark {
-      --color-background: #0f172a;
-      --color-foreground: #e2e8f0;
-      --color-card: #172033;
-      --color-secondary: #1e293b;
-      --color-border: #334155;
-      --color-input: #475569;
-      --color-muted-foreground: #94a3b8;
-      --color-primary: #cbd5e1;
-      --color-primary-foreground: #0f172a;
-      --color-primary-soft: #1e293b;
-      --color-saffron: #e5a000;
-      --color-saffron-foreground: #1e293b;
-      --color-saffron-soft: #3b2f12;
-      --color-success: #6fd39a;
-      --color-success-soft: #173526;
+      /* deep navy, stepping lighter as surfaces rise */
+      --color-background: #08111f;
+      --color-foreground: #e7ecf4;
+      --color-card: #0f1a2c;
+      --color-secondary: #16233a;
+      --color-border: #1c2a42;
+      --color-input: #2a3a56;
+      --color-muted-foreground: #8b99b0;
+      /* "primary" flips to a pale slate so navy-filled elements stay visible */
+      --color-primary: #d8e1ee;
+      --color-primary-foreground: #08111f;
+      --color-primary-soft: #16233a;
+      --color-saffron: #f7a928;
+      --color-saffron-foreground: #1c1305;
+      --color-saffron-soft: #2b2112;
+      --color-saffron-strong: #f7b548;
+      --color-success: #5fd39a;
+      --color-success-soft: #12301f;
       --color-warning: #f2b535;
-      --color-warning-soft: #3b2f12;
-      --color-destructive: #f2958b;
-      --color-destructive-soft: #3d1d19;
+      --color-warning-soft: #2e2410;
+      --color-destructive: #f29589;
+      --color-destructive-soft: #361a17;
       --color-info: #8fbdf3;
-      --color-info-soft: #172a40;
-      --color-hero: #172033;
-      --color-hero-foreground: #f8fafc;
-      --color-hero-muted: #94a3b8;
-      --color-hero-chip: #334155;
-      --color-sidebar: #172033;
-      --color-sidebar-foreground: #f8fafc;
-      --color-sidebar-muted: #94a3b8;
-      --color-sidebar-active: #334155;
-      --color-sidebar-accent: #e5a000;
+      --color-info-soft: #13253c;
+      /* chrome sits just above the page so it still reads as a bar */
+      --color-hero: #0c1627;
+      --color-hero-foreground: #f4f7fb;
+      --color-hero-muted: #8b99b0;
+      --color-hero-chip: #182740;
+      --color-hero-border: #1c2a42;
+      --color-sidebar: #0c1627;
+      --color-sidebar-foreground: #f4f7fb;
+      --color-sidebar-muted: #8b99b0;
+      --color-sidebar-active: #182740;
+      --color-sidebar-accent: #f7a928;
+      --color-chart-1: #f7a928;
+      --color-chart-2: #8fa6c8;
+      --color-chart-3: #3a4b68;
     }
   }
 }

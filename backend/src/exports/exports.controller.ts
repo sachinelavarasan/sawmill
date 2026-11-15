@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, Module, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
-import { Permission } from '@sawmill/shared';
+import { Permission } from '@timbertrail/shared';
 import { CurrentUser, RequirePermissions } from '../common/decorators';
 import type { AuthUser } from '../common/types';
 import { RejectDto } from '../imports/imports.dto';

@@ -11,13 +11,14 @@ import {
   BottomSheetTextInput,
 } from '@gorhom/bottom-sheet';
 import { forwardRef, ReactNode, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Calendar, type DateData } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCSSVariable, withUniwind } from 'uniwind';
 import { dateOnly, isoDay, type Period, PERIOD_KEYS, presets, todayIso } from '../lib/format';
 import { useT } from '../lib/i18n';
 import { InSheet } from './sheet-context';
+import { fontStyleFor, Text } from './text';
 import { Button, Chip, cn, Icon, Muted } from './ui';
 
 export const SheetInput = withUniwind(BottomSheetTextInput);
@@ -49,7 +50,7 @@ export const Sheet = forwardRef<SheetHandle, { title?: string; children: ReactNo
       [],
     );
     const head = title ? (
-      <Text className="px-5 pb-3 text-lg font-bold text-foreground" accessibilityRole="header">
+      <Text className="px-5 pb-4 pt-1 text-lg font-bold tracking-tight text-foreground" accessibilityRole="header">
         {title}
       </Text>
     ) : null;
@@ -112,7 +113,7 @@ export function PickerTrigger({
   const t = useT();
   return (
     <View className="gap-1.5">
-      <Text className="text-sm font-semibold text-foreground">
+      <Text className="text-[13px] font-semibold text-foreground">
         {label}
         {required && <Text className="text-destructive"> *</Text>}
       </Text>
@@ -122,7 +123,7 @@ export function PickerTrigger({
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${value || placeholder || t('choose')}`}
         className={cn(
-          'min-h-[52px] flex-row items-center gap-2 rounded-xl border-[1.5px] bg-card px-4 active:bg-secondary',
+          'min-h-[52px] flex-row items-center gap-2 rounded-xl border bg-card px-4 active:bg-secondary',
           error ? 'border-destructive' : 'border-input',
           disabled && 'opacity-60',
         )}
@@ -248,7 +249,7 @@ export const SelectSheet = forwardRef<
               {title}
             </Text>
             {searchable && (
-              <View className="min-h-12 flex-row items-center gap-2 rounded-xl border border-border bg-secondary px-3.5">
+              <View className="min-h-12 flex-row items-center gap-2.5 rounded-xl border border-border bg-secondary px-3.5">
                 <Icon name="search" size={18} colorClassName="accent-muted-foreground" />
                 <SheetInput
                   value={q}
@@ -258,6 +259,7 @@ export const SelectSheet = forwardRef<
                   autoCorrect={false}
                   accessibilityLabel={t('search')}
                   className="flex-1 py-2 text-[15px] text-foreground"
+                  style={fontStyleFor()}
                 />
               </View>
             )}
@@ -282,7 +284,7 @@ export const SelectSheet = forwardRef<
                 <Text className={cn('text-[15px] text-foreground', on ? 'font-bold' : 'font-medium')}>{item.label}</Text>
                 {!!item.hint && <Muted>{item.hint}</Muted>}
               </View>
-              {on && <Icon name="check" size={18} colorClassName="accent-warning" />}
+              {on && <Icon name="check" size={18} colorClassName="accent-saffron-strong" />}
             </Pressable>
           );
         }}
@@ -315,8 +317,10 @@ function useCalendarTheme() {
     arrowColor: primary,
     textDayFontSize: 15,
     textMonthFontSize: 16,
-    textMonthFontWeight: '700' as const,
     textDayHeaderFontSize: 12,
+    textDayFontFamily: 'Inter_500Medium',
+    textMonthFontFamily: 'Inter_700Bold',
+    textDayHeaderFontFamily: 'Inter_600SemiBold',
   };
 }
 

@@ -10,7 +10,7 @@
 import 'reflect-metadata';
 import { RequestMethod } from '@nestjs/common';
 import { METHOD_METADATA, MODULE_METADATA, PATH_METADATA } from '@nestjs/common/constants';
-import { hasAllPermissions, Permission, Role } from '@sawmill/shared';
+import { hasAllPermissions, Permission, Role } from '@timbertrail/shared';
 import { AUTHENTICATED_ONLY_KEY, IS_PUBLIC_KEY, PERMISSIONS_KEY } from '../common/decorators';
 
 process.env.JWT_ACCESS_SECRET ??= 'routes-spec-secret-0123456789';

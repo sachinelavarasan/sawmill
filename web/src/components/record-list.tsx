@@ -39,7 +39,7 @@ function savedHidden(key: string, fallback: string[]): string[] {
  * `name` keys the remembered column choice on this device.
  */
 export function useRecordList<T>({ path, name, hiddenByDefault = [], fixedQuery }: { path: string; name: string; hiddenByDefault?: string[]; fixedQuery?: string }) {
-  const storageKey = `sawmill.${name}.hiddenColumns`;
+  const storageKey = `timbertrail.${name}.hiddenColumns`;
   const [status, setStatus] = useState('');
   const [q, setQ] = useState('');
   const [hidden, setHidden] = useState(() => savedHidden(storageKey, hiddenByDefault));

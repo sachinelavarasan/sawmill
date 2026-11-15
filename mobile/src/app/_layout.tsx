@@ -2,16 +2,18 @@ import '../global.css';
 
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useUniwind } from 'uniwind';
 import { DialogProvider } from '../components/confirm';
+import { FONT_FILES } from '../components/text';
 import { ToastHost } from '../components/toast';
 import { LangProvider, useLang } from '../lib/i18n';
+import { configureNotifications, NotificationProvider } from '../lib/notifications';
 import { queryClient } from '../lib/query';
 import { SessionProvider, useSession } from '../lib/session';
 import { restoreTheme } from '../lib/theme';
@@ -19,6 +21,8 @@ import { restoreTheme } from '../lib/theme';
 // keep the splash up until the saved login has been checked
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 SplashScreen.setOptions({ duration: 200, fade: true });
+// show notifications that arrive while the app is open
+configureNotifications();
 
 export default function RootLayout() {
   useEffect(restoreTheme, []);
@@ -43,7 +47,9 @@ function WithSession() {
   const { adopt } = useLang();
   return (
     <SessionProvider onLogin={(p) => adopt(p.preferredLanguage)}>
-      <Routes />
+      <NotificationProvider>
+        <Routes />
+      </NotificationProvider>
       <ToastHost />
     </SessionProvider>
   );
@@ -52,17 +58,19 @@ function WithSession() {
 /** Logged out: only the login screen exists. Logged in: the app. */
 function Routes() {
   const { user, booting } = useSession();
-  const { theme } = useUniwind();
+  // Inter ships with the app; if a file ever fails to load, carry on with the system font
+  const [fontsLoaded, fontError] = useFonts(FONT_FILES);
+  const ready = !booting && (fontsLoaded || !!fontError);
 
   useEffect(() => {
-    if (!booting) SplashScreen.hideAsync().catch(() => undefined);
-  }, [booting]);
+    if (ready) SplashScreen.hideAsync().catch(() => undefined);
+  }, [ready]);
 
-  if (booting) return null;
+  if (!ready) return null;
   return (
     <>
-      {/* login has a slate hero; elsewhere the bars follow the theme */}
-      <StatusBar style={!user || theme === 'dark' ? 'light' : 'dark'} />
+      {/* every screen starts with the navy app bar, in both themes */}
+      <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
         <Stack.Protected guard={!!user}>
           <Stack.Screen name="(app)" />

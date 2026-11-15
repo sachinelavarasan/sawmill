@@ -8,7 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       // use the TypeScript source of the shared package directly
-      '@sawmill/shared': fileURLToPath(new URL('../packages/shared/src/index.ts', import.meta.url)),
+      '@timbertrail/shared': fileURLToPath(new URL('../packages/shared/src/index.ts', import.meta.url)),
       // shadcn/ui components import from "@/…"
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },

@@ -5,8 +5,10 @@
  * One host at the app root renders whichever is open.
  */
 import { createContext, ReactNode, useCallback, useContext, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Pressable, View } from 'react-native';
+import { Text, TextInput } from './text';
 import { useT } from '../lib/i18n';
+import Animated, { ZoomIn } from 'react-native-reanimated';
 import { Button, cn } from './ui';
 
 export interface ConfirmOptions {
@@ -30,6 +32,9 @@ export interface PromptOptions {
 type Open =
   | { kind: 'confirm'; opts: ConfirmOptions; resolve: (v: boolean) => void }
   | { kind: 'prompt'; opts: PromptOptions; resolve: (v: string | null) => void };
+
+/** dialog card that springs in from slightly smaller */
+const AnimatedCard = Animated.createAnimatedComponent(View);
 
 const Ctx = createContext<{ confirm: (o: ConfirmOptions) => Promise<boolean>; prompt: (o: PromptOptions) => Promise<string | null> } | null>(null);
 
@@ -69,8 +74,8 @@ function DialogView({ open, onClose }: { open: Open; onClose: (v: boolean | stri
     <Modal transparent visible animationType="fade" statusBarTranslucent navigationBarTranslucent onRequestClose={() => onClose(isPrompt ? null : false)}>
       <KeyboardAvoidingView behavior="padding" className="flex-1">
         <View className="flex-1 items-center justify-center bg-black/50 px-6">
-          <View className="w-full max-w-[420px] gap-4 rounded-2xl bg-card p-5 shadow-lg" accessibilityViewIsModal>
-            <Text className="text-lg font-bold text-foreground" accessibilityRole="header">
+          <AnimatedCard entering={ZoomIn.springify().damping(18).stiffness(260).withInitialValues({ transform: [{ scale: 0.92 }] })} className="w-full max-w-[420px] gap-4 rounded-3xl border border-border bg-card p-6 shadow-lg" accessibilityViewIsModal>
+            <Text className="text-lg font-bold tracking-tight text-foreground" accessibilityRole="header">
               {o.title}
             </Text>
             {!!o.message && <Text className="text-[15px] leading-[22px] text-muted-foreground">{o.message}</Text>}
@@ -84,29 +89,29 @@ function DialogView({ open, onClose }: { open: Open; onClose: (v: boolean | stri
                 placeholderTextColorClassName="accent-muted-foreground"
                 cursorColorClassName="accent-primary"
                 accessibilityLabel={o.title}
-                className="min-h-24 rounded-xl border-[1.5px] border-input bg-card px-3.5 py-3 text-base text-foreground focus:border-primary"
+                className="min-h-24 rounded-xl border border-input bg-card px-3.5 py-3 text-base text-foreground focus:border-saffron"
                 style={{ textAlignVertical: 'top' }}
               />
             )}
             {isPrompt && min > 1 && <Text className="-mt-2 text-xs text-muted-foreground">{t('minChars', { n: min })}</Text>}
             <View className="flex-row gap-2.5">
-              {!!cancelText && <Button className="flex-1" size="md" kind="secondary" title={cancelText} onPress={() => onClose(isPrompt ? null : false)} />}
+              {!!cancelText && <Button className="flex-1 min-h-12" size="md" kind="secondary" title={cancelText} onPress={() => onClose(isPrompt ? null : false)} />}
               <Pressable
                 onPress={() => ok && onClose(isPrompt ? text.trim() : true)}
                 disabled={!ok}
                 accessibilityRole="button"
                 accessibilityState={{ disabled: !ok }}
                 className={cn(
-                  'min-h-11 flex-1 items-center justify-center rounded-xl px-4',
+                  'min-h-12 flex-1 items-center justify-center rounded-xl px-4',
                   !ok ? 'bg-secondary' : o.destructive ? 'bg-destructive active:opacity-85' : 'bg-saffron active:opacity-85',
                 )}
               >
-                <Text className={cn('text-sm font-bold', !ok ? 'text-muted-foreground' : o.destructive ? 'text-card' : 'text-saffron-foreground')}>
+                <Text className={cn('text-sm font-semibold', !ok ? 'text-muted-foreground' : o.destructive ? 'text-white' : 'text-saffron-foreground')}>
                   {o.confirmText ?? (cancelText ? t('save') : 'OK')}
                 </Text>
               </Pressable>
             </View>
-          </View>
+          </AnimatedCard>
         </View>
       </KeyboardAvoidingView>
     </Modal>

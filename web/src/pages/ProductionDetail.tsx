@@ -1,4 +1,4 @@
-import { exportPieceCft, productionWaste, sizeLabel, totalCft } from '@sawmill/shared';
+import { exportPieceCft, productionWaste, sizeLabel, totalCft } from '@timbertrail/shared';
 import { ArrowUpRightIcon, CheckIcon, EqualIcon, MinusIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { ReactNode } from 'react';
 import { FormEvent, useRef, useState } from 'react';

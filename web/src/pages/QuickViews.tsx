@@ -3,7 +3,7 @@
  * next step (submit, or approve / reject) right there. Each takes the list row, shows it at
  * once, and fetches the full record. The API decides what the viewer may do.
  */
-import { sizeLabel } from '@sawmill/shared';
+import { sizeLabel } from '@timbertrail/shared';
 import { FactoryIcon, RulerIcon, TruckIcon } from 'lucide-react';
 import { ReactNode } from 'react';
 import { Link } from 'react-router-dom';

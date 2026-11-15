@@ -1,5 +1,5 @@
 import { BellIcon, CheckCheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronsUpDownIcon, LogOutIcon, MenuIcon, MonitorIcon, MoonIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, SunIcon, Undo2Icon } from 'lucide-react';
-import { Permission } from '@sawmill/shared';
+import { Permission } from '@timbertrail/shared';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -27,7 +27,7 @@ import { QuickJump } from './quick-jump';
 import { type ThemeChoice, useTheme } from '../theme';
 import { dateTime } from './common';
 
-const SIDEBAR_KEY = 'sawmill.sidebar';
+const SIDEBAR_KEY = 'timbertrail.sidebar';
 
 /** Desktop sidebar width: full, or collapsed to an icon rail. Remembered per browser. */
 function useSidebarCollapsed() {
@@ -213,7 +213,7 @@ function usePendingApprovals() {
   return n;
 }
 
-const GROUPS_KEY = 'sawmill.nav.closed';
+const GROUPS_KEY = 'timbertrail.nav.closed';
 /** Which navigation groups the person has folded away, remembered per browser. */
 function useClosedGroups() {
   const [closed, setClosed] = useState<NavGroup[]>(() => {

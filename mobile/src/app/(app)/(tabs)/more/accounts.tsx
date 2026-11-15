@@ -1,10 +1,11 @@
 /** [OWNER-ONLY] Profit and loss for a period, the expense breakdown, and who still owes / is owed. */
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import { Page, ScreenHeader } from '../../../../components/header';
 import { PeriodPicker } from '../../../../components/sheet';
-import { Card, cn, Divider, EmptyState, ErrorBox, KV, MenuGroup, Muted, Pill, Segmented, SectionTitle, Skeleton, SkeletonList } from '../../../../components/ui';
+import { Text } from '../../../../components/text';
+import { Avatar, Button, Card, cn, Divider, EmptyState, ErrorBox, HeroCard, KV, MenuGroup, Muted, Segmented, SectionTitle, Skeleton, SkeletonList } from '../../../../components/ui';
 import { inr, int, periodQuery, presets } from '../../../../lib/format';
 import { useT } from '../../../../lib/i18n';
 import { useApi } from '../../../../lib/query';
@@ -22,8 +23,33 @@ export default function AccountsScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader title={t('accounts')} back right={<Pill icon="lock" text={t('ownerOnly')} />} />
-      <Page bottomInset={false} refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
+      <ScreenHeader title={t('accounts')} subtitle={t('ownerOnly')} back />
+      <Page
+        bottomInset={false}
+        refreshing={q.isRefetching}
+        onRefresh={() => void q.refetch()}
+        hero={
+          p ? (
+            <HeroCard bare label={loss ? t('netLoss') : t('netProfit')} value={inr(p.profit)} icon={loss ? 'trending-down' : 'trending-up'}>
+              <View className="flex-row gap-3 border-t border-hero-border pt-4">
+                {[
+                  { label: t('sales'), value: inr(p.sales) },
+                  { label: t('totalExpenses'), value: inr(p.totalExpenses) },
+                ].map((x) => (
+                  <View key={x.label} className="flex-1 gap-0.5">
+                    <Text className="text-[11px] text-hero-muted">{x.label}</Text>
+                    <Text className="text-[15px] font-semibold tabular-nums text-hero-foreground" numberOfLines={1} adjustsFontSizeToFit>
+                      {x.value}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </HeroCard>
+          ) : (
+            <Skeleton className="h-28 rounded-2xl opacity-20" />
+          )
+        }
+      >
         <PeriodPicker value={period} onChange={setPeriod} />
         {q.error && <ErrorBox message={(q.error as Error).message} onRetry={() => void q.refetch()} />}
         {!p ? (
@@ -33,10 +59,6 @@ export default function AccountsScreen() {
           </>
         ) : (
           <>
-            <View className={cn('gap-1 rounded-xl p-4', loss ? 'bg-destructive-soft' : 'bg-primary')}>
-              <Text className={cn('text-[13px] font-medium', loss ? 'text-destructive' : 'text-primary-foreground opacity-85')}>{loss ? t('netLoss') : t('netProfit')}</Text>
-              <Text className={cn('text-3xl font-bold tabular-nums', loss ? 'text-destructive' : 'text-primary-foreground')}>{inr(p.profit)}</Text>
-            </View>
 
             <SectionTitle>{t('income')}</SectionTitle>
             <Card>
@@ -54,9 +76,7 @@ export default function AccountsScreen() {
               <Divider />
               <KV label={t('totalExpenses')} value={inr(p.totalExpenses)} strong />
             </Card>
-            <Text onPress={() => router.push('/more/expenses')} accessibilityRole="link" className="self-start py-1 text-sm font-semibold text-primary">
-              {t('otherExpenses')} →
-            </Text>
+            <Button kind="ghost" size="md" icon="receipt" title={t('otherExpenses')} onPress={() => router.push('/more/expenses')} className="self-start" />
 
             <SectionTitle>{t('outstandingBalances')}</SectionTitle>
             <Segmented
@@ -72,7 +92,8 @@ export default function AccountsScreen() {
             ) : (
               <MenuGroup>
                 {balances.map((b, i) => (
-                  <View key={b.id ?? `none-${i}`} className={cn('flex-row items-center gap-3 px-4 py-3', i < balances.length - 1 && 'border-b border-border')}>
+                  <View key={b.id ?? `none-${i}`} className={cn('min-h-[64px] flex-row items-center gap-3 px-4 py-3', i < balances.length - 1 && 'border-b border-border')}>
+                    <Avatar name={b.name ?? '?'} size="sm" />
                     <View className="flex-1">
                       <Text className="text-[15px] font-semibold text-foreground">{b.name ?? t(side === 'receivables' ? 'noClientName' : 'noSupplierName')}</Text>
                       <Muted>

@@ -1,5 +1,5 @@
 /** Numbers and dates the way the mill reads them (en-IN grouping; CFT always 3 decimals). */
-import { formatCft } from '@sawmill/shared';
+import { formatCft } from '@timbertrail/shared';
 
 export const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 /** CFT: three decimals, as stored and calculated everywhere else. */
@@ -57,3 +57,16 @@ export function cleanDecimal(v: string, decimals = 2): string {
   return s;
 }
 export const cleanInt = (v: string) => v.replace(/[^0-9]/g, '');
+
+/** Chart axis labels: 'YYYY-MM' → "May", 'YYYY-MM-DD' → "4". */
+export const monthShort = (ym: string) => new Date(`${ym}-01T00:00:00`).toLocaleDateString('en-IN', { month: 'short' });
+export const dayNum = (d: string) => String(Number(d.slice(8, 10)));
+
+/** Compact rupees for tight spaces: ₹1.2L, ₹3.4Cr, ₹950. */
+export function inrShort(n: number): string {
+  const a = Math.abs(n);
+  const sign = n < 0 ? '−' : '';
+  if (a >= 1e7) return `${sign}₹${(a / 1e7).toFixed(a >= 1e8 ? 0 : 1)}Cr`;
+  if (a >= 1e5) return `${sign}₹${(a / 1e5).toFixed(a >= 1e6 ? 0 : 1)}L`;
+  return `${sign}₹${Math.round(a).toLocaleString('en-IN')}`;
+}

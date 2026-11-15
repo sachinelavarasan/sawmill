@@ -38,7 +38,7 @@ export default function PartyFormScreen() {
   const release = useUnsavedGuard(JSON.stringify(f) !== JSON.stringify(initial));
 
   const [save, busy, error] = useSubmit(async () => {
-    await api(id ? `/${kind}/${id}` : `/${kind}`, { method: id ? 'PATCH' : 'POST', body: JSON.stringify(f) });
+    await api(id ? `/${kind}/${id}` : `/${kind}`, { method: id ? 'PATCH' : 'POST', body: f });
     release();
     await invalidate(`/${kind}`, '/accounts');
     toast(t('saved'));

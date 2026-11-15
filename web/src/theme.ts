@@ -1,7 +1,7 @@
-import { THEMES, type ThemeName } from '@sawmill/shared';
+import { THEMES, type ThemeName } from '@timbertrail/shared';
 import { useCallback, useEffect, useState } from 'react';
 
-const THEME_KEY = 'sawmill.theme';
+const THEME_KEY = 'timbertrail.theme';
 
 function saved(): ThemeName | null {
   try {

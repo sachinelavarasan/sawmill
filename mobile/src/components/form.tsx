@@ -1,12 +1,12 @@
 /** Form building blocks: labelled inputs, numeric inputs with units, grouped sections, and the form screen shell. */
 import { Children, ReactNode, useState } from 'react';
-import { KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, type TextInputProps, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAvoidingView, Pressable, ScrollView, type TextInputProps, View } from 'react-native';
 import { cleanDecimal, cleanInt } from '../lib/format';
 import { useT } from '../lib/i18n';
-import { ScreenHeader } from './header';
+import { SHEET_TOP, ScreenHeader, StickyFooter } from './header';
 import { SheetInput } from './sheet';
 import { useInSheet } from './sheet-context';
+import { fontStyleFor, Text, TextInput } from './text';
 import { cn, ErrorBox, Icon, Muted } from './ui';
 
 type FieldProps = {
@@ -19,35 +19,52 @@ type FieldProps = {
   children?: ReactNode;
 } & Omit<TextInputProps, 'className'>;
 
-export function Field({ label, required, hint, error, unit, children, multiline, ...input }: FieldProps) {
+export function Field({ label, required, hint, error, unit, children, multiline, onFocus, onBlur, ...input }: FieldProps) {
   const Input = useInSheet() ? SheetInput : TextInput;
+  const [focused, setFocused] = useState(false);
+  const readOnly = input.editable === false;
   return (
     <View className="gap-1.5">
-      <Text className="text-sm font-semibold text-foreground">
+      <Text className="text-[13px] font-semibold text-foreground">
         {label}
         {required && <Text className="text-destructive"> *</Text>}
       </Text>
       <View
         className={cn(
-          'flex-row items-center rounded-xl border-[1.5px] bg-card',
-          error ? 'border-destructive' : 'border-input',
-          input.editable === false && 'bg-secondary',
+          'flex-row items-center rounded-xl border bg-card',
+          error ? 'border-destructive' : focused ? 'border-saffron' : 'border-input',
+          readOnly && 'border-border bg-secondary',
         )}
       >
         <Input
           accessibilityLabel={label}
           accessibilityHint={hint}
           placeholderTextColorClassName="accent-muted-foreground"
-          cursorColorClassName="accent-primary"
+          cursorColorClassName="accent-saffron"
           selectionColorClassName="accent-saffron"
           multiline={multiline}
+          onFocus={(e) => {
+            setFocused(true);
+            onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setFocused(false);
+            onBlur?.(e);
+          }}
           {...input}
-          className={cn('flex-1 px-4 text-base text-foreground', multiline ? 'min-h-24 py-3' : 'min-h-[50px]')}
-          style={multiline ? { textAlignVertical: 'top' } : undefined}
+          className={cn('flex-1 px-4 text-base', readOnly ? 'text-muted-foreground' : 'text-foreground', multiline ? 'min-h-24 py-3' : 'min-h-[52px]')}
+          style={[fontStyleFor(), multiline ? { textAlignVertical: 'top' } : null]}
         />
-        {!!unit && <Text className="pr-4 text-[15px] font-semibold text-muted-foreground">{unit}</Text>}
+        {!!unit && <Text className="pr-4 text-[15px] font-medium text-muted-foreground">{unit}</Text>}
       </View>
-      {error ? <Text className="text-[13px] text-destructive">{error}</Text> : hint ? <Muted>{hint}</Muted> : null}
+      {error ? (
+        <View className="flex-row items-center gap-1.5">
+          <Icon name="alert-circle" size={13} colorClassName="accent-destructive" />
+          <Text className="flex-1 text-[13px] text-destructive">{error}</Text>
+        </View>
+      ) : hint ? (
+        <Muted>{hint}</Muted>
+      ) : null}
       {children}
     </View>
   );
@@ -97,14 +114,14 @@ export function FormSection({
   const head = (
     <View className="flex-row items-center gap-2">
       <View className="flex-1 gap-0.5">
-        <Text className="text-base font-bold text-foreground">{title}</Text>
+        <Text className="text-base font-bold tracking-tight text-foreground">{title}</Text>
         {!!subtitle && <Muted>{subtitle}</Muted>}
       </View>
       {collapsible && <Icon name={open ? 'chevron-up' : 'chevron-down'} size={20} colorClassName="accent-muted-foreground" />}
     </View>
   );
   return (
-    <View className="gap-4 rounded-xl border border-border bg-card p-4">
+    <View className="gap-4 border-b border-border pb-6 pt-2">
       {collapsible ? (
         <Pressable onPress={() => setOpen((o) => !o)} accessibilityRole="button" accessibilityState={{ expanded: open }} className="-m-1 p-1">
           {head}
@@ -136,20 +153,18 @@ export function FormScreen({
   error?: string | null;
   onBack?: () => void;
 }) {
-  const insets = useSafeAreaInsets();
   return (
-    <View className="flex-1 bg-background">
+    <View className="flex-1 bg-card">
       <ScreenHeader title={title} subtitle={subtitle} back onBack={onBack} />
       <KeyboardAvoidingView behavior="padding" className="flex-1">
-        <ScrollView className="flex-1" contentContainerClassName="gap-3 p-4 pb-6" keyboardShouldPersistTaps="handled">
-          {children}
-          {error && <ErrorBox message={error} />}
-        </ScrollView>
-        {footer && (
-          <View className="gap-2 border-t border-border bg-card px-4 pt-3" style={{ paddingBottom: 12 + insets.bottom }}>
-            {footer}
+        <ScrollView className="flex-1 bg-hero" contentContainerClassName="grow" keyboardShouldPersistTaps="handled">
+          <View className="h-2" />
+          <View className={cn('grow gap-4 px-4 pb-10 pt-6', SHEET_TOP)}>
+            {children}
+            {error && <ErrorBox message={error} />}
           </View>
-        )}
+        </ScrollView>
+        {footer && <StickyFooter>{footer}</StickyFooter>}
       </KeyboardAvoidingView>
     </View>
   );

@@ -1,12 +1,13 @@
 /** [OWNER-ONLY] Who can sign in: add, edit, enable / disable, reset a password. */
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, ScrollView, Text, View } from 'react-native';
-import { ScreenHeader } from '../../../../components/header';
-import { Avatar, Button, Chip, EmptyState, ErrorBox, Muted, Pill, PressableCard, refresher, SearchBar, SkeletonList } from '../../../../components/ui';
+import { ScrollView, View } from 'react-native';
+import { Text } from '../../../../components/text';
+import { HeaderButton, ScreenHeader, SheetList } from '../../../../components/header';
+import { Avatar, Chip, EmptyState, ErrorBox, Muted, Pill, PressableCard, refresher, SearchBar, SkeletonList } from '../../../../components/ui';
 import { dateTime } from '../../../../lib/format';
 import { useT } from '../../../../lib/i18n';
-import { useApi } from '../../../../lib/query';
+import { rowKey, useApi } from '../../../../lib/query';
 import { useUser } from '../../../../lib/session';
 import type { UserRow } from '../../../../lib/types';
 
@@ -25,12 +26,10 @@ export default function UsersScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader title={t('users')} back right={<Button size="md" icon="user-plus" title={t('addAccountant')} onPress={add} className="mr-2" />} />
-      <FlatList
+      <ScreenHeader title={t('users')} back right={<HeaderButton icon="user-plus" label={t('addAccountant')} onPress={add} />} />
+      <SheetList
         data={items}
-        keyExtractor={(u) => u.id}
-        contentContainerClassName="gap-2.5 p-4 pb-6"
-        keyboardShouldPersistTaps="handled"
+        keyExtractor={rowKey('user')}
         refreshControl={refresher(q.isRefetching, () => void q.refetch())}
         ListHeaderComponent={
           <View className="gap-3 pb-1">
@@ -50,7 +49,7 @@ export default function UsersScreen() {
             <View className="flex-row items-center gap-3">
               <Avatar name={u.name} />
               <View className="flex-1 gap-0.5">
-                <Text className="text-[15px] font-bold text-foreground">
+                <Text className="text-[15px] font-semibold text-foreground">
                   {u.name}
                   {u.id === me.id ? <Text className="text-xs font-semibold text-muted-foreground"> · {t('youTag')}</Text> : null}
                 </Text>

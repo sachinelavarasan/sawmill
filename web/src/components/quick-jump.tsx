@@ -1,4 +1,4 @@
-import { Permission } from '@sawmill/shared';
+import { Permission } from '@timbertrail/shared';
 import { ArrowDownToLineIcon, ArrowUpFromLineIcon, FactoryIcon, PlusIcon, SearchIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';

@@ -4,7 +4,7 @@
  * Same counting rules as the KPIs: only APPROVED imports / exports / stock count.
  */
 import { Injectable } from '@nestjs/common';
-import { roundTo } from '@sawmill/shared';
+import { roundTo } from '@timbertrail/shared';
 import { and, count, eq, gte, lt, lte, sql, sum } from 'drizzle-orm';
 import { AccountsService } from '../accounts/accounts.service';
 import { localToday, millOffsetMinutes, resolvePeriod } from '../common/period';

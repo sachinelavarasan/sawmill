@@ -5,6 +5,7 @@ exports[`API route policies route → policy table is unchanged (review any diff
 DELETE /exports/:id/measurements/:lineId         operations:create
 DELETE /imports/:id/logs/:logId                  operations:create
 DELETE /imports/:id/unloading/:unloadingId       operations:create
+DELETE /notifications/tokens                     login
 DELETE /production/:id/outputs/:outputId         operations:create
 GET /accounts/summary                            finance:view   [owner only]
 GET /approvals                                   operations:approve   [owner only]
@@ -65,6 +66,7 @@ POST /imports/:id/logs                           operations:create
 POST /imports/:id/reject                         operations:approve   [owner only]
 POST /imports/:id/submit                         operations:submit
 POST /imports/:id/unloading                      operations:create
+POST /notifications/tokens                       login
 POST /production                                 operations:create
 POST /production/:id/approve                     operations:approve   [owner only]
 POST /production/:id/outputs                     operations:create

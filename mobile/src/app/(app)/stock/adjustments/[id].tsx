@@ -1,4 +1,4 @@
-import { sizeLabel } from '@sawmill/shared';
+import { sizeLabel } from '@timbertrail/shared';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { View } from 'react-native';
 import { HeaderButton, Page, ScreenHeader } from '../../../../components/header';

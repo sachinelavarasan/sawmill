@@ -40,13 +40,13 @@ export function SaleDetails({ exportId, totalCft }: { exportId: string; totalCft
   const [save, busy, error] = useSubmit(async () => {
     await api(path, {
       method: 'PUT',
-      body: JSON.stringify({
+      body: {
         clientId: f.clientId || null,
         sellingRatePerCft: parseNum(f.rate),
         saleAmount: parseNum(f.amount),
         amountReceived: parseNum(f.received),
         notes: f.notes.trim() || null,
-      }),
+      },
     });
     await invalidate(path, '/accounts', '/dashboard');
     toast(t('saved'));

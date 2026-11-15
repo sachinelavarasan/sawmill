@@ -1,4 +1,4 @@
-import { Permission } from '@sawmill/shared';
+import { Permission } from '@timbertrail/shared';
 import { ArrowDownToLineIcon, ArrowUpFromLineIcon, ChevronDownIcon, FactoryIcon, FileTextIcon, type LucideIcon, PlusIcon, ReceiptIndianRupeeIcon, RulerIcon, SlidersHorizontalIcon } from 'lucide-react';
 import { Fragment } from 'react';
 import { Link } from 'react-router-dom';

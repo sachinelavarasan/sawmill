@@ -126,6 +126,27 @@ export const refreshTokens = pgTable(
   (t) => [index('refresh_tokens_user_idx').on(t.userId)],
 );
 
+/**
+ * Expo push tokens: one row per phone that allowed notifications. A token belongs to whoever
+ * signed in on that phone last (re-registering moves it); signing out removes it.
+ */
+export const pushTokens = pgTable(
+  'push_tokens',
+  {
+    id: id(),
+    millId: millRef(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** ExponentPushToken[…] */
+    token: text('token').notNull().unique(),
+    platform: text('platform'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index('push_tokens_user_idx').on(t.userId)],
+);
+
 /** [OWNER-ONLY] Every important action, with before/after snapshots. */
 export const auditLogs = pgTable(
   'audit_logs',

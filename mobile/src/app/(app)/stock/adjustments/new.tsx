@@ -3,10 +3,11 @@
  * Finished: a size and the pieces change — the server works out the CFT. Nothing moves
  * until the owner approves it.
  */
-import { exportPieceCft, sizeLabel } from '@sawmill/shared';
+import { exportPieceCft, sizeLabel } from '@timbertrail/shared';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { Text } from '../../../../components/text';
 import { Field, FormScreen, FormSection, NumberField, Row } from '../../../../components/form';
 import { SelectField } from '../../../../components/sheet';
 import { toast } from '../../../../components/toast';
@@ -107,13 +108,13 @@ export default function AdjustmentFormScreen() {
         ? { kind: 'RAW', importLoadId: form.importLoadId, cftDelta: sign * C!, piecesDelta: N ? sign * N : 0, thicknessIn: null, widthIn: null, lengthFt: null, reason: form.reason.trim() }
         : { kind: 'FINISHED', importLoadId: form.importLoadId, thicknessIn: T, widthIn: W, lengthFt: L, piecesDelta: sign * N!, reason: form.reason.trim() };
     if (id) {
-      await api(`/stock-adjustments/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+      await api(`/stock-adjustments/${id}`, { method: 'PATCH', body: body });
       release();
       await invalidateOperations();
       toast(t('saved'));
       router.back();
     } else {
-      const created = await api<Adjustment>('/stock-adjustments', { method: 'POST', body: JSON.stringify(body) });
+      const created = await api<Adjustment>('/stock-adjustments', { method: 'POST', body: body });
       release();
       await invalidateOperations();
       toast(t('saved'), 'success', created.code);

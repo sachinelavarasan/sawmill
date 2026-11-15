@@ -26,7 +26,7 @@ AppState.addEventListener('change', (s) => focusManager.setFocused(s === 'active
 export function useApi<T>(path: string | null, options?: Omit<UseQueryOptions<T>, 'queryKey' | 'queryFn'>) {
   const q = useQuery<T>({
     queryKey: ['api', path],
-    queryFn: () => api<T>(path!),
+    queryFn: ({ signal }) => api<T>(path!, { signal }),
     enabled: path !== null && (options?.enabled ?? true),
     ...options,
   });
@@ -57,3 +57,24 @@ export function invalidate(...prefixes: string[]) {
 
 /** After any change to operational records: lists, dashboards, stock and approvals all move together. */
 export const invalidateOperations = () => invalidate('/imports', '/production', '/exports', '/stock', '/approvals', '/dashboard', '/accounts');
+
+/**
+ * Flatten infinite-query pages into one list, each record once. Offset paging can return a
+ * record twice when something is added while you scroll (everything shifts down by one);
+ * the first copy wins.
+ */
+export function mergePages<T>(pages: { items: T[] }[] | undefined, idOf: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const p of pages ?? [])
+    for (const item of p.items) {
+      const id = idOf(item);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(item);
+    }
+  return out;
+}
+
+/** List keys: a fixed type prefix + the record's UUID, e.g. "movement:9887ac45-…". Never the row position. */
+export const rowKey = (type: string) => (item: { id: string }) => `${type}:${item.id}`;

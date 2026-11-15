@@ -1,5 +1,5 @@
 /** Typed client for /api/imports (contract: backend/src/imports/imports.controller.ts). */
-import { api } from './api';
+import { api, type ApiOptions } from './api';
 
 export type Status = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
 
@@ -70,7 +70,7 @@ export interface Totals {
   totalCft: number;
 }
 
-const json = (method: string, body?: unknown): RequestInit => ({ method, body: body === undefined ? undefined : JSON.stringify(body) });
+const json = (method: NonNullable<ApiOptions['method']>, body?: unknown): ApiOptions => ({ method, body });
 
 export const importsApi = {
   list: (opts: { open?: boolean } = {}) =>

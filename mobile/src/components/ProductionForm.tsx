@@ -99,13 +99,13 @@ export function ProductionForm({ id }: { id?: string }) {
       endAt: form.endAt || (id ? null : undefined),
     };
     if (id) {
-      await api(`/production/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+      await api(`/production/${id}`, { method: 'PATCH', body: body });
       release();
       await invalidateOperations();
       toast(t('saved'));
       router.back();
     } else {
-      const created = await api<{ id: string; code: string }>('/production', { method: 'POST', body: JSON.stringify(body) });
+      const created = await api<{ id: string; code: string }>('/production', { method: 'POST', body: body });
       release();
       await invalidateOperations();
       toast(t('saved'), 'success', created.code);
