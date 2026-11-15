@@ -1,6 +1,6 @@
-# SAWMILL PRO — Technical Implementation Plan
+# TimberTrail — Technical Implementation Plan
 
-Status: Phases 1–3 built · Source: *SAWMILL PRO Project Kickoff & Software Requirements*
+Status: Phases 1–8 built for the web (UAT pending) · Source: *TimberTrail Project Kickoff & Software Requirements*
 
 ## 1. Architecture
 
@@ -28,7 +28,7 @@ packages/shared  → roles, permissions, approval statuses, CFT formulas
 | Backend  | NestJS 10, Drizzle ORM + drizzle-kit migrations, PostgreSQL 16, JWT (access + rotating refresh), bcrypt, Helmet, rate-limited login |
 | Web      | React 18 + Vite + TypeScript, React Router, built-in EN/TA i18n |
 | Mobile   | Expo SDK 52 (React Native), expo-secure-store for tokens      |
-| Shared   | `@sawmill/shared` TypeScript package                         |
+| Shared   | `@timbertrail/shared` TypeScript package                         |
 
 ### Multi-sawmill (multi-tenant) design
 Every business table carries `millId`. The mill is taken from the logged-in
@@ -56,6 +56,17 @@ in `Mill.settings`.
   the service layer for accountant edits (HTTP 409/403).
 * **Audit log:** login, logout, user changes, create/update/submit/approve/
   reject/owner-edit — with before/after JSON snapshots, user, IP, timestamp.
+  Financial report downloads are logged too (`DOWNLOAD_REPORT`).
+* **Account lockout:** 5 wrong passwords in 15 minutes lock the account for 15
+  minutes (counted from the audit log; a successful login or owner reset clears it).
+* **Instant session end:** `users.token_version` is in every access token and
+  checked on each request; password reset, disable and role change bump it.
+* **Accountant stock view (decision):** stock balances, stock history and the stock
+  report show the whole mill — the accountant needs them to pick stock for
+  production and exports. They contain quantities only, never prices.
+* **Route policy test:** `backend/src/security/routes.spec.ts` fails if a route has
+  no permission rule, if anything new is public, or if an accountant could reach
+  money, client, supplier, user, settings or audit routes.
 
 ### Permission matrix
 
@@ -91,7 +102,7 @@ All tables are created now so later phases add APIs, not migrations of the core 
 | Production | `ProductionRun`, `ProductionOutput` | — |
 | Stock | `StockMovement` (ledger), `StockAdjustment` | — |
 | Export | `ExportLoad`, `ExportMeasurement` | `ExportFinancials` |
-| Accounts | — | `Expense` |
+| Accounts | — | `Expense`, `Payment` |
 
 **Stock is a ledger.** Raw and finished stock balances are the sum of
 `StockMovement` rows. Movements are written **only inside the approval
@@ -150,11 +161,17 @@ Base path `/api`. ✅ = implemented, with the phase it was delivered in.
 | `/imports`, `/imports/:id`, `/imports/:id/unloading` | `operations:create` | ✅ 2 |
 | `/imports/:id/logs` | `operations:create` | ✅ 3 |
 | `/imports/:id/financials`, `/suppliers` | `finance:view`, `suppliers:manage` | ✅ 2 |
-| `/production`, `/stock`, `/stock-adjustments` | `operations:*` | 4 |
-| `/exports`, `/exports/:id/measurements` | `operations:*` | 5 |
-| `/exports/:id/financials`, `/clients` | `finance:view`, `clients:manage` | 5/7 |
-| `POST /:entity/:id/submit` · `/approve` · `/reject` | `operations:submit` / `approve` | 6 |
-| `/reports/*` (PDF / Excel) | `reports:*` | 7 |
+| `/production`, `/production/:id/outputs`, `/stock`, `/stock/movements`, `/stock-adjustments` | `operations:*` | ✅ 4 |
+| `POST /{imports,production,stock-adjustments}/:id/submit` · `/approve` · `/reject` | `operations:submit` / `approve` | ✅ 4 (per record type) |
+| `/exports`, `/exports/:id/measurements` | `operations:*` | ✅ 5 |
+| `/exports/:id/financials`, `/clients` | `finance:view`, `clients:manage` | ✅ 5 |
+| `GET /approvals` (queue of everything submitted) | `operations:approve` | ✅ 6 |
+| `GET/PATCH /settings` | `settings:manage` | ✅ 6 |
+| `GET /accounts/summary`, `/expenses` | `finance:view` | ✅ 7 |
+| `GET /reports`, `/reports/:key`, `/reports/:key/xlsx` (PDF = browser print) | `reports:operational` / `reports:financial` | ✅ 7 |
+| `GET/POST /{imports,exports}/:id/payments`, `DELETE …/payments/:paymentId` | `finance:view` | ✅ 9 |
+| `GET /suppliers/:id/statement`, `GET /clients/:id/statement` | `finance:view` | ✅ 9 |
+| `GET /wood-types` (list offered on the load forms; owner edits it via `PATCH /settings { woodTypes }`) | `operations:create` | ✅ 10 |
 
 ## 6. Screens (wireframe outline)
 
@@ -177,11 +194,38 @@ Theme: dark green (`#1B4332`) + white. Tamil/English toggle on every screen.
 | 1 | Project setup, login, role-based dashboards, permission architecture | done |
 | 2 | Import management & unloading | built — web checked in a browser; Android not yet run on a device |
 | 3 | Import measurement & CFT | built — same as Phase 2. Submitted/approved loads are locked for everyone until Phase 6 |
-| 4 | Production & stock | — |
-| 5 | Export management & measurement | — |
-| 6 | Approval workflow & owner controls | — |
-| 7 | Accounts, reports & analytics (PDF/Excel) | — |
-| 8 | Security testing, UAT, deployment, backups | — |
+| 4 | Production & stock | built (web) — production runs with finished sizes, stock by load/size, movement history, adjustments; submit/approve/reject on each record page. Android screens not yet built. The Approvals queue page is still Phase 6 |
+| 5 | Export management & measurement | built (web) — export loads, lines picked from finished stock (each line names its import load), owner-only sale details and clients. Android screens not yet built |
+| 6 | Approval workflow & owner controls | built (web) — approval queue across imports, production, exports and adjustments; mill settings (name, unloading rate, new-user language, time zone). Android screens not yet built |
+| 7 | Accounts, reports & analytics (PDF/Excel) | built (web) — Accounts: P&L for any period, other expenses, supplier/client balances. Reports: import/production/export registers, stock summary, P&L, balances, expenses; Excel download (server, exceljs) and Print / Save as PDF (browser, keeps Tamil text correct). Android screens not yet built |
+| 8 | Security testing, UAT, deployment, backups | built (web) — security review fixes, lockout, instant session revoke, route-policy test, all 68 API integration tests passing on PostgreSQL 16; deployment + backup guide in `docs/DEPLOYMENT.md`; client test checklist in `docs/UAT.md`. UAT with the client still to run |
+
+| 9 | Payment history & offline measuring | built — each payment to a supplier / from a client is its own record (date, mode, reference); a load's paid figure and status are worked out from them; statement per supplier / client with running balance (web print, Android share). Android keeps logs measured without signal on the phone and sends them when the connection is back (`clientRef` makes a resend safe) |
+
+**Payments.** `payments` rows belong to exactly one import or export load (DB check).
+`import_financials.amount_paid` / `export_financials.amount_received` are the sum of those rows,
+recomputed in the same transaction as every add / delete, so dashboards, accounts and reports
+still read one figure per load. The typed "amount paid" field is gone from the forms; the API
+still accepts it from older app versions and ignores it. Migration `0004` turned each load's
+existing amount into one payment ("Recorded before payment history").
+
+**Offline measuring (Android).** A log whose save can't reach the server is kept in
+`pending-logs.json` on the phone (measurements only — never financial figures) and sent in
+measuring order on app foreground, every 20 s, and after any successful save. Each log carries a
+phone-made `clientRef` (unique per load), so a resend after a lost reply returns the stored log
+instead of adding a second one, even if the load was submitted meanwhile. A load can't be
+submitted from the phone while it still has waiting logs. Logs the server refuses stay on the
+phone with the reason until deleted.
+
+| 10 | Wood types list | built — owner keeps the mill's wood types in Settings (web + Android); load forms pick from it |
+
+**Wood types.** Stock, production and reports group by the exact `wood_type` text, so every
+entry point (imports, exports, stock adjustments) goes through `common/wood-types.ts`: the name
+is tidied, matched against the list and the names already in use ignoring case, and saved with
+that spelling. Once a list exists (`mills.settings.woodTypes`), a name that is neither listed nor
+in use is refused; names in use stay valid after removal, so stock on hand can still move.
+Migration `0006` tidied existing names, merged case variants per mill (most-used spelling wins)
+across loads, runs, stock, adjustments and exports, and created each mill's list from them.
 
 Per the kickoff document, Phases 2–3 (Import + Measurement) will be demonstrated
 for workflow approval before Phases 4+ are built.
@@ -195,3 +239,8 @@ for workflow approval before Phases 4+ are built.
 5. Can one export lorry carry stock from multiple import loads? (Schema allows one
    reference per export *measurement line*, so yes.)
 6. Production: is input raw CFT recorded per run, or derived at load level?
+   *Built as: entered per run (the form offers "use all" of what's left in the load).
+   Waste = input − finished CFT. Finished CFT higher than input is allowed but flagged,
+   since log CFT (girth formula) can under-measure.* Confirm with the client.
+7. Stock never goes below zero: approving a run, an adjustment, or an owner correction
+   that would overdraw a load is refused. Confirm this is wanted (vs. allowing it with a warning).

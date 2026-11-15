@@ -1,5 +1,5 @@
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { ACCOUNTANT_EDITABLE_STATUSES, hasPermission, Permission } from '@sawmill/shared';
+import { ACCOUNTANT_EDITABLE_STATUSES, hasPermission, Permission } from '@timbertrail/shared';
 import type { ApprovalStatus } from '../db/schema';
 import type { AuthUser } from './types';
 

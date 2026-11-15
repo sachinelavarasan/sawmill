@@ -1,5 +1,5 @@
 /**
- * CFT (cubic feet) formulas from the SAWMILL PRO requirements.
+ * CFT (cubic feet) formulas from the TimberTrail requirements.
  *
  *  Import (round logs):   CFT = (Girth × Girth × Length) / 2304
  *                         girth in inches, length in feet

@@ -1,4 +1,4 @@
-import type { Role } from '@sawmill/shared';
+import type { Role } from '@timbertrail/shared';
 
 /** The authenticated user attached to every request (always re-loaded from the DB). */
 export interface AuthUser {
@@ -11,4 +11,6 @@ export interface AuthUser {
 
 export interface JwtPayload {
   sub: string;
+  /** users.tokenVersion when the token was issued; tokens from before a bump are refused */
+  tv?: number;
 }

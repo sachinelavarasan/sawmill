@@ -4,18 +4,24 @@ import {
   durationMinutes,
   hasPermission,
   importLogCft,
+  paymentStatusFor,
   Permission,
   roundTo,
   UnloadingInputError,
   unloadingCharges,
-} from '@sawmill/shared';
-import { and, asc, count, desc, eq, inArray, max, SQL, sum } from 'drizzle-orm';
+} from '@timbertrail/shared';
+import { and, asc, count, desc, eq, inArray, max, ne, SQL, sum } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
+import { resolveOptionalWoodType, resolveWoodType } from '../common/wood-types';
+import { NotificationsService } from '../notifications/notifications.module';
 import { nextCode } from '../common/codes';
+import { textSearch } from '../common/search';
 import type { AuthUser } from '../common/types';
 import { Database, DbOrTx, InjectDb } from '../db/db.module';
 import { importFinancials, importLoads, logMeasurements, mills, stockMovements, suppliers, unloadingEntries, users } from '../db/schema';
+import { assertStockNotNegative, syncMovements } from '../stock/ledger';
 import {
+  AddLogDto,
   CreateImportDto,
   CreateUnloadingDto,
   FinancialsDto,
@@ -39,6 +45,8 @@ const SUMMARY = {
   code: importLoads.code,
   arrivalAt: importLoads.arrivalAt,
   lorryNumber: importLoads.lorryNumber,
+  driverName: importLoads.driverName,
+  originLocation: importLoads.originLocation,
   woodType: importLoads.woodType,
   totalLogs: importLoads.totalLogs,
   totalCft: importLoads.totalCft,
@@ -102,6 +110,7 @@ export class ImportsService {
   constructor(
     @InjectDb() private readonly db: Database,
     private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ───────── loads ─────────
@@ -112,6 +121,8 @@ export class ImportsService {
     if (!hasPermission(actor.role, Permission.OPERATIONS_VIEW_ALL)) conditions.push(eq(importLoads.createdById, actor.id));
     if (q.status) conditions.push(eq(importLoads.status, q.status));
     if (q.open === '1') conditions.push(inArray(importLoads.status, [...ACCOUNTANT_EDITABLE_STATUSES]));
+    const search = textSearch(q.q, [importLoads.code, importLoads.lorryNumber, importLoads.woodType]);
+    if (search) conditions.push(search);
     const where = and(...conditions);
 
     const [rows, [{ total }]] = await Promise.all([
@@ -120,17 +131,31 @@ export class ImportsService {
         .from(importLoads)
         .innerJoin(users, eq(users.id, importLoads.createdById))
         .where(where)
-        .orderBy(desc(importLoads.arrivalAt), desc(importLoads.createdAt))
+        .orderBy(desc(importLoads.arrivalAt), desc(importLoads.createdAt), desc(importLoads.id))
         .limit(q.take)
         .offset(q.skip),
       this.db.select({ total: count() }).from(importLoads).where(where),
     ]);
-    return { items: rows.map((r) => ({ ...r, totalCft: Number(r.totalCft) })), total, take: q.take, skip: q.skip };
+    // The supplier is part of the purchase record, so only people who may see finance get it.
+    const supplierOf = new Map<string, string>();
+    if (rows.length && hasPermission(actor.role, Permission.FINANCE_VIEW)) {
+      const named = await this.db
+        .select({ loadId: importFinancials.importLoadId, name: suppliers.name })
+        .from(importFinancials)
+        .innerJoin(suppliers, eq(suppliers.id, importFinancials.supplierId))
+        .where(inArray(importFinancials.importLoadId, rows.map((r) => r.id)));
+      for (const n of named) supplierOf.set(n.loadId, n.name);
+    }
+    // The key itself is left out for accountants, so owner-only field names never reach them.
+    const seesFinance = hasPermission(actor.role, Permission.FINANCE_VIEW);
+    const items = rows.map((r) => ({ ...r, totalCft: Number(r.totalCft), ...(seesFinance ? { supplierName: supplierOf.get(r.id) ?? null } : {}) }));
+    return { items, total, take: q.take, skip: q.skip };
   }
 
   async create(actor: AuthUser, dto: CreateImportDto) {
     const arrivalAt = dto.arrivalAt ? new Date(dto.arrivalAt) : new Date();
     const load = await this.db.transaction(async (tx) => {
+      const woodType = await resolveWoodType(tx, actor.millId, dto.woodType);
       const code = await nextCode(tx, actor.millId, 'IMP');
       const [row] = await tx
         .insert(importLoads)
@@ -139,7 +164,7 @@ export class ImportsService {
           code,
           arrivalAt,
           lorryNumber: dto.lorryNumber,
-          woodType: dto.woodType,
+          woodType,
           woodCategory: text(dto.woodCategory),
           driverName: text(dto.driverName),
           driverMobile: text(dto.driverMobile),
@@ -202,12 +227,27 @@ export class ImportsService {
   async update(actor: AuthUser, id: string, dto: UpdateImportDto) {
     await this.db.transaction(async (tx) => {
       const { load: before, action } = await this.findEditableLoad(tx, actor, id);
+      const woodType = await resolveOptionalWoodType(tx, actor.millId, dto.woodType);
+      if (before.status === 'APPROVED' && woodType && woodType !== before.woodType) {
+        // Production, exports and adjustments copied the old wood type onto their own
+        // stock lines; moving only the import's raw stock would split the load across
+        // two wood types. Allow the correction only while nothing else has used the load.
+        const [used] = await tx
+          .select({ n: count() })
+          .from(stockMovements)
+          .where(and(eq(stockMovements.importLoadId, id), ne(stockMovements.source, 'IMPORT')));
+        if (used.n > 0) {
+          throw new ConflictException(
+            'The wood type cannot be changed: production, exports or stock adjustments already use this load.',
+          );
+        }
+      }
       const [after] = await tx
         .update(importLoads)
         .set({
           arrivalAt: dto.arrivalAt ? new Date(dto.arrivalAt) : undefined,
           lorryNumber: dto.lorryNumber,
-          woodType: dto.woodType,
+          woodType,
           woodCategory: text(dto.woodCategory),
           driverName: text(dto.driverName),
           driverMobile: text(dto.driverMobile),
@@ -317,8 +357,18 @@ export class ImportsService {
    * Adding a log is not audited row by row (a lorry carries hundreds); edits and
    * deletions of an existing log are.
    */
-  async addLog(actor: AuthUser, loadId: string, dto: LogDto) {
+  async addLog(actor: AuthUser, loadId: string, dto: AddLogDto) {
     return this.db.transaction(async (tx) => {
+      // A log sent again by the phone (offline queue, lost reply) is answered with the one already
+      // stored — even if the load was submitted since — instead of being added twice.
+      if (dto.clientRef) {
+        const visible = await this.findLoad(tx, actor, loadId, true);
+        const [existing] = await tx
+          .select()
+          .from(logMeasurements)
+          .where(and(eq(logMeasurements.importLoadId, loadId), eq(logMeasurements.clientRef, dto.clientRef)));
+        if (existing) return { log: logView(existing), totalLogs: visible.totalLogs, totalCft: Number(visible.totalCft) };
+      }
       const { load, action } = await this.findEditableLoad(tx, actor, loadId);
       const [{ last }] = await tx
         .select({ last: max(logMeasurements.logNumber) })
@@ -332,6 +382,7 @@ export class ImportsService {
           girthIn: String(dto.girthIn),
           lengthFt: String(dto.lengthFt),
           cft: String(importLogCft(dto.girthIn, dto.lengthFt)),
+          clientRef: dto.clientRef ?? null,
           createdById: actor.id,
         })
         .returning();
@@ -397,6 +448,7 @@ export class ImportsService {
         .returning();
       await this.audit.log({ millId: actor.millId, userId: actor.id, action: 'SUBMIT', entityType: 'ImportLoad', entityId: id, before, after }, tx);
     });
+    this.notifications.workflow(actor, 'IMPORT', id, 'SUBMIT');
     return this.detail(actor, id);
   }
 
@@ -416,6 +468,7 @@ export class ImportsService {
       await this.repostStock(tx, actor, id);
       await this.audit.log({ millId: actor.millId, userId: actor.id, action: 'APPROVE', entityType: 'ImportLoad', entityId: id, before, after }, tx);
     });
+    this.notifications.workflow(actor, 'IMPORT', id, 'APPROVE');
     return this.detail(actor, id);
   }
 
@@ -431,6 +484,7 @@ export class ImportsService {
         .returning();
       await this.audit.log({ millId: actor.millId, userId: actor.id, action: 'REJECT', entityType: 'ImportLoad', entityId: id, before, after }, tx);
     });
+    this.notifications.workflow(actor, 'IMPORT', id, 'REJECT');
     return this.detail(actor, id);
   }
 
@@ -442,7 +496,7 @@ export class ImportsService {
     return financialsView(row);
   }
 
-  /** Create or replace the purchase side of a load. Payment status is derived, never typed in. */
+  /** Create or replace the purchase side of a load. Amount paid comes from the payments; status is derived. */
   async saveFinancials(actor: AuthUser, loadId: string, dto: FinancialsDto) {
     return this.db.transaction(async (tx) => {
       await this.findLoad(tx, actor, loadId, true);
@@ -453,21 +507,20 @@ export class ImportsService {
           .where(and(eq(suppliers.id, dto.supplierId), eq(suppliers.millId, actor.millId)));
         if (!supplier) throw new BadRequestException('Supplier not found');
       }
+      const [before] = await tx.select().from(importFinancials).where(eq(importFinancials.importLoadId, loadId));
+      // amount_paid is the sum of the load's payments (see PaymentsService); only the status is re-derived here.
       const amount = dto.purchaseAmount ?? null;
-      const paid = dto.amountPaid ?? 0;
-      const paymentStatus = paid <= 0 ? 'UNPAID' : amount != null && paid >= amount ? 'PAID' : 'PARTIAL';
+      const paid = Number(before?.amountPaid ?? 0);
       const values = {
         supplierId: dto.supplierId ?? null,
         purchaseRatePerCft: dto.purchaseRatePerCft == null ? null : String(dto.purchaseRatePerCft),
         purchaseAmount: amount == null ? null : String(amount),
         transportCharges: dto.transportCharges == null ? null : String(dto.transportCharges),
-        amountPaid: String(paid),
-        paymentStatus,
+        paymentStatus: paymentStatusFor(amount, paid),
         notes: dto.notes || null,
         updatedAt: new Date(),
       } as const;
 
-      const [before] = await tx.select().from(importFinancials).where(eq(importFinancials.importLoadId, loadId));
       const [after] = await tx
         .insert(importFinancials)
         .values({ importLoadId: loadId, ...values })
@@ -567,43 +620,31 @@ export class ImportsService {
   }
 
   /**
-   * Make the raw-stock ledger match an approved load. The ledger is append-only:
-   * instead of editing earlier rows, post the difference (and move stock between
-   * wood types if the owner corrected the wood type).
+   * Make the raw-stock ledger match an approved load (the ledger posts only the
+   * difference, and moves stock between wood types if the owner corrected it).
+   * The load row is already locked by the caller. A correction that would leave
+   * less raw CFT than production has already consumed is refused.
    */
   private async repostStock(tx: DbOrTx, actor: AuthUser, loadId: string) {
     const [load] = await tx.select().from(importLoads).where(eq(importLoads.id, loadId));
-    const posted = await tx
-      .select({ woodType: stockMovements.woodType, cft: sum(stockMovements.cftDelta), pieces: sum(stockMovements.piecesDelta) })
-      .from(stockMovements)
-      .where(and(eq(stockMovements.source, 'IMPORT'), eq(stockMovements.sourceId, loadId)))
-      .groupBy(stockMovements.woodType);
-
-    const rows: { woodType: string; cft: number; pieces: number }[] = [];
-    for (const p of posted) {
-      if (p.woodType !== load.woodType && (Number(p.cft) !== 0 || Number(p.pieces) !== 0)) {
-        rows.push({ woodType: p.woodType, cft: -Number(p.cft ?? 0), pieces: -Number(p.pieces ?? 0) });
-      }
-    }
-    const current = posted.find((p) => p.woodType === load.woodType);
-    const cftDelta = roundTo(Number(load.totalCft) - Number(current?.cft ?? 0));
-    const piecesDelta = load.totalLogs - Number(current?.pieces ?? 0);
-    if (cftDelta !== 0 || piecesDelta !== 0) rows.push({ woodType: load.woodType, cft: cftDelta, pieces: piecesDelta });
-
-    if (rows.length) {
-      await tx.insert(stockMovements).values(
-        rows.map((r) => ({
-          millId: load.millId,
-          kind: 'RAW' as const,
-          woodType: r.woodType,
+    await syncMovements(tx, {
+      millId: load.millId,
+      source: 'IMPORT',
+      sourceId: load.id,
+      postedById: actor.id,
+      target: [
+        {
+          kind: 'RAW',
+          woodType: load.woodType,
           importLoadId: load.id,
-          piecesDelta: r.pieces,
-          cftDelta: String(roundTo(r.cft)),
-          source: 'IMPORT' as const,
-          sourceId: load.id,
-          postedById: actor.id,
-        })),
-      );
-    }
+          thicknessIn: null,
+          widthIn: null,
+          lengthFt: null,
+          pieces: load.totalLogs,
+          cft: Number(load.totalCft),
+        },
+      ],
+    });
+    await assertStockNotNegative(tx, [load.id]);
   }
 }

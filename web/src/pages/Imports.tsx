@@ -1,15 +1,60 @@
-import { FormEvent, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { api } from '../api';
-import { useAuth } from '../auth';
-import { dateTime, Icon, LoadState, num3, StatusBadge, useLoad } from '../components/ui';
-import { useI18n } from '../i18n';
+import {
+  durationMinutes,
+  formatDuration,
+  Permission,
+  unloadingCharges,
+} from "@timbertrail/shared";
+import { PlusIcon, RulerIcon, SaveIcon } from "lucide-react";
+import { FormEvent, ReactNode, useId, useMemo, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { api } from "../api";
+import { useAuth } from "../auth";
+import { money, num3, useApi, useLoad } from "../components/common";
+import { DataTable } from "../components/data-table";
+import {
+  ListEmpty,
+  ListToolbar,
+  openColumn,
+  PageSum,
+  StatusCards,
+  useRecordList,
+  type ListColumn,
+} from "../components/record-list";
+import { StatusBadge } from "../components/status-badge";
+import { useToast } from "../components/toast";
+import { useChangedGuard } from "../components/leave-guard";
+import {
+  Field,
+  FormActions,
+  FormCard,
+  FormSection,
+  LoadState,
+  Notice,
+  Page,
+  PageHeader,
+} from "../components/page";
+import { useI18n } from "../i18n";
+import { ImportQuickView } from "./QuickViews";
 
 export interface ImportSummary {
   id: string;
   code: string;
   arrivalAt: string;
   lorryNumber: string;
+  driverName: string | null;
+  originLocation: string | null;
+  /** only sent to people who may see finance (the owner) */
+  supplierName: string | null;
   woodType: string;
   totalLogs: number;
   totalCft: number;
@@ -34,208 +79,595 @@ export interface ImportForm {
 
 /** ISO timestamp → value for <input type="datetime-local"> in the browser's time zone. */
 export function toLocalInput(iso: string | Date | null | undefined): string {
-  if (!iso) return '';
+  if (!iso) return "";
   const d = new Date(iso);
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 16);
 }
-export const fromLocalInput = (v: string) => (v ? new Date(v).toISOString() : undefined);
+export const fromLocalInput = (v: string) =>
+  v ? new Date(v).toISOString() : undefined;
 
 export const emptyImportForm = (): ImportForm => ({
   arrivalAt: toLocalInput(new Date()),
-  lorryNumber: '',
-  woodType: '',
-  woodCategory: '',
-  driverName: '',
-  driverMobile: '',
-  lorryOwnerName: '',
-  lorryOwnerMobile: '',
-  originLocation: '',
-  notes: '',
+  lorryNumber: "",
+  woodType: "",
+  woodCategory: "",
+  driverName: "",
+  driverMobile: "",
+  lorryOwnerName: "",
+  lorryOwnerMobile: "",
+  originLocation: "",
+  notes: "",
 });
 
-export const importFormBody = (f: ImportForm) => JSON.stringify({ ...f, arrivalAt: fromLocalInput(f.arrivalAt) });
+export const importFormBody = (f: ImportForm) =>
+  JSON.stringify({ ...f, arrivalAt: fromLocalInput(f.arrivalAt) });
 
-const PAGE = 50;
-const STATUSES = ['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED'] as const;
+const arrivalAt = (iso: string) =>
+  new Date(iso).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+const arrivalDay = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+const arrivalTime = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
 /** `/imports` lists every load; `/measurement` (openOnly) lists the ones still being measured. */
 export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
   const { t } = useI18n();
   const { user } = useAuth();
-  const isOwner = user?.role === 'OWNER';
-  const [status, setStatus] = useState('');
-  const [skip, setSkip] = useState(0);
-  const query = `take=${PAGE}&skip=${skip}${openOnly ? '&open=1' : status ? `&status=${status}` : ''}`;
-  const { data, loading, error, reload } = useLoad(
-    () => api<{ items: ImportSummary[]; total: number }>(`/imports?${query}`),
-    [query],
+  const isOwner = user?.role === "OWNER";
+  const list = useRecordList<ImportSummary>({
+    path: "/imports",
+    name: "imports",
+    hiddenByDefault: ["driver", "origin"],
+    fixedQuery: openOnly ? "open=1" : undefined,
+  });
+  const { data, loading, error, reload } = list;
+  /** the load shown in the side panel, if any */
+  const [peek, setPeek] = useState<ImportSummary | null>(null);
+
+  const allColumns = useMemo(() => {
+    const cols: ListColumn<ImportSummary>[] = [
+      {
+        id: "code",
+        header: t("importId"),
+        cell: (l) => (
+          <>
+            <Link
+              className="font-semibold text-primary hover:underline"
+              to={`/imports/${l.id}`}
+            >
+              {l.code}
+            </Link>
+            {/* the columns that fold away on smaller screens repeat here meanwhile */}
+            <div className="mt-0.5 text-xs whitespace-normal text-muted-foreground md:hidden">
+              {l.lorryNumber} · {l.woodType} · {arrivalAt(l.arrivalAt)}
+            </div>
+            <div className="mt-0.5 hidden text-xs text-muted-foreground md:block lg:hidden">
+              {l.woodType} · {l.totalLogs} {t("logs").toLowerCase()}
+            </div>
+          </>
+        ),
+      },
+      {
+        id: "arrival",
+        label: t("arrival"),
+        header: t("arrival"),
+        from: "md",
+        cell: (l) => (
+          <>
+            <div>{arrivalDay(l.arrivalAt)}</div>
+            <div className="text-xs text-muted-foreground">
+              {arrivalTime(l.arrivalAt)}
+            </div>
+          </>
+        ),
+      },
+      {
+        id: "lorry",
+        label: t("lorry"),
+        header: t("lorry"),
+        from: "md",
+        className: "font-medium",
+        cell: (l) => l.lorryNumber,
+      },
+      {
+        id: "driver",
+        label: t("driverName"),
+        header: t("driverName"),
+        from: "xl",
+        className: "max-w-40 truncate",
+        cell: (l) => l.driverName ?? "—",
+      },
+    ];
+    // the supplier belongs to the purchase record, which only the owner sees
+    if (isOwner)
+      cols.push({
+        id: "supplier",
+        label: t("supplier"),
+        header: t("supplier"),
+        from: "xl",
+        className: "max-w-40 truncate",
+        cell: (l) => l.supplierName ?? "—",
+      });
+    cols.push(
+      {
+        id: "origin",
+        label: t("originLocation"),
+        header: t("originLocation"),
+        from: "xl",
+        className: "max-w-48 truncate",
+        cell: (l) => l.originLocation ?? "—",
+      },
+      {
+        id: "wood",
+        label: t("woodType"),
+        header: t("woodType"),
+        from: "lg",
+        cell: (l) => l.woodType,
+      },
+      {
+        id: "logs",
+        label: t("logs"),
+        header: t("logs"),
+        from: "lg",
+        numeric: true,
+        cell: (l) => l.totalLogs,
+      },
+      {
+        id: "cft",
+        header: t("totalCft"),
+        numeric: true,
+        className: "font-semibold",
+        cell: (l) => num3(l.totalCft),
+      },
+      {
+        id: "status",
+        header: t("status"),
+        cell: (l) => <StatusBadge status={l.status} />,
+      },
+    );
+    if (isOwner)
+      cols.push({
+        id: "by",
+        label: t("createdBy"),
+        header: t("createdBy"),
+        from: "xl",
+        className: "max-w-36 truncate",
+        cell: (l) => l.createdByName,
+      });
+    cols.push(
+      openOnly
+        ? {
+            id: "open",
+            header: <span className="sr-only">{t("actions")}</span>,
+            className: "w-px text-right",
+            cell: (l) => (
+              <Button asChild variant="outline" size="sm">
+                <Link to={`/imports/${l.id}#logs`} aria-label={t("measure")}>
+                  <RulerIcon />
+                  <span className="max-md:sr-only">{t("measure")}</span>
+                </Link>
+              </Button>
+            ),
+          }
+        : openColumn<ImportSummary>(
+            (l) => `/imports/${l.id}`,
+            (l) => l.code,
+            t,
+          ),
+    );
+    return cols;
+  }, [t, isOwner, openOnly]);
+  const columns = useMemo(
+    () => allColumns.filter((c) => !list.hidden.includes(c.id)),
+    [allColumns, list.hidden],
   );
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <h1>{t(openOnly ? 'measurement' : 'imports')}</h1>
-        <div className="head-tools">
-          {!openOnly && (
-            <select
-              className="select"
-              aria-label={t('status')}
-              value={status}
-              onChange={(e) => {
-                setStatus(e.target.value);
-                setSkip(0);
-              }}
-            >
-              <option value="">{t('allStatuses')}</option>
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {t(s === 'SUBMITTED' ? 'pending' : (s.toLowerCase() as 'draft' | 'approved' | 'rejected'))}
-                </option>
-              ))}
-            </select>
-          )}
-          <Link className="btn btn-primary" to="/imports/new">
-            + {t('newImport')}
-          </Link>
-        </div>
-      </div>
+    <Page>
+      <PageHeader
+        title={t(openOnly ? "measurement" : "imports")}
+        subtitle={t(openOnly ? "measurementSub" : "importsSub")}
+        actions={
+          <Button asChild>
+            <Link to="/imports/new">
+              <PlusIcon /> {t("newImport")}
+            </Link>
+          </Button>
+        }
+      />
+
+      {/* the list at a glance; each card also filters the table to that status */}
+      {!openOnly && (
+        <StatusCards list={list} totalLabel={t("totalImportLoads")} />
+      )}
 
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
 
       {data && (
-        <>
-          <div className="card table-wrap">
-            {data.items.length === 0 ? (
-              <div className="empty">{t(openOnly ? 'noOpenLoads' : 'noImports')}</div>
-            ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>{t('importId')}</th>
-                    <th className="hide-sm">{t('arrival')}</th>
-                    <th className="hide-sm">{t('lorry')}</th>
-                    <th className="hide-sm">{t('woodType')}</th>
-                    <th className="num hide-sm">{t('logs')}</th>
-                    <th className="num">{t('totalCft')}</th>
-                    <th>{t('status')}</th>
-                    {isOwner && <th className="hide-sm">{t('createdBy')}</th>}
-                    <th className="hide-sm" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.items.map((l) => (
-                    <tr key={l.id}>
-                      <td>
-                        <Link className="row-link" to={`/imports/${l.id}`}>
-                          {l.code}
-                        </Link>
-                        <div className="muted small show-sm">{l.lorryNumber}</div>
-                      </td>
-                      <td className="hide-sm">{dateTime(l.arrivalAt)}</td>
-                      <td className="hide-sm">{l.lorryNumber}</td>
-                      <td className="hide-sm">{l.woodType}</td>
-                      <td className="num hide-sm">{l.totalLogs}</td>
-                      <td className="num">{num3(l.totalCft)}</td>
-                      <td>
-                        <StatusBadge status={l.status} />
-                      </td>
-                      {isOwner && <td className="hide-sm">{l.createdByName}</td>}
-                      <td className="actions hide-sm">
-                        <Link className="btn btn-small" to={`/imports/${l.id}${openOnly ? '#logs' : ''}`}>
-                          {openOnly && <Icon name="measurement" size={16} />}
-                          {t(openOnly ? 'measure' : 'open')}
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-          {data.total > PAGE && (
-            <div className="pager">
-              <button className="btn btn-small" disabled={skip === 0} onClick={() => setSkip(Math.max(0, skip - PAGE))}>
-                ← {t('previous')}
-              </button>
-              <span className="muted small">
-                {skip + 1}–{Math.min(skip + PAGE, data.total)} / {data.total}
-              </span>
-              <button className="btn btn-small" disabled={skip + PAGE >= data.total} onClick={() => setSkip(skip + PAGE)}>
-                {t('next')} →
-              </button>
-            </div>
-          )}
-        </>
+        <DataTable
+          grid
+          data={data.items}
+          columns={columns}
+          rowKey={(l) => l.id}
+          // the measurement list goes straight to log entry; the full list opens a quick view first
+          rowTo={openOnly ? (l) => `/imports/${l.id}#logs` : undefined}
+          onRowClick={openOnly ? undefined : setPeek}
+          selectedKey={peek?.id}
+          empty={
+            <ListEmpty
+              list={list}
+              none={t(openOnly ? "noOpenLoads" : "noImports")}
+              newTo="/imports/new"
+              newLabel={t("newImport")}
+            />
+          }
+          pager={list.paging.pager(data.total)}
+          busy={loading}
+          toolbar={
+            <ListToolbar
+              list={list}
+              columns={allColumns}
+              searchPlaceholder={t("searchRecords")}
+            />
+          }
+          footer={
+            <PageSum cft={data.items.reduce((a, l) => a + l.totalCft, 0)} />
+          }
+        />
       )}
-    </div>
+
+      <ImportQuickView
+        row={peek}
+        onClose={() => setPeek(null)}
+        onChanged={list.refresh}
+      />
+    </Page>
   );
 }
 
-/** The import form fields, shared by "New Import" and the edit panel on the detail page. */
-export function ImportFields({ form, onChange }: { form: ImportForm; onChange: (f: ImportForm) => void }) {
+/**
+ * The import form, in numbered sections, shared by "New Import" and the edit panel on the
+ * detail page. `supplier` and `unloading` are extra parts only the new-import screen has
+ * (on an existing load they have their own sections on the page).
+ */
+/**
+ * Wood type: once the owner has a list (Settings → Wood types) it is a picker, so the same
+ * wood is never spelled two ways; until then free text with the names already used as suggestions.
+ * The API applies the same rule (and saves a known name with its listed spelling).
+ */
+function WoodTypeField({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
   const { t } = useI18n();
-  const set = (k: keyof ImportForm) => (e: { target: { value: string } }) => onChange({ ...form, [k]: e.target.value });
+  const choices = useApi<{ items: string[]; fixed: boolean }>(
+    "/wood-types",
+  ).data;
+  if (choices?.fixed) {
+    // an older load may carry a name since removed from the list: keep it selectable
+    const items =
+      value && !choices.items.includes(value)
+        ? [value, ...choices.items]
+        : choices.items;
+    return (
+      <Field id={id} label={t("woodType")} required hint={t("woodTypeMissing")}>
+        <Select value={value} onValueChange={onChange} required>
+          <SelectTrigger id={id} className="w-full">
+            <SelectValue placeholder={t("pickWoodType")} />
+          </SelectTrigger>
+          <SelectContent>
+            {items.map((w) => (
+              <SelectItem key={w} value={w}>
+                {w}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+    );
+  }
   return (
-    <div className="form-grid">
-      <label className="field">
-        <span>{t('lorryNumber')} *</span>
-        <input value={form.lorryNumber} onChange={set('lorryNumber')} required minLength={4} maxLength={20} autoCapitalize="characters" placeholder="TN 45 AB 1234" />
-      </label>
-      <label className="field">
-        <span>{t('woodType')} *</span>
-        <input value={form.woodType} onChange={set('woodType')} required minLength={2} maxLength={60} />
-        <small className="muted">{t('woodTypeHint')}</small>
-      </label>
-      <label className="field">
-        <span>{t('arrivalDateTime')}</span>
-        <input type="datetime-local" value={form.arrivalAt} onChange={set('arrivalAt')} required />
-      </label>
-      <label className="field">
-        <span>{t('woodCategory')}</span>
-        <input value={form.woodCategory} onChange={set('woodCategory')} maxLength={60} />
-      </label>
-      <label className="field">
-        <span>{t('driverName')}</span>
-        <input value={form.driverName} onChange={set('driverName')} maxLength={100} />
-      </label>
-      <label className="field">
-        <span>{t('driverMobile')}</span>
-        <input value={form.driverMobile} onChange={set('driverMobile')} inputMode="tel" maxLength={15} />
-      </label>
-      <label className="field">
-        <span>{t('lorryOwnerName')}</span>
-        <input value={form.lorryOwnerName} onChange={set('lorryOwnerName')} maxLength={100} />
-      </label>
-      <label className="field">
-        <span>{t('lorryOwnerMobile')}</span>
-        <input value={form.lorryOwnerMobile} onChange={set('lorryOwnerMobile')} inputMode="tel" maxLength={15} />
-      </label>
-      <label className="field">
-        <span>{t('originLocation')}</span>
-        <input value={form.originLocation} onChange={set('originLocation')} maxLength={120} />
-      </label>
-      <label className="field field-wide">
-        <span>{t('notes')}</span>
-        <input value={form.notes} onChange={set('notes')} maxLength={1000} />
-      </label>
-    </div>
+    <Field id={id} label={t("woodType")} required hint={t("woodTypeHint")}>
+      <Input
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required
+        minLength={2}
+        maxLength={60}
+        list={`${id}-list`}
+      />
+      <datalist id={`${id}-list`}>
+        {choices?.items.map((w) => (
+          <option key={w} value={w} />
+        ))}
+      </datalist>
+    </Field>
   );
 }
+
+export function ImportFields({
+  form,
+  onChange,
+  supplier,
+  unloading,
+}: {
+  form: ImportForm;
+  onChange: (f: ImportForm) => void;
+  supplier?: ReactNode;
+  unloading?: ReactNode;
+}) {
+  const { t } = useI18n();
+  const uid = useId();
+  const id = (k: keyof ImportForm) => `${uid}-${k}`;
+  const set = (k: keyof ImportForm) => (e: { target: { value: string } }) =>
+    onChange({ ...form, [k]: e.target.value });
+  let step = 0;
+  return (
+    <>
+      <FormSection
+        step={++step}
+        title={t("secImportInfo")}
+        description={t("secImportInfoSub")}
+      >
+        <Field id={id("arrivalAt")} label={t("arrivalDateTime")} required>
+          <Input
+            id={id("arrivalAt")}
+            type="datetime-local"
+            value={form.arrivalAt}
+            onChange={set("arrivalAt")}
+            required
+          />
+        </Field>
+        <WoodTypeField
+          id={id("woodType")}
+          value={form.woodType}
+          onChange={(woodType) => onChange({ ...form, woodType })}
+        />
+        <Field id={id("woodCategory")} label={t("woodCategory")}>
+          <Input
+            id={id("woodCategory")}
+            value={form.woodCategory}
+            onChange={set("woodCategory")}
+            maxLength={60}
+          />
+        </Field>
+        <Field id={id("originLocation")} label={t("originLocation")}>
+          <Input
+            id={id("originLocation")}
+            value={form.originLocation}
+            onChange={set("originLocation")}
+            maxLength={120}
+          />
+        </Field>
+      </FormSection>
+
+      <FormSection
+        step={++step}
+        title={t(supplier ? "secSupplierLorry" : "secLorry")}
+        description={t("secLorrySub")}
+      >
+        {supplier}
+        <Field
+          id={id("lorryNumber")}
+          label={t("lorryNumber")}
+          required
+          hint={t("lorryNumberHint")}
+          className={supplier ? undefined : "sm:col-span-2"}
+        >
+          <Input
+            id={id("lorryNumber")}
+            value={form.lorryNumber}
+            onChange={set("lorryNumber")}
+            required
+            minLength={4}
+            maxLength={20}
+            autoCapitalize="characters"
+            placeholder="TN 45 AB 1234"
+            className="uppercase placeholder:normal-case"
+          />
+        </Field>
+        <Field id={id("driverName")} label={t("driverName")}>
+          <Input
+            id={id("driverName")}
+            value={form.driverName}
+            onChange={set("driverName")}
+            maxLength={100}
+            autoComplete="off"
+          />
+        </Field>
+        <Field
+          id={id("driverMobile")}
+          label={t("driverMobile")}
+          hint={t("mobileHint")}
+        >
+          <Input
+            id={id("driverMobile")}
+            type="tel"
+            value={form.driverMobile}
+            onChange={set("driverMobile")}
+            inputMode="tel"
+            maxLength={15}
+            pattern={MOBILE}
+            autoComplete="off"
+          />
+        </Field>
+        <Field id={id("lorryOwnerName")} label={t("lorryOwnerName")}>
+          <Input
+            id={id("lorryOwnerName")}
+            value={form.lorryOwnerName}
+            onChange={set("lorryOwnerName")}
+            maxLength={100}
+            autoComplete="off"
+          />
+        </Field>
+        <Field
+          id={id("lorryOwnerMobile")}
+          label={t("lorryOwnerMobile")}
+          hint={t("mobileHint")}
+        >
+          <Input
+            id={id("lorryOwnerMobile")}
+            type="tel"
+            value={form.lorryOwnerMobile}
+            onChange={set("lorryOwnerMobile")}
+            inputMode="tel"
+            maxLength={15}
+            pattern={MOBILE}
+            autoComplete="off"
+          />
+        </Field>
+      </FormSection>
+
+      {unloading && (
+        <FormSection
+          step={++step}
+          title={t("secUnloading")}
+          description={t("secUnloadingSub")}
+        >
+          {unloading}
+        </FormSection>
+      )}
+
+      <FormSection
+        step={++step}
+        title={t("secAdditional")}
+        description={t("secAdditionalSub")}
+      >
+        <Field
+          id={id("notes")}
+          label={t("notes")}
+          hint={t("notesHint")}
+          className="sm:col-span-2"
+        >
+          <Textarea
+            id={id("notes")}
+            value={form.notes}
+            onChange={set("notes")}
+            maxLength={1000}
+            rows={3}
+          />
+        </Field>
+      </FormSection>
+    </>
+  );
+}
+/** The same rule the server applies to mobile numbers (empty is allowed: the fields are optional). */
+const MOBILE = "[0-9+ ]{7,15}";
+
+/** Radix Select can't hold '', so "no supplier" is this sentinel in the picker. */
+const NO_SUPPLIER = "none";
+const emptyUnloading = () => ({
+  vehicleNumber: "",
+  startAt: "",
+  endAt: "",
+  ratePerHour: "",
+});
 
 export function NewImportPage() {
   const { t } = useI18n();
+  const { can } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const [form, setForm] = useState(emptyImportForm);
+  const [unl, setUnl] = useState(emptyUnloading);
+  const [supplierId, setSupplierId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** where the pressed button goes after saving: the record, or straight to log entry */
+  const next = useRef<"record" | "logs">("record");
+  // anything typed or picked since the page opened counts as unsaved
+  const release = useChangedGuard([form, unl, supplierId]);
+
+  // the supplier sits on the purchase record, which only the owner may see or set
+  const canSupplier =
+    can(Permission.FINANCE_VIEW) && can(Permission.SUPPLIERS_MANAGE);
+  const suppliers = useLoad(
+    () =>
+      canSupplier
+        ? api<{ id: string; name: string }[]>("/suppliers")
+        : Promise.resolve([]),
+    [canSupplier],
+  );
+
+  const setU =
+    (k: keyof ReturnType<typeof emptyUnloading>) =>
+    (e: { target: { value: string } }) =>
+      setUnl((u) => ({ ...u, [k]: e.target.value }));
+  const hasUnloading = unl.vehicleNumber.trim() !== "";
+  // the same formulas the server uses: whole minutes between the times, rate × minutes / 60
+  let minutes: number | null = null;
+  let charges: number | null = null;
+  try {
+    if (unl.startAt && unl.endAt)
+      minutes = durationMinutes(new Date(unl.startAt), new Date(unl.endAt));
+    if (minutes != null && unl.ratePerHour.trim() !== "")
+      charges = unloadingCharges(minutes, Number(unl.ratePerHour));
+  } catch {
+    minutes = charges = null; // end before start, or a bad rate: the inputs say so themselves
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    const goTo = next.current;
+    next.current = "record";
     setBusy(true);
     setError(null);
     try {
-      const created = await api<{ id: string }>('/imports', { method: 'POST', body: importFormBody(form) });
-      navigate(`/imports/${created.id}`, { replace: true });
+      const created = await api<{ id: string }>("/imports", {
+        method: "POST",
+        body: importFormBody(form),
+      });
+      // the load now exists; the optional parts are saved onto it, and a failure there must not lose it
+      const missed: string[] = [];
+      if (hasUnloading)
+        await api(`/imports/${created.id}/unloading`, {
+          method: "POST",
+          body: JSON.stringify({
+            vehicleNumber: unl.vehicleNumber,
+            startAt: fromLocalInput(unl.startAt),
+            endAt: fromLocalInput(unl.endAt),
+            ratePerHour:
+              unl.ratePerHour.trim() === ""
+                ? undefined
+                : Number(unl.ratePerHour),
+          }),
+        }).catch((err) =>
+          missed.push(`${t("secUnloading")} (${(err as Error).message})`),
+        );
+      if (supplierId)
+        await api(`/imports/${created.id}/financials`, {
+          method: "PUT",
+          body: JSON.stringify({ supplierId }),
+        }).catch((err) =>
+          missed.push(`${t("supplier")} (${(err as Error).message})`),
+        );
+      if (missed.length)
+        toast(t("savedButNot", { what: missed.join(", ") }), "warn");
+      release();
+      navigate(`/imports/${created.id}${goTo === "logs" ? "#logs" : ""}`, {
+        replace: true,
+      });
     } catch (err) {
       setError((err as Error).message);
       setBusy(false);
@@ -243,27 +675,143 @@ export function NewImportPage() {
   }
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <div>
-          <Link className="back-link" to="/imports">
-            ← {t('imports')}
-          </Link>
-          <h1>{t('newImport')}</h1>
+    <Page className="max-w-5xl">
+      <PageHeader
+        title={t("newImport")}
+        subtitle={t("requiredNote")}
+        back={{ to: "/imports", label: t("imports") }}
+      />
+      <FormCard onSubmit={submit} className="py-7 [&_form]:gap-7">
+        <ImportFields
+          form={form}
+          onChange={setForm}
+          supplier={
+            canSupplier && (
+              <Field
+                id="imp-supplier"
+                label={t("supplier")}
+                hint={t("supplierHint")}
+              >
+                <Select
+                  value={supplierId || NO_SUPPLIER}
+                  onValueChange={(v) =>
+                    setSupplierId(v === NO_SUPPLIER ? "" : v)
+                  }
+                >
+                  <SelectTrigger id="imp-supplier" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_SUPPLIER}>
+                      {t("noSupplier")}
+                    </SelectItem>
+                    {(suppliers.data ?? []).map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )
+          }
+          unloading={
+            <>
+              <Field
+                id="imp-unl-vehicle"
+                label={t("vehicleNumber")}
+                hint={t("unloadingVehicleHint")}
+              >
+                <Input
+                  id="imp-unl-vehicle"
+                  value={unl.vehicleNumber}
+                  onChange={setU("vehicleNumber")}
+                  // only needed once any other unloading detail is filled in
+                  required={!!(unl.startAt || unl.endAt || unl.ratePerHour)}
+                  minLength={2}
+                  maxLength={20}
+                  autoCapitalize="characters"
+                  className="uppercase"
+                />
+              </Field>
+              <Field
+                id="imp-unl-rate"
+                label={t("ratePerHour")}
+                hint={t("unloadingRateHint")}
+              >
+                <Input
+                  id="imp-unl-rate"
+                  type="number"
+                  value={unl.ratePerHour}
+                  onChange={setU("ratePerHour")}
+                  min={0}
+                  max={1000000}
+                  step="0.01"
+                  inputMode="decimal"
+                  className="tabular-nums"
+                />
+              </Field>
+              <Field id="imp-unl-start" label={t("startTime")}>
+                <Input
+                  id="imp-unl-start"
+                  type="datetime-local"
+                  value={unl.startAt}
+                  onChange={setU("startAt")}
+                />
+              </Field>
+              <Field id="imp-unl-end" label={t("endTime")}>
+                <Input
+                  id="imp-unl-end"
+                  type="datetime-local"
+                  value={unl.endAt}
+                  onChange={setU("endAt")}
+                  min={unl.startAt || undefined}
+                />
+              </Field>
+              <div
+                className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 rounded-lg bg-muted/60 px-4 py-3 text-sm sm:col-span-2"
+                aria-live="polite"
+              >
+                <span className="text-muted-foreground">
+                  {t("duration")}:{" "}
+                  <span className="font-semibold text-foreground tabular-nums">
+                    {minutes != null ? formatDuration(minutes) : "—"}
+                  </span>
+                </span>
+                <span className="text-muted-foreground">
+                  {t("estimatedCharges")}:{" "}
+                  <span className="font-semibold text-foreground tabular-nums">
+                    {charges != null ? money(charges) : "—"}
+                  </span>
+                </span>
+              </div>
+            </>
+          }
+        />
+        {error && <Notice tone="error">{error}</Notice>}
+        <div className="border-t border-border/70 pt-5">
+          <FormActions summary={t("draftHint")}>
+            <Button asChild variant="ghost">
+              <Link to="/imports">{t("cancel")}</Link>
+            </Button>
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={busy}
+              onClick={() => (next.current = "record")}
+            >
+              <SaveIcon /> {t("saveDraft")}
+            </Button>
+            <Button
+              type="submit"
+              disabled={busy}
+              onClick={() => (next.current = "logs")}
+            >
+              <RulerIcon /> {t("saveAndMeasure")}
+            </Button>
+          </FormActions>
         </div>
-      </div>
-      <form className="card form-card" onSubmit={submit}>
-        <ImportFields form={form} onChange={setForm} />
-        {error && <div className="notice notice-error">{error}</div>}
-        <div className="form-actions">
-          <Link className="btn btn-ghost" to="/imports">
-            {t('cancel')}
-          </Link>
-          <button className="btn btn-primary" disabled={busy}>
-            {t('create')}
-          </button>
-        </div>
-      </form>
-    </div>
+      </FormCard>
+    </Page>
   );
 }

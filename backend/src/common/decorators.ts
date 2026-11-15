@@ -1,5 +1,5 @@
 import { createParamDecorator, ExecutionContext, SetMetadata } from '@nestjs/common';
-import type { Permission } from '@sawmill/shared';
+import type { Permission } from '@timbertrail/shared';
 import type { AuthUser } from './types';
 
 export const IS_PUBLIC_KEY = 'isPublic';

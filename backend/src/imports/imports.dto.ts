@@ -1,4 +1,4 @@
-import { ApprovalStatus } from '@sawmill/shared';
+import { ApprovalStatus } from '@timbertrail/shared';
 import { Transform, Type } from 'class-transformer';
 import {
   IsIn,
@@ -37,6 +37,8 @@ export class ListImportsQuery {
   @IsOptional() @IsIn(Object.values(ApprovalStatus)) status?: ApprovalStatus;
   /** `1` = only loads that can still be edited / measured (Draft or Rejected). */
   @IsOptional() @IsIn(['0', '1']) open?: string;
+  /** search: record ID, lorry number, wood type (spaces ignored) */
+  @IsOptional() @IsString() @MaxLength(60) q?: string;
 }
 
 export class CreateImportDto {
@@ -94,6 +96,14 @@ export class LogDto {
   @IsNumber({ maxDecimalPlaces: 2 }) @Min(0.01) @Max(999) lengthFt: number;
 }
 
+/**
+ * A new log. `clientRef` is an id the phone makes up for each log it measures, so a log
+ * saved offline and sent again (e.g. the reply was lost) is stored once, not twice.
+ */
+export class AddLogDto extends LogDto {
+  @IsOptional() @IsUUID() clientRef?: string;
+}
+
 /** Why the owner sent a load back; shown to the accountant. */
 export class RejectDto {
   @Clean() @IsString() @MinLength(3) @MaxLength(500) reason: string;
@@ -107,6 +117,7 @@ export class FinancialsDto {
   @Money() purchaseRatePerCft?: number | null;
   @Money() purchaseAmount?: number | null;
   @Money() transportCharges?: number | null;
+  /** @deprecated ignored — payments are recorded one by one (POST /imports/:id/payments). Still accepted so older app versions don't fail. */
   @Money() amountPaid?: number | null;
   @Text(1000) notes?: string | null;
 }

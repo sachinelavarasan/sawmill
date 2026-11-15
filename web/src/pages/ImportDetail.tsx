@@ -1,13 +1,28 @@
-import { formatDuration, importLogCft, Permission } from '@sawmill/shared';
-import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { formatDuration, importLogCft, Permission, totalCft } from '@timbertrail/shared';
+import { CheckCircle2Icon, CheckIcon, ClockIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
+import { useLocation, useParams } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
-import { dateTime, Icon, Kpi, LoadState, money, num3, StatusBadge, useLoad } from '../components/ui';
-import { useI18n } from '../i18n';
+import { dateTime, money, num3, useLoad } from '../components/common';
+import { useConfirmDelete } from '../components/confirm';
+import { useEditGuard } from '../components/leave-guard';
+import { Field, FigureStrip, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, TableCard, useClientPaging, wide } from '../components/page';
+import { StatusBadge } from '../components/status-badge';
+import { PaymentsPanel } from '../components/payments';
+import { WorkflowBar } from '../components/workflow';
+import { useToast } from '../components/toast';
+import { type TKey, useI18n } from '../i18n';
 import { fromLocalInput, ImportFields, ImportForm, importFormBody, ImportSummary, toLocalInput } from './Imports';
 
-interface Unloading {
+export interface Unloading {
   id: string;
   vehicleNumber: string;
   driverName: string | null;
@@ -17,14 +32,14 @@ interface Unloading {
   ratePerHour: number | null;
   totalCharges: number | null;
 }
-interface Log {
+export interface Log {
   id: string;
   logNumber: number;
   girthIn: number;
   lengthFt: number;
   cft: number;
 }
-interface ImportDetail extends ImportSummary {
+export interface ImportDetail extends ImportSummary {
   woodCategory: string | null;
   driverName: string | null;
   driverMobile: string | null;
@@ -33,6 +48,8 @@ interface ImportDetail extends ImportSummary {
   originLocation: string | null;
   notes: string | null;
   editable: boolean;
+  canSubmit: boolean;
+  canReview: boolean;
   defaultUnloadingRate: number | null;
   unloadings: Unloading[];
   logs: Log[];
@@ -44,6 +61,18 @@ const positive = (v: string) => {
   return v.trim() !== '' && Number.isFinite(n) && n > 0 ? n : null;
 };
 const errorText = (e: unknown) => (e as Error).message;
+/**
+ * What is wrong with a typed girth / length, in words — the same limits the inputs and the
+ * server enforce (greater than 0, at most 999, at most 2 decimals). Null while empty or fine.
+ */
+const measureProblem = (v: string): TKey | null => {
+  const s = v.trim();
+  if (s === '') return null;
+  if (positive(s) == null) return 'errPositive';
+  if (Number(s) > 999) return 'errMax999';
+  if (!/^\d*(\.\d{0,2})?$/.test(s)) return 'errTwoDecimals';
+  return null;
+};
 
 export function ImportDetailPage() {
   const { id } = useParams();
@@ -61,36 +90,46 @@ export function ImportDetailPage() {
   const unloadingTotal = load?.unloadings.reduce((sum, u) => sum + (u.totalCharges ?? 0), 0) ?? 0;
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <div>
-          <Link className="back-link" to="/imports">
-            ← {t('imports')}
-          </Link>
-          <h1 className="title-row">
-            {load?.code ?? t('importDetails')}
-            {load && <StatusBadge status={load.status} />}
-          </h1>
-          {load && (
-            <p className="muted">
+    <Page>
+      <PageHeader
+        title={load?.code ?? t('importDetails')}
+        back={{ to: '/imports', label: t('imports') }}
+        badge={load && <StatusBadge status={load.status} />}
+        subtitle={
+          load && (
+            <>
               {t('lorry')} {load.lorryNumber} · {load.woodType} · {dateTime(load.arrivalAt)}
-            </p>
-          )}
-        </div>
-      </div>
+            </>
+          )
+        }
+      />
 
       <LoadState loading={loading && !load} error={error} onRetry={reload} />
 
       {load && (
         <>
-          {!load.editable && <div className="notice notice-info">{t('lockedRecord')}</div>}
-          {load.rejectionReason && <div className="notice notice-error">{load.rejectionReason}</div>}
+          {!load.editable && load.status !== 'SUBMITTED' && <Notice>{t('lockedRecord')}</Notice>}
+          {load.rejectionReason && <Notice tone="error">{load.rejectionReason}</Notice>}
 
-          <div className="kpi-grid">
-            <Kpi label={t('logsMeasured')} value={load.totalLogs} />
-            <Kpi label={t('totalCft')} value={num3(load.totalCft)} unit="CFT" />
-            <Kpi label={t('totalUnloadingCharges')} value={money(unloadingTotal)} />
-          </div>
+          <FigureStrip
+            className="grid-cols-1 sm:grid-cols-3 lg:grid-cols-3"
+            items={[
+              { label: t('logsMeasured'), value: load.totalLogs },
+              { label: t('totalCft'), value: `${num3(load.totalCft)} CFT` },
+              { label: t('totalUnloadingCharges'), value: money(unloadingTotal) },
+            ]}
+          />
+
+          <WorkflowBar
+            base={`/imports/${load.id}`}
+            status={load.status}
+            canSubmit={load.canSubmit}
+            canReview={load.canReview}
+            submitBlocked={load.totalLogs === 0 ? t('needLogsToSubmit') : null}
+            confirmApprove={t('confirmApprove', { code: load.code, cft: num3(load.totalCft) })}
+            approvedNote={load.editable ? t('approvedStockNote') : undefined}
+            onDone={reload}
+          />
 
           <DetailsSection load={load} onSaved={reload} />
           <UnloadingSection load={load} onChanged={reload} />
@@ -98,19 +137,7 @@ export function ImportDetailPage() {
           <LogsSection load={load} onChanged={reload} />
         </>
       )}
-    </div>
-  );
-}
-
-function Section({ title, tools, children }: { title: ReactNode; tools?: ReactNode; children: ReactNode }) {
-  return (
-    <>
-      <div className="section-head">
-        <h2 className="section-title">{title}</h2>
-        {tools}
-      </div>
-      {children}
-    </>
+    </Page>
   );
 }
 
@@ -119,6 +146,8 @@ function Section({ title, tools, children }: { title: ReactNode; tools?: ReactNo
 function DetailsSection({ load, onSaved }: { load: ImportDetail; onSaved: () => void }) {
   const { t } = useI18n();
   const [form, setForm] = useState<ImportForm | null>(null);
+  // ask before leaving with unsaved edits
+  useEditGuard(form);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -152,15 +181,27 @@ function DetailsSection({ load, onSaved }: { load: ImportDetail; onSaved: () => 
     }
   }
 
-  const facts: [string, string | null][] = [
-    [t('driverName'), load.driverName],
-    [t('driverMobile'), load.driverMobile],
-    [t('lorryOwnerName'), load.lorryOwnerName],
-    [t('lorryOwnerMobile'), load.lorryOwnerMobile],
-    [t('originLocation'), load.originLocation],
-    [t('woodCategory'), load.woodCategory],
-    [t('createdBy'), load.createdByName],
-    [t('notes'), load.notes],
+  const groups: { title: string; facts: [string, string | null][] }[] = [
+    {
+      title: t('lorryAndDriver'),
+      facts: [
+        [t('lorryNumber'), load.lorryNumber],
+        [t('driverName'), load.driverName],
+        [t('driverMobile'), load.driverMobile],
+        [t('lorryOwnerName'), load.lorryOwnerName],
+        [t('lorryOwnerMobile'), load.lorryOwnerMobile],
+      ],
+    },
+    {
+      title: t('secImportInfo'),
+      facts: [
+        [t('woodType'), load.woodType],
+        [t('woodCategory'), load.woodCategory],
+        [t('originLocation'), load.originLocation],
+        [t('createdBy'), load.createdByName],
+        [t('notes'), load.notes],
+      ],
+    },
   ];
 
   return (
@@ -169,34 +210,41 @@ function DetailsSection({ load, onSaved }: { load: ImportDetail; onSaved: () => 
       tools={
         load.editable &&
         !form && (
-          <button className="btn btn-small" onClick={startEdit}>
-            {t('edit')}
-          </button>
+          <Button variant="outline" size="sm" onClick={startEdit}>
+            <PencilIcon /> {t('edit')}
+          </Button>
         )
       }
     >
       {form ? (
-        <form className="card form-card" onSubmit={submit}>
+        <FormCard onSubmit={submit} className="[&_form]:gap-6">
           <ImportFields form={form} onChange={setForm} />
-          {error && <div className="notice notice-error">{error}</div>}
-          <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>
+          {error && <Notice tone="error">{error}</Notice>}
+          <FormActions>
+            <Button type="button" variant="ghost" onClick={() => setForm(null)}>
               {t('cancel')}
-            </button>
-            <button className="btn btn-primary" disabled={busy}>
+            </Button>
+            <Button type="submit" disabled={busy}>
               {t('save')}
-            </button>
-          </div>
-        </form>
+            </Button>
+          </FormActions>
+        </FormCard>
       ) : (
-        <dl className="card facts">
-          {facts.map(([label, value]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>{value || '—'}</dd>
-            </div>
+        <Card className="gap-0 py-0 lg:flex-row">
+          {groups.map((g) => (
+            <section key={g.title} className="min-w-0 flex-1 px-5 py-6 not-first:border-t sm:px-6 lg:not-first:border-t-0 lg:not-first:border-l">
+              <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{g.title}</h3>
+              <dl className="mt-4 grid grid-cols-2 gap-x-5 gap-y-5 sm:grid-cols-3">
+                {g.facts.map(([label, value]) => (
+                  <div key={label} className="min-w-0">
+                    <dt className="text-xs text-muted-foreground">{label}</dt>
+                    <dd className="mt-1 font-medium break-words">{value || '—'}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
           ))}
-        </dl>
+        </Card>
       )}
     </Section>
   );
@@ -206,6 +254,7 @@ function DetailsSection({ load, onSaved }: { load: ImportDetail; onSaved: () => 
 
 function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: () => void }) {
   const { t } = useI18n();
+  const confirmDelete = useConfirmDelete();
   const blank = () => ({
     vehicleNumber: '',
     driverName: '',
@@ -249,8 +298,12 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
   const endNow = (u: Unloading) =>
     run(() => api(`/imports/${load.id}/unloading/${u.id}`, { method: 'PATCH', body: JSON.stringify({ endAt: new Date().toISOString() }) }));
   const remove = (u: Unloading) => {
-    if (window.confirm(t('confirmDelete'))) run(() => api(`/imports/${load.id}/unloading/${u.id}`, { method: 'DELETE' }));
+    confirmDelete().then((ok) => {
+      if (ok) run(() => api(`/imports/${load.id}/unloading/${u.id}`, { method: 'DELETE' }));
+    });
   };
+
+  const unloadings = useClientPaging(load.unloadings, 10);
 
   return (
     <Section
@@ -258,101 +311,95 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
       tools={
         load.editable &&
         !form && (
-          <button className="btn btn-small" onClick={() => setForm(blank())}>
-            + {t('addUnloading')}
-          </button>
+          <Button variant="outline" size="sm" onClick={() => setForm(blank())}>
+            <PlusIcon /> {t('addUnloading')}
+          </Button>
         )
       }
     >
-      {error && <div className="notice notice-error">{error}</div>}
+      {error && <Notice tone="error">{error}</Notice>}
       {form && (
-        <form className="card form-card" onSubmit={submit}>
-          <div className="form-grid">
-            <label className="field">
-              <span>{t('vehicleNumber')} *</span>
-              <input value={form.vehicleNumber} onChange={set('vehicleNumber')} required minLength={2} maxLength={20} autoFocus />
-            </label>
-            <label className="field">
-              <span>{t('driverName')}</span>
-              <input value={form.driverName} onChange={set('driverName')} maxLength={100} />
-            </label>
-            <label className="field">
-              <span>{t('startTime')}</span>
-              <input type="datetime-local" value={form.startAt} onChange={set('startAt')} required />
-            </label>
-            <label className="field">
-              <span>{t('endTime')}</span>
-              <input type="datetime-local" value={form.endAt} onChange={set('endAt')} min={form.startAt} />
-            </label>
-            <label className="field">
-              <span>{t('ratePerHour')}</span>
-              <input type="number" value={form.ratePerHour} onChange={set('ratePerHour')} min={0} step="0.01" inputMode="decimal" />
-              <small className="muted">{t('calcFromRate')}</small>
-            </label>
-          </div>
-          <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>
+        <FormCard onSubmit={submit}>
+          <FormGrid>
+            <Field id="unl-vehicle" label={`${t('vehicleNumber')} *`}>
+              <Input id="unl-vehicle" value={form.vehicleNumber} onChange={set('vehicleNumber')} required minLength={2} maxLength={20} autoFocus />
+            </Field>
+            <Field id="unl-driver" label={t('driverName')}>
+              <Input id="unl-driver" value={form.driverName} onChange={set('driverName')} maxLength={100} />
+            </Field>
+            <Field id="unl-start" label={t('startTime')}>
+              <Input id="unl-start" type="datetime-local" value={form.startAt} onChange={set('startAt')} required />
+            </Field>
+            <Field id="unl-end" label={t('endTime')}>
+              <Input id="unl-end" type="datetime-local" value={form.endAt} onChange={set('endAt')} min={form.startAt} />
+            </Field>
+            <Field id="unl-rate" label={t('ratePerHour')} hint={t('calcFromRate')}>
+              <Input id="unl-rate" type="number" value={form.ratePerHour} onChange={set('ratePerHour')} min={0} step="0.01" inputMode="decimal" />
+            </Field>
+          </FormGrid>
+          <FormActions>
+            <Button type="button" variant="ghost" onClick={() => setForm(null)}>
               {t('cancel')}
-            </button>
-            <button className="btn btn-primary">{t('save')}</button>
-          </div>
-        </form>
+            </Button>
+            <Button type="submit">{t('save')}</Button>
+          </FormActions>
+        </FormCard>
       )}
-      <div className="card table-wrap">
-        {load.unloadings.length === 0 ? (
-          <div className="empty">{t('noUnloading')}</div>
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>{t('vehicleNumber')}</th>
-                <th className="hide-sm">{t('startTime')}</th>
-                <th className="hide-sm">{t('endTime')}</th>
-                <th className="num">{t('duration')}</th>
-                <th className="num hide-sm">{t('ratePerHour')}</th>
-                <th className="num">{t('totalCharges')}</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {load.unloadings.map((u) => (
-                <tr key={u.id}>
-                  <td>
-                    {u.vehicleNumber}
-                    {u.driverName && <div className="muted small">{u.driverName}</div>}
-                  </td>
-                  <td className="hide-sm">{dateTime(u.startAt)}</td>
-                  <td className="hide-sm">{u.endAt ? dateTime(u.endAt) : '—'}</td>
-                  <td className="num">
-                    {u.durationMinutes != null ? (
-                      formatDuration(u.durationMinutes)
-                    ) : (
-                      <span className="status status-submitted">{t('inProgress')}</span>
-                    )}
-                  </td>
-                  <td className="num hide-sm">{u.ratePerHour != null ? money(u.ratePerHour) : '—'}</td>
-                  <td className="num">{u.totalCharges != null ? money(u.totalCharges) : '—'}</td>
-                  <td className="actions">
-                    {load.editable && (
-                      <>
-                        {!u.endAt && (
-                          <button className="btn btn-small" onClick={() => endNow(u)}>
-                            {t('endNow')}
-                          </button>
-                        )}
-                        <button className="btn btn-small btn-ghost" aria-label={t('delete')} onClick={() => remove(u)}>
-                          <Icon name="trash" size={16} />
-                          <span className="btn-label">{t('delete')}</span>
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <TableCard compactEmpty empty={load.unloadings.length === 0} emptyText={t('noUnloading')} pager={unloadings.pager}>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="pl-4">{t('vehicleNumber')}</TableHead>
+              <TableHead className={wide}>{t('startTime')}</TableHead>
+              <TableHead className={wide}>{t('endTime')}</TableHead>
+              <TableHead className={numCell}>{t('duration')}</TableHead>
+              <TableHead className={cn(numCell, wide)}>{t('ratePerHour')}</TableHead>
+              <TableHead className={numCell}>{t('totalCharges')}</TableHead>
+              <TableHead className="pr-4" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {unloadings.rows.map((u) => (
+              <TableRow key={u.id}>
+                <TableCell className="pl-4 font-medium">
+                  {u.vehicleNumber}
+                  {u.driverName && <div className="text-xs font-normal text-muted-foreground">{u.driverName}</div>}
+                  <div className="text-xs font-normal text-muted-foreground md:hidden">{dateTime(u.startAt)}</div>
+                </TableCell>
+                <TableCell className={cn(wide, 'text-muted-foreground')}>{dateTime(u.startAt)}</TableCell>
+                <TableCell className={cn(wide, 'text-muted-foreground')}>{u.endAt ? dateTime(u.endAt) : '—'}</TableCell>
+                <TableCell className={numCell}>
+                  {u.durationMinutes != null ? (
+                    formatDuration(u.durationMinutes)
+                  ) : (
+                    <Badge variant="secondary" className="rounded-full border-transparent bg-warning-soft font-semibold text-warning">
+                      {t('inProgress')}
+                    </Badge>
+                  )}
+                </TableCell>
+                <TableCell className={cn(numCell, wide)}>{u.ratePerHour != null ? money(u.ratePerHour) : '—'}</TableCell>
+                <TableCell className={cn(numCell, 'font-semibold')}>{u.totalCharges != null ? money(u.totalCharges) : '—'}</TableCell>
+                <TableCell className="pr-4 text-right">
+                  {load.editable && (
+                    <div className="flex justify-end gap-1">
+                      {!u.endAt && (
+                        <Button variant="outline" size="sm" className="max-lg:size-9 max-lg:px-0" onClick={() => endNow(u)} aria-label={t('endNow')} title={t('endNow')}>
+                          <ClockIcon />
+                          <span className="max-lg:sr-only">{t('endNow')}</span>
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" className="max-lg:size-9 max-lg:px-0" aria-label={t('delete')} title={t('delete')} onClick={() => remove(u)}>
+                        <Trash2Icon />
+                        <span className="max-lg:sr-only">{t('delete')}</span>
+                      </Button>
+                    </div>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableCard>
     </Section>
   );
 }
@@ -368,27 +415,33 @@ interface Financials {
   paymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID';
   notes: string | null;
 }
+type PurchaseForm = Record<'supplierId' | 'rate' | 'amount' | 'transport' | 'notes', string>;
 
 const str = (n: number | null) => (n == null ? '' : String(n));
 const numOrNull = (v: string) => (v.trim() === '' ? null : Number(v));
+/** Radix Select can't hold '', so "no supplier" is this sentinel in the picker. */
+const NO_SUPPLIER = 'none';
+const purchaseForm = (d: Financials): PurchaseForm => ({
+  supplierId: d.supplierId ?? '',
+  rate: str(d.purchaseRatePerCft),
+  amount: str(d.purchaseAmount),
+  transport: str(d.transportCharges),
+  notes: d.notes ?? '',
+});
 
 function PurchaseSection({ load, canPickSupplier }: { load: ImportDetail; canPickSupplier: boolean }) {
   const { t } = useI18n();
   const { data, loading, error, reload } = useLoad(() => api<Financials>(`/imports/${load.id}/financials`), [load.id]);
   const suppliers = useLoad(() => (canPickSupplier ? api<{ id: string; name: string }[]>('/suppliers') : Promise.resolve([])), [canPickSupplier]);
-  const [form, setForm] = useState<Record<'supplierId' | 'rate' | 'amount' | 'transport' | 'paid' | 'notes', string> | null>(null);
+  const [form, setForm] = useState<PurchaseForm | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const toast = useToast();
+  /** bumped after saving, so the payments panel re-reads the bill amount */
+  const [paymentsKey, setPaymentsKey] = useState(0);
 
+  // Filled once from what is saved; later reloads (after a payment) refresh the figures, not the half-typed form.
   useEffect(() => {
-    if (data)
-      setForm({
-        supplierId: data.supplierId ?? '',
-        rate: str(data.purchaseRatePerCft),
-        amount: str(data.purchaseAmount),
-        transport: str(data.transportCharges),
-        paid: data.amountPaid ? String(data.amountPaid) : '',
-        notes: data.notes ?? '',
-      });
+    if (data) setForm((f) => f ?? purchaseForm(data));
   }, [data]);
 
   const set = (k: keyof NonNullable<typeof form>) => (e: { target: { value: string } }) =>
@@ -399,18 +452,20 @@ function PurchaseSection({ load, canPickSupplier }: { load: ImportDetail; canPic
     if (!form) return;
     setMessage(null);
     try {
-      await api(`/imports/${load.id}/financials`, {
+      const saved = await api<Financials>(`/imports/${load.id}/financials`, {
         method: 'PUT',
         body: JSON.stringify({
           supplierId: form.supplierId || null,
           purchaseRatePerCft: numOrNull(form.rate),
           purchaseAmount: numOrNull(form.amount),
           transportCharges: numOrNull(form.transport),
-          amountPaid: numOrNull(form.paid),
           notes: form.notes,
         }),
       });
-      setMessage({ kind: 'ok', text: t('saved') });
+      setForm(purchaseForm(saved));
+      setPaymentsKey((k) => k + 1);
+      setMessage(null);
+      toast(t('saved'));
       reload();
     } catch (err) {
       setMessage({ kind: 'error', text: errorText(err) });
@@ -419,77 +474,64 @@ function PurchaseSection({ load, canPickSupplier }: { load: ImportDetail; canPic
 
   const rate = form ? positive(form.rate) : null;
   const fillAmount = () => rate != null && setForm((f) => (f ? { ...f, amount: (rate * load.totalCft).toFixed(2) } : f));
-  const balance = data?.purchaseAmount != null ? data.purchaseAmount - data.amountPaid : null;
-  const payKey = ({ UNPAID: 'unpaid', PARTIAL: 'partial', PAID: 'paid' } as const)[data?.paymentStatus ?? 'UNPAID'];
-  const payClass = { UNPAID: 'status-draft', PARTIAL: 'status-submitted', PAID: 'status-approved' }[data?.paymentStatus ?? 'UNPAID'];
 
   return (
     <Section
       title={
         <>
-          {t('purchaseDetails')}{' '}
-          <span className="lock">
-            <Icon name="lock" size={12} />
-            {t('ownerOnly')}
-          </span>
+          {t('purchaseDetails')} <OwnerOnly />
         </>
       }
     >
       <LoadState loading={loading && !data} error={error} onRetry={reload} />
       {form && (
-        <form className="card form-card" onSubmit={submit}>
-          <div className="form-grid">
-            <label className="field">
-              <span>{t('supplier')}</span>
-              <select value={form.supplierId} onChange={set('supplierId')}>
-                <option value="">{t('noSupplier')}</option>
-                {suppliers.data?.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>{t('purchaseRate')}</span>
-              <input type="number" value={form.rate} onChange={set('rate')} min={0} step="0.01" inputMode="decimal" />
-            </label>
-            <label className="field">
-              <span>{t('purchaseAmount')}</span>
-              <input type="number" value={form.amount} onChange={set('amount')} min={0} step="0.01" inputMode="decimal" />
-              <button type="button" className="link-btn" disabled={rate == null} onClick={fillAmount}>
-                {t('rateTimesCft')}
-                {rate != null && ` = ${money(rate * load.totalCft)}`}
-              </button>
-            </label>
-            <label className="field">
-              <span>{t('transportCharges')}</span>
-              <input type="number" value={form.transport} onChange={set('transport')} min={0} step="0.01" inputMode="decimal" />
-            </label>
-            <label className="field">
-              <span>{t('amountPaid')}</span>
-              <input type="number" value={form.paid} onChange={set('paid')} min={0} step="0.01" inputMode="decimal" />
-            </label>
-            <label className="field">
-              <span>{t('notes')}</span>
-              <input value={form.notes} onChange={set('notes')} maxLength={1000} />
-            </label>
-          </div>
-          {message && <div className={`notice notice-${message.kind}`}>{message.text}</div>}
-          <div className="form-actions">
-            <span className="form-summary">
-              {t('paymentStatus')}: <span className={`status ${payClass}`}>{t(payKey)}</span>
-              {balance != null && (
-                <>
-                  {' '}
-                  · {t('balance')}: <strong>{money(balance)}</strong>
-                </>
-              )}
-            </span>
-            <button className="btn btn-primary">{t('save')}</button>
-          </div>
-        </form>
+        <FormCard onSubmit={submit}>
+          <FormGrid>
+            <Field label={t('supplier')}>
+              <Select value={form.supplierId || NO_SUPPLIER} onValueChange={(v) => setForm({ ...form, supplierId: v === NO_SUPPLIER ? '' : v })}>
+                <SelectTrigger className="w-full" aria-label={t('supplier')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_SUPPLIER}>{t('noSupplier')}</SelectItem>
+                  {suppliers.data?.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field id="pur-rate" label={t('purchaseRate')}>
+              <Input id="pur-rate" type="number" value={form.rate} onChange={set('rate')} min={0} step="0.01" inputMode="decimal" />
+            </Field>
+            <Field
+              id="pur-amount"
+              label={t('purchaseAmount')}
+              hint={
+                <Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" disabled={rate == null} onClick={fillAmount}>
+                  {t('rateTimesCft')}
+                  {rate != null && ` = ${money(rate * load.totalCft)}`}
+                </Button>
+              }
+            >
+              <Input id="pur-amount" type="number" value={form.amount} onChange={set('amount')} min={0} step="0.01" inputMode="decimal" />
+            </Field>
+            <Field id="pur-transport" label={t('transportCharges')}>
+              <Input id="pur-transport" type="number" value={form.transport} onChange={set('transport')} min={0} step="0.01" inputMode="decimal" />
+            </Field>
+            <Field id="pur-notes" label={t('notes')}>
+              <Input id="pur-notes" value={form.notes} onChange={set('notes')} maxLength={1000} />
+            </Field>
+          </FormGrid>
+          {message && <Notice tone={message.kind}>{message.text}</Notice>}
+          {/* what has been paid, and what is left, is worked out from the payments below */}
+          <FormActions>
+            <Button type="submit">{t('save')}</Button>
+          </FormActions>
+        </FormCard>
       )}
+      {data && <PaymentsPanel key={paymentsKey} kind="imports" loadId={load.id} onChanged={reload} />}
     </Section>
   );
 }
@@ -498,6 +540,7 @@ function PurchaseSection({ load, canPickSupplier }: { load: ImportDetail; canPic
 
 function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () => void }) {
   const { t } = useI18n();
+  const confirmDelete = useConfirmDelete();
   const [girth, setGirth] = useState('');
   const [length, setLength] = useState('');
   const [editing, setEditing] = useState<{ id: string; girth: string; length: string } | null>(null);
@@ -507,7 +550,14 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
 
   const g = positive(girth);
   const l = positive(length);
+  const girthProblem = measureProblem(girth);
+  const lengthProblem = measureProblem(length);
   const liveCft = g != null && l != null ? importLogCft(g, l) : null;
+  const canSave = liveCft != null && !girthProblem && !lengthProblem;
+  /** the figure shown while typing: only for a measurement that could actually be saved */
+  const previewCft = canSave ? liveCft : null;
+  /** the log just saved, confirmed under the form until the next one is typed */
+  const [saved, setSaved] = useState<{ n: number; cft: number } | null>(null);
   const nextNo = (load.logs[load.logs.length - 1]?.logNumber ?? 0) + 1;
 
   async function run(action: () => Promise<unknown>) {
@@ -525,11 +575,14 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
 
   function add(e: FormEvent) {
     e.preventDefault();
-    if (g == null || l == null) return;
+    if (g == null || l == null || !canSave) return;
+    const done = { n: nextNo, cft: importLogCft(g, l) };
     run(async () => {
       await api(`/imports/${load.id}/logs`, { method: 'POST', body: JSON.stringify({ girthIn: g, lengthFt: l }) });
+      setSaved(done);
       setGirth('');
       setLength('');
+      logs.reset(); // the new log is the first row of page 1
       girthRef.current?.focus(); // ready for the next log without touching the mouse
     });
   }
@@ -547,117 +600,254 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
   }
 
   const remove = (log: Log) => {
-    if (window.confirm(t('confirmDelete'))) run(() => api(`/imports/${load.id}/logs/${log.id}`, { method: 'DELETE' }));
+    confirmDelete().then((ok) => {
+      if (ok) run(() => api(`/imports/${load.id}/logs/${log.id}`, { method: 'DELETE' }));
+    });
   };
 
   const newestFirst = [...load.logs].reverse();
+  const logs = useClientPaging(newestFirst);
+  const cellInput = 'ml-auto h-9 w-24 text-right tabular-nums max-md:w-16';
 
   return (
-    <section id="logs" className="page-section">
-      <Section title={t('measurement')}>
-        {load.editable && (
-          <form className="card log-entry" onSubmit={add}>
-            <div className="log-entry-no">
-              <span className="muted small">{t('logNo')}</span>
-              <strong>{nextNo}</strong>
+    <Section id="logs" title={t('measurement')}>
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_19rem]">
+        {/* the running total: beside the form on a wide screen, above it on a tablet or phone */}
+        <Card className="gap-0 bg-primary py-6 text-primary-foreground lg:sticky lg:top-24 lg:order-last dark:bg-primary-soft dark:text-foreground">
+          <CardContent className="px-6">
+            <div className="text-sm font-medium opacity-80">{t('totalCft')}</div>
+            <div className="mt-2 text-5xl leading-none font-semibold tracking-[-0.03em] tabular-nums font-display" aria-live="polite">
+              {num3(load.totalCft)}
+              <span className="ml-2 text-base font-medium tracking-normal opacity-75">CFT</span>
             </div>
-            <label className="field">
-              <span>{t('girth')}</span>
-              <input ref={girthRef} type="number" value={girth} onChange={(e) => setGirth(e.target.value)} min={0.01} max={999} step="0.01" inputMode="decimal" required />
-            </label>
-            <label className="field">
-              <span>{t('lengthFt')}</span>
-              <input type="number" value={length} onChange={(e) => setLength(e.target.value)} min={0.01} max={999} step="0.01" inputMode="decimal" required />
-            </label>
-            <div className="log-entry-cft">
-              <span className="muted small">CFT</span>
-              <strong>{liveCft != null ? num3(liveCft) : '0.000'}</strong>
+            <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-current/15 pt-4">
+              <div>
+                <dt className="text-xs opacity-75">{t('logsMeasured')}</dt>
+                <dd className="mt-0.5 text-2xl leading-tight font-bold tabular-nums font-display">{load.totalLogs}</dd>
+              </div>
+              {load.editable && (
+                <div>
+                  <dt className="text-xs opacity-75">{t('nextLog')}</dt>
+                  <dd className="mt-0.5 text-2xl leading-tight font-bold tabular-nums font-display">#{nextNo}</dd>
+                </div>
+              )}
+            </dl>
+            <div className="mt-4 truncate text-xs opacity-75">
+              {load.code} · {load.lorryNumber} · {load.woodType}
             </div>
-            <button className="btn btn-primary" disabled={busy || liveCft == null}>
-              {t('saveLog', { n: nextNo })}
-            </button>
-          </form>
-        )}
-        {error && <div className="notice notice-error">{error}</div>}
+          </CardContent>
+        </Card>
 
-        <div className="card table-wrap">
-          {load.logs.length === 0 ? (
-            <div className="empty">{t('noLogs')}</div>
-          ) : (
-            <form onSubmit={saveEdit}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>{t('logNo')}</th>
-                    <th className="num">{t('girth')}</th>
-                    <th className="num">{t('lengthFt')}</th>
-                    <th className="num">CFT</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {newestFirst.map((log) =>
-                    editing?.id === log.id ? (
-                      <tr key={log.id}>
-                        <td>{log.logNumber}</td>
-                        <td className="num">
-                          <input className="cell-input" type="number" aria-label={t('girth')} value={editing.girth} onChange={(e) => setEditing({ ...editing, girth: e.target.value })} min={0.01} max={999} step="0.01" required autoFocus />
-                        </td>
-                        <td className="num">
-                          <input className="cell-input" type="number" aria-label={t('lengthFt')} value={editing.length} onChange={(e) => setEditing({ ...editing, length: e.target.value })} min={0.01} max={999} step="0.01" required />
-                        </td>
-                        <td className="num">
-                          {positive(editing.girth) != null && positive(editing.length) != null
-                            ? num3(importLogCft(positive(editing.girth)!, positive(editing.length)!))
-                            : '—'}
-                        </td>
-                        <td className="actions">
-                          <button className="btn btn-small btn-primary" disabled={busy}>
-                            {t('save')}
-                          </button>
-                          <button type="button" className="btn btn-small btn-ghost" onClick={() => setEditing(null)}>
-                            {t('cancel')}
-                          </button>
-                        </td>
-                      </tr>
-                    ) : (
-                      <tr key={log.id}>
-                        <td>{log.logNumber}</td>
-                        <td className="num">{log.girthIn}</td>
-                        <td className="num">{log.lengthFt}</td>
-                        <td className="num">{num3(log.cft)}</td>
-                        <td className="actions">
-                          {load.editable && (
-                            <>
-                              <button type="button" className="btn btn-small" aria-label={t('edit')} onClick={() => setEditing({ id: log.id, girth: String(log.girthIn), length: String(log.lengthFt) })}>
-                                <Icon name="edit" size={16} />
-                                <span className="btn-label">{t('edit')}</span>
-                              </button>
-                              <button type="button" className="btn btn-small btn-ghost" aria-label={t('delete')} onClick={() => remove(log)}>
-                                <Icon name="trash" size={16} />
-                                <span className="btn-label">{t('delete')}</span>
-                              </button>
-                            </>
-                          )}
-                        </td>
-                      </tr>
-                    ),
-                  )}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td colSpan={3}>
-                      {t('logsMeasured')}: {load.totalLogs}
-                    </td>
-                    <td className="num">{num3(load.totalCft)}</td>
-                    <td />
-                  </tr>
-                </tfoot>
-              </table>
-            </form>
+        <div className="flex min-w-0 flex-col gap-4">
+          {load.editable && (
+            <Card className="py-6">
+              <CardContent className="px-5 sm:px-6">
+                <form onSubmit={add} className="grid gap-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="flex items-center gap-2.5 text-base font-semibold">
+                      <span className="rounded-lg bg-primary-soft px-2.5 py-1 text-sm font-bold text-primary tabular-nums">
+                        {t('logNo')} {nextNo}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-muted-foreground">{t('measureHint')}</p>
+                  </div>
+
+                  {/* the two measurements, side by side at every width */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {(
+                      [
+                        { key: 'girth', label: t('girth'), value: girth, set: setGirth, problem: girthProblem, ref: girthRef },
+                        { key: 'length', label: t('lengthFt'), value: length, set: setLength, problem: lengthProblem, ref: undefined },
+                      ] as const
+                    ).map((f) => (
+                      <label key={f.key} className="flex min-w-0 flex-col gap-1.5">
+                        <span className="text-sm font-medium">{f.label}</span>
+                        <Input
+                          ref={f.ref}
+                          type="number"
+                          value={f.value}
+                          onChange={(e) => {
+                            f.set(e.target.value);
+                            setSaved(null);
+                          }}
+                          min={0.01}
+                          max={999}
+                          step="0.01"
+                          inputMode="decimal"
+                          required
+                          aria-invalid={!!f.problem || undefined}
+                          aria-describedby={f.problem ? `log-${f.key}-error` : undefined}
+                          className="h-16 px-4 text-3xl font-bold tabular-nums md:text-3xl"
+                        />
+                        <span id={`log-${f.key}-error`} className="min-h-4 text-xs font-medium text-destructive" role={f.problem ? 'alert' : undefined}>
+                          {f.problem && t(f.problem)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {/* what this log comes to, and what it makes the load */}
+                  <div className="grid grid-cols-2 gap-3 rounded-lg bg-muted/60 px-4 py-3">
+                    <div>
+                      <div className="text-xs text-muted-foreground">{t('thisLog')}</div>
+                      <div className={cn('mt-0.5 text-2xl leading-tight font-bold tabular-nums font-display', previewCft == null && 'text-muted-foreground')}>
+                        {previewCft != null ? num3(previewCft) : '0.000'} <span className="text-sm font-medium text-muted-foreground">CFT</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">{t('totalAfterLog')}</div>
+                      <div className={cn('mt-0.5 text-2xl leading-tight font-bold tabular-nums font-display', previewCft == null && 'text-muted-foreground')}>
+                        {num3(previewCft != null ? totalCft([load.totalCft, previewCft]) : load.totalCft)} <span className="text-sm font-medium text-muted-foreground">CFT</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+                    <div className="flex min-h-5 flex-1 items-center gap-1.5 text-sm font-medium text-success" aria-live="polite">
+                      {saved && (
+                        <>
+                          <CheckCircle2Icon className="size-4 shrink-0" aria-hidden />
+                          {t('logSavedLine', { n: saved.n, cft: num3(saved.cft) })}
+                        </>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="lg"
+                      className="h-12"
+                      disabled={busy || (!girth && !length)}
+                      onClick={() => {
+                        setGirth('');
+                        setLength('');
+                        girthRef.current?.focus();
+                      }}
+                    >
+                      {t('clear')}
+                    </Button>
+                    <Button type="submit" size="lg" className="h-12 sm:min-w-52" disabled={busy || !canSave}>
+                      <PlusIcon /> {t('saveLog', { n: nextNo })}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
           )}
+          {error && <Notice tone="error">{error}</Notice>}
+
+          <h3 className="mt-4 flex items-center gap-2 text-base font-semibold">
+            {t('measurementHistory')}
+            <span className="min-w-6 rounded-full bg-muted px-2 text-center text-xs leading-6 font-bold text-muted-foreground tabular-nums">{load.totalLogs}</span>
+          </h3>
+      <TableCard compactEmpty empty={load.logs.length === 0} emptyText={t('noLogs')} pager={logs.pager}>
+        <form onSubmit={saveEdit}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="pl-4">{t('logNo')}</TableHead>
+                <TableHead className={numCell}>{t('girth')}</TableHead>
+                <TableHead className={numCell}>{t('lengthFt')}</TableHead>
+                <TableHead className={numCell}>CFT</TableHead>
+                <TableHead className="pr-4" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {logs.rows.map((log) =>
+                editing?.id === log.id ? (
+                  <TableRow key={log.id} data-state="selected">
+                    <TableCell className="pl-4 font-medium">{log.logNumber}</TableCell>
+                    <TableCell className={numCell}>
+                      <Input
+                        className={cellInput}
+                        type="number"
+                        aria-label={t('girth')}
+                        value={editing.girth}
+                        onChange={(e) => setEditing({ ...editing, girth: e.target.value })}
+                        min={0.01}
+                        max={999}
+                        step="0.01"
+                        inputMode="decimal"
+                        required
+                        autoFocus
+                      />
+                    </TableCell>
+                    <TableCell className={numCell}>
+                      <Input
+                        className={cellInput}
+                        type="number"
+                        aria-label={t('lengthFt')}
+                        value={editing.length}
+                        onChange={(e) => setEditing({ ...editing, length: e.target.value })}
+                        min={0.01}
+                        max={999}
+                        step="0.01"
+                        inputMode="decimal"
+                        required
+                      />
+                    </TableCell>
+                    <TableCell className={cn(numCell, 'font-semibold')}>
+                      {positive(editing.girth) != null && positive(editing.length) != null
+                        ? num3(importLogCft(positive(editing.girth)!, positive(editing.length)!))
+                        : '—'}
+                    </TableCell>
+                    <TableCell className="pr-4 text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button type="submit" size="sm" className="max-md:size-9 max-md:px-0" disabled={busy} aria-label={t('save')}>
+                          <CheckIcon />
+                          <span className="max-md:sr-only">{t('save')}</span>
+                        </Button>
+                        <Button type="button" variant="ghost" size="sm" className="max-md:size-9 max-md:px-0" onClick={() => setEditing(null)} aria-label={t('cancel')}>
+                          <XIcon />
+                          <span className="max-md:sr-only">{t('cancel')}</span>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  <TableRow key={log.id}>
+                    <TableCell className="pl-4 font-medium">{log.logNumber}</TableCell>
+                    <TableCell className={numCell}>{log.girthIn}</TableCell>
+                    <TableCell className={numCell}>{log.lengthFt}</TableCell>
+                    <TableCell className={cn(numCell, 'font-semibold')}>{num3(log.cft)}</TableCell>
+                    <TableCell className="pr-4 text-right">
+                      {load.editable && (
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="max-md:size-9 max-md:px-0"
+                            aria-label={t('edit')}
+                            onClick={() => setEditing({ id: log.id, girth: String(log.girthIn), length: String(log.lengthFt) })}
+                          >
+                            <PencilIcon />
+                            <span className="max-md:sr-only">{t('edit')}</span>
+                          </Button>
+                          <Button type="button" variant="ghost" size="sm" className="max-md:size-9 max-md:px-0" aria-label={t('delete')} onClick={() => remove(log)}>
+                            <Trash2Icon />
+                            <span className="max-md:sr-only">{t('delete')}</span>
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ),
+              )}
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={3} className="pl-4">
+                  {t('logsMeasured')}: {load.totalLogs}
+                </TableCell>
+                <TableCell className={numCell}>{num3(load.totalCft)}</TableCell>
+                <TableCell className="pr-4" />
+              </TableRow>
+            </TableFooter>
+          </Table>
+        </form>
+      </TableCard>
         </div>
-      </Section>
-    </section>
+      </div>
+    </Section>
   );
 }

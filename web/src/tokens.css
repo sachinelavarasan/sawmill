@@ -1,0 +1,349 @@
+/*
+ * TimberTrail on the web — "industrial operations" style: a pale grey canvas, white panels with
+ * generous corners floating on it (sidebar, top bar, cards), pill-shaped controls, near-black for the
+ * main action and one orange accent (the open page, the highlighted bar, counts).
+ * Panels separate by colour, not by borders or shadows; only menus and dialogs cast a shadow.
+ *
+ * Dark: near-black canvas, panels step lighter, hairline edges, orange a touch brighter.
+ * Light is the default. Dark follows the system unless overridden with
+ * <html data-theme="dark"> or <html data-theme="light">.
+ */
+
+/* ============ 1. LIGHT (default) ============ */
+
+:root {
+  --bg: #eeeef0;
+  --surface: #ffffff;
+  --surface-2: #f4f4f5;
+  --border: #ebebed;
+  --input: #e1e1e5;
+
+  --topbar: #ffffff;
+  --content-bg: #eeeef0;
+
+  --text: #111113;
+  --muted: #6b6b74;
+
+  /* Primary: near-black (the main action button) */
+  --primary: #111113;
+  --primary-hover: #2a2a2e;
+  --on-primary: #ffffff;
+  --primary-soft: #f4f4f5;
+
+  /* Brand accent: orange (active menu item, highlighted bar, count badges) */
+  --saffron: #f26b1d;
+  --saffron-2: #f7a05e;
+  --on-saffron: #ffffff;
+  /* orange as text / icon on white (AA) */
+  --accent: #c2410c;
+  --accent-soft: #fff1e8;
+
+  /* Sidebar: a white panel like the rest */
+  --side: #ffffff;
+  --side-text: #111113;
+  --side-muted: #6b6b74;
+  --side-active: #f4f4f5;
+  --side-accent: #f26b1d;
+
+  --shadow: none;
+
+  --ok: #15803d;
+  --ok-soft: #e8f8ee;
+
+  --bad: #dc2626;
+  --bad-soft: #fdecec;
+
+  --warning: #a16207;
+  --warning-soft: #fef8e1;
+
+  --info: #4f46e5;
+  --info-soft: #eef0fe;
+
+  /* "Hero" panels are plain white panels in this style */
+  --hero: #ffffff;
+  --hero-text: #111113;
+  --hero-muted: #6b6b74;
+  --hero-chip: #f4f4f5;
+  --hero-border: #ebebed;
+
+  --focus: #111113;
+  --focus-ring: rgba(242, 107, 29, 0.28);
+  --selection: #ffe3d1;
+  --disabled: #a1a1aa;
+
+  /* Charts: orange leads, charcoal second, then soft orange, indigo, red */
+  --chart-1: #f26b1d;
+  --chart-2: #3f3f46;
+  --chart-3: #f7a05e;
+  --chart-4: #6366f1;
+  --chart-5: #dc2626;
+  --chart-bar: #e4e4e7;
+  --chart-hatch: #d4d4d8;
+  --chart-axis: #e1e1e5;
+  --chart-grid: #ebebed;
+
+  color-scheme: light;
+  font-family: Inter, 'Noto Sans Tamil', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* ============ 2. DARK ============ */
+
+:root[data-theme='dark'] {
+  --bg: #0b0b0d;
+  --surface: #161619;
+  --surface-2: #202024;
+  --border: #26262b;
+  --input: #34343a;
+
+  --topbar: #161619;
+  --content-bg: #0b0b0d;
+
+  --text: #f4f4f5;
+  --muted: #9a9aa3;
+
+  /* the main button flips to white */
+  --primary: #f4f4f5;
+  --primary-hover: #ffffff;
+  --on-primary: #111113;
+  --primary-soft: #202024;
+
+  --saffron: #f47a33;
+  --saffron-2: #f7a05e;
+  --on-saffron: #ffffff;
+  --accent: #fb9a5c;
+  --accent-soft: #2e1c11;
+
+  --side: #161619;
+  --side-text: #f4f4f5;
+  --side-muted: #9a9aa3;
+  --side-active: #202024;
+  --side-accent: #f47a33;
+
+  --shadow: none;
+
+  --ok: #4ade80;
+  --ok-soft: #10261a;
+
+  --bad: #f87171;
+  --bad-soft: #2d1414;
+
+  --warning: #facc15;
+  --warning-soft: #2a2410;
+
+  --info: #a5b4fc;
+  --info-soft: #1b1d3a;
+
+  --hero: #161619;
+  --hero-text: #f4f4f5;
+  --hero-muted: #9a9aa3;
+  --hero-chip: #202024;
+  --hero-border: #26262b;
+
+  --focus: #f4f4f5;
+  --focus-ring: rgba(244, 122, 51, 0.35);
+  --selection: #3a2414;
+  --disabled: #52525b;
+
+  --chart-1: #f47a33;
+  --chart-2: #a1a1aa;
+  --chart-3: #f7a05e;
+  --chart-4: #a5b4fc;
+  --chart-5: #f87171;
+  --chart-bar: #2a2a2f;
+  --chart-hatch: #3a3a40;
+  --chart-axis: #34343a;
+  --chart-grid: #26262b;
+
+  color-scheme: dark;
+}
+
+/* ============ 3. SYSTEM DARK (no manual override) ============ */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-theme='dark']) {
+    --bg: #0b0b0d;
+    --surface: #161619;
+    --surface-2: #202024;
+    --border: #26262b;
+    --input: #34343a;
+
+    --topbar: #161619;
+    --content-bg: #0b0b0d;
+
+    --text: #f4f4f5;
+    --muted: #9a9aa3;
+
+    /* the main button flips to white */
+    --primary: #f4f4f5;
+    --primary-hover: #ffffff;
+    --on-primary: #111113;
+    --primary-soft: #202024;
+
+    --saffron: #f47a33;
+    --saffron-2: #f7a05e;
+    --on-saffron: #ffffff;
+    --accent: #fb9a5c;
+    --accent-soft: #2e1c11;
+
+    --side: #161619;
+    --side-text: #f4f4f5;
+    --side-muted: #9a9aa3;
+    --side-active: #202024;
+    --side-accent: #f47a33;
+
+    --shadow: none;
+
+    --ok: #4ade80;
+    --ok-soft: #10261a;
+
+    --bad: #f87171;
+    --bad-soft: #2d1414;
+
+    --warning: #facc15;
+    --warning-soft: #2a2410;
+
+    --info: #a5b4fc;
+    --info-soft: #1b1d3a;
+
+    --hero: #161619;
+    --hero-text: #f4f4f5;
+    --hero-muted: #9a9aa3;
+    --hero-chip: #202024;
+    --hero-border: #26262b;
+
+    --focus: #f4f4f5;
+    --focus-ring: rgba(244, 122, 51, 0.35);
+    --selection: #3a2414;
+    --disabled: #52525b;
+
+    --chart-1: #f47a33;
+    --chart-2: #a1a1aa;
+    --chart-3: #f7a05e;
+    --chart-4: #a5b4fc;
+    --chart-5: #f87171;
+    --chart-bar: #2a2a2f;
+    --chart-hatch: #3a3a40;
+    --chart-axis: #34343a;
+    --chart-grid: #26262b;
+
+    color-scheme: dark;
+  }
+}
+
+/* ============ 4. GLOBAL ============ */
+
+html {
+  min-height: 100%;
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+::selection {
+  color: var(--text);
+  background: var(--selection);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ============ 5. PRINT: always light, white paper ============ */
+
+@media print {
+  :root,
+  :root[data-theme='dark'],
+  :root:not([data-theme='light']) {
+    --bg: #eeeef0;
+    --surface: #ffffff;
+    --surface-2: #f4f4f5;
+    --border: #ebebed;
+    --input: #e1e1e5;
+
+    --topbar: #ffffff;
+    --content-bg: #eeeef0;
+
+    --text: #111113;
+    --muted: #6b6b74;
+
+    /* Primary: near-black (the main action button) */
+    --primary: #111113;
+    --primary-hover: #2a2a2e;
+    --on-primary: #ffffff;
+    --primary-soft: #f4f4f5;
+
+    /* Brand accent: orange (active menu item, highlighted bar, count badges) */
+    --saffron: #f26b1d;
+    --saffron-2: #f7a05e;
+    --on-saffron: #ffffff;
+    /* orange as text / icon on white (AA) */
+    --accent: #c2410c;
+    --accent-soft: #fff1e8;
+
+    /* Sidebar: a white panel like the rest */
+    --side: #ffffff;
+    --side-text: #111113;
+    --side-muted: #6b6b74;
+    --side-active: #f4f4f5;
+    --side-accent: #f26b1d;
+
+    --shadow: none;
+
+    --ok: #15803d;
+    --ok-soft: #e8f8ee;
+
+    --bad: #dc2626;
+    --bad-soft: #fdecec;
+
+    --warning: #a16207;
+    --warning-soft: #fef8e1;
+
+    --info: #4f46e5;
+    --info-soft: #eef0fe;
+
+    /* "Hero" panels are plain white panels in this style */
+    --hero: #ffffff;
+    --hero-text: #111113;
+    --hero-muted: #6b6b74;
+    --hero-chip: #f4f4f5;
+    --hero-border: #ebebed;
+
+    --focus: #111113;
+    --focus-ring: rgba(242, 107, 29, 0.28);
+    --selection: #ffe3d1;
+    --disabled: #a1a1aa;
+
+    /* Charts: orange leads, charcoal second, then soft orange, indigo, red */
+    --chart-1: #f26b1d;
+    --chart-2: #3f3f46;
+    --chart-3: #f7a05e;
+    --chart-4: #6366f1;
+    --chart-5: #dc2626;
+    --chart-bar: #e4e4e7;
+    --chart-hatch: #d4d4d8;
+    --chart-axis: #e1e1e5;
+    --chart-grid: #ebebed;
+
+    color-scheme: light;
+    --bg: #ffffff;
+  }
+
+  body {
+    background: #ffffff;
+    color: var(--text);
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

@@ -75,7 +75,7 @@ export class AuditService {
         .from(auditLogs)
         .leftJoin(users, eq(users.id, auditLogs.userId))
         .where(where)
-        .orderBy(desc(auditLogs.createdAt))
+        .orderBy(desc(auditLogs.createdAt), desc(auditLogs.id))
         .limit(opts.take)
         .offset(opts.skip),
       this.db.select({ total: count() }).from(auditLogs).where(where),

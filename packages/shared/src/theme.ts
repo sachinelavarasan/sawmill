@@ -1,7 +1,7 @@
 /**
- * Colour tokens for SAWMILL PRO — forest green, white and one timber-amber accent.
- * The Android app reads these directly; the web app mirrors them as CSS variables
- * in `web/src/styles.css`. Change both together.
+ * Colour tokens for TimberTrail — Navy & Saffron: deep navy structure, white surfaces and one saffron accent.
+ * The same values as the Android app (mobile/src/global.css) and the web app (web/src/tokens.css).
+ * Change all three together.
  */
 export interface ThemeColors {
   bg: string;
@@ -19,7 +19,10 @@ export interface ThemeColors {
   okSoft: string;
   bad: string;
   badSoft: string;
-  /** Brand band behind the app bar / login hero — dark green in both themes. */
+  /** Information (neither good nor bad): soft blue. */
+  info: string;
+  infoSoft: string;
+  /** Brand band behind the app bar / login hero — dark slate in both themes. */
   hero: string;
   heroText: string;
   heroMuted: string;
@@ -30,45 +33,49 @@ export type ThemeName = 'light' | 'dark';
 
 export const THEMES: Record<ThemeName, ThemeColors> = {
   light: {
-    bg: '#F4F6F3',
+    bg: '#F4F6F9',
     surface: '#FFFFFF',
-    surface2: '#EEF2EE',
-    border: '#DDE4DE',
-    text: '#14231B',
-    muted: '#55655C',
-    primary: '#1B4332',
+    surface2: '#EEF1F5',
+    border: '#E3E8EF',
+    text: '#0F172A',
+    muted: '#64748B',
+    primary: '#13213A',
     onPrimary: '#FFFFFF',
-    primarySoft: '#E3EFE8',
+    primarySoft: '#E8EDF5',
     accent: '#B45309',
-    accentSoft: '#FCEFDC',
-    ok: '#1B6B45',
-    okSoft: '#E0F2E7',
-    bad: '#A32D22',
-    badSoft: '#FBE6E3',
-    hero: '#1B4332',
+    accentSoft: '#FFF3DC',
+    ok: '#15803D',
+    okSoft: '#DCFCE7',
+    bad: '#C2261B',
+    badSoft: '#FDE8E6',
+    info: '#1D4ED8',
+    infoSoft: '#DFE9FD',
+    hero: '#0F1B2E',
     heroText: '#FFFFFF',
-    heroMuted: '#D5E5DC',
-    heroChip: '#2D6A4F',
+    heroMuted: '#A3AFC2',
+    heroChip: '#1D2B44',
   },
   dark: {
-    bg: '#0E1512',
-    surface: '#16201B',
-    surface2: '#1E2B24',
-    border: '#2C3B33',
-    text: '#E8EFEA',
-    muted: '#9DB0A5',
-    primary: '#52B788',
-    onPrimary: '#0B1F16',
-    primarySoft: '#1D3A2C',
-    accent: '#F0A04B',
-    accentSoft: '#3A2A14',
-    ok: '#6FD3A0',
-    okSoft: '#173526',
-    bad: '#F2958B',
-    badSoft: '#3D1D19',
-    hero: '#12281E',
-    heroText: '#FFFFFF',
-    heroMuted: '#D5E5DC',
-    heroChip: '#2D6A4F',
+    bg: '#08111F',
+    surface: '#0F1A2C',
+    surface2: '#16233A',
+    border: '#1C2A42',
+    text: '#E7ECF4',
+    muted: '#8B99B0',
+    primary: '#D8E1EE',
+    onPrimary: '#08111F',
+    primarySoft: '#16233A',
+    accent: '#F7B548',
+    accentSoft: '#2B2112',
+    ok: '#5FD39A',
+    okSoft: '#12301F',
+    bad: '#F29589',
+    badSoft: '#361A17',
+    info: '#8FBDF3',
+    infoSoft: '#13253C',
+    hero: '#0C1627',
+    heroText: '#F4F7FB',
+    heroMuted: '#8B99B0',
+    heroChip: '#182740',
   },
 };

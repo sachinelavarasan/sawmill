@@ -6,6 +6,6 @@ export class HealthController {
   @Public()
   @Get()
   check() {
-    return { status: 'ok', service: 'sawmill-pro-api' };
+    return { status: 'ok', service: 'timbertrail-api' };
   }
 }

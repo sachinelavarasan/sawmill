@@ -7,6 +7,9 @@ import * as schema from './schema';
 import { databaseUrl } from './url';
 
 async function main() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('The demo seed (known passwords) must not run in production. Use "npm run setup:owner -w backend" instead.');
+  }
   const pool = new Pool({ connectionString: databaseUrl() });
   const db = drizzle(pool, { schema });
 

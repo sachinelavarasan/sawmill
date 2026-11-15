@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { hasAllPermissions, type Permission } from '@sawmill/shared';
+import { hasAllPermissions, type Permission } from '@timbertrail/shared';
 import { AUTHENTICATED_ONLY_KEY, IS_PUBLIC_KEY, PERMISSIONS_KEY } from '../decorators';
 import type { AuthUser } from '../types';
 

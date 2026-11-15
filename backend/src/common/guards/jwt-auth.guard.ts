@@ -4,12 +4,17 @@ import { JwtService } from '@nestjs/jwt';
 import { eq } from 'drizzle-orm';
 import { Database, InjectDb } from '../../db/db.module';
 import { users } from '../../db/schema';
+import { ACCESS_COOKIE, isTrustedWebRequest, readCookie } from '../../auth/cookies';
 import { IS_PUBLIC_KEY } from '../decorators';
 import type { AuthUser, JwtPayload } from '../types';
 
 /**
- * Verifies the bearer token, then re-loads the user from the database so that a
+ * Verifies the access token, then re-loads the user from the database so that a
  * disabled account or a role change takes effect immediately.
+ *
+ * The token comes from `Authorization: Bearer` (the mobile app) or, failing that, from the
+ * web app's httpOnly cookie. A cookie is only honoured on a request that is provably from
+ * our web app (see auth/cookies.ts) — that is the CSRF protection.
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -28,7 +33,11 @@ export class JwtAuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest();
     const header: string | undefined = request.headers['authorization'];
-    const token = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
+    let token = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
+    if (!token) {
+      const cookie = readCookie(request, ACCESS_COOKIE);
+      if (cookie && isTrustedWebRequest(request)) token = cookie;
+    }
     if (!token) throw new UnauthorizedException('Login required');
 
     let payload: JwtPayload;
@@ -46,11 +55,14 @@ export class JwtAuthGuard implements CanActivate {
         username: users.username,
         role: users.role,
         isActive: users.isActive,
+        tokenVersion: users.tokenVersion,
       })
       .from(users)
       .where(eq(users.id, payload.sub))
       .limit(1);
     if (!user || !user.isActive) throw new UnauthorizedException('Account is disabled');
+    // password reset / disable / role change since this token was issued
+    if ((payload.tv ?? 0) !== user.tokenVersion) throw new UnauthorizedException('Session expired, please log in again');
 
     const authUser: AuthUser = {
       id: user.id,

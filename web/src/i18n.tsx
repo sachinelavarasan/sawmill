@@ -1,8 +1,8 @@
-import { translate, type Lang, type TKey } from '@sawmill/shared';
+import { translate, type Lang, type TKey } from '@timbertrail/shared';
 import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 
 export type { Lang, TKey };
-const LANG_KEY = 'sawmill.lang';
+const LANG_KEY = 'timbertrail.lang';
 
 interface I18n {
   lang: Lang;

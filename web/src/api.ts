@@ -1,4 +1,4 @@
-import type { Permission, Role } from '@sawmill/shared';
+import { apiErrorText, type Permission, type Role } from '@timbertrail/shared';
 
 export interface Profile {
   id: string;
@@ -10,92 +10,68 @@ export interface Profile {
   permissions: Permission[];
 }
 
-interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: Profile;
-}
-
 export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** the server's X-Request-Id for this request, when it sent one */
+    public requestId?: string,
   ) {
     super(message);
   }
 }
 
-const BASE = import.meta.env.VITE_API_URL ?? '/api';
-const REFRESH_KEY = 'sawmill.refresh';
+/** The error a failed response becomes; the text (and a 5xx's "(ref …)") comes from the shared apiErrorText. */
+async function toApiError(res: Response): Promise<ApiError> {
+  const body: unknown = await res.json().catch(() => null);
+  const requestId = res.headers.get('X-Request-Id') ?? undefined;
+  return new ApiError(res.status, apiErrorText(res.status, body, res.statusText, requestId), requestId);
+}
 
-// Access token lives only in memory; the refresh token survives a page reload.
-let accessToken: string | null = null;
+const BASE = import.meta.env.VITE_API_URL ?? '/api';
+/**
+ * The session lives in httpOnly cookies the server sets: page scripts (and so anything
+ * injected into the page) can never read the tokens. This header tells the API we are the
+ * web app — it answers login / refresh with cookies, and it is the CSRF check on every request.
+ */
+const CLIENT = { 'X-TimberTrail-Client': 'web' };
+/** Where older versions kept the refresh token; moved into a cookie the first time it is seen. */
+/** where versions before httpOnly cookies kept the token — keep this old name, it is what they wrote */
+const LEGACY_REFRESH_KEY = 'sawmill.refresh';
+
 let refreshInFlight: Promise<boolean> | null = null;
 let onSessionLost: () => void = () => {};
-
-const store = {
-  get: () => {
-    try {
-      return localStorage.getItem(REFRESH_KEY);
-    } catch {
-      return null;
-    }
-  },
-  set: (v: string | null) => {
-    try {
-      if (v) localStorage.setItem(REFRESH_KEY, v);
-      else localStorage.removeItem(REFRESH_KEY);
-    } catch {
-      /* storage unavailable */
-    }
-  },
-};
 
 export function setSessionLostHandler(fn: () => void) {
   onSessionLost = fn;
 }
 
-function applyAuth(res: AuthResponse): Profile {
-  accessToken = res.accessToken;
-  store.set(res.refreshToken);
-  return res.user;
+/** The refresh token an older version left in localStorage, removed as it is read. */
+function takeLegacyToken(): string | null {
+  try {
+    const v = localStorage.getItem(LEGACY_REFRESH_KEY);
+    if (v) localStorage.removeItem(LEGACY_REFRESH_KEY);
+    return v;
+  } catch {
+    return null;
+  }
 }
 
 async function raw<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body) headers.set('Content-Type', 'application/json');
-  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
-  const res = await fetch(`${BASE}${path}`, { ...init, headers });
-  if (!res.ok) {
-    let message = res.statusText;
-    try {
-      const body = await res.json();
-      message = Array.isArray(body.message) ? body.message.join(', ') : (body.message ?? message);
-    } catch {
-      /* not JSON */
-    }
-    throw new ApiError(res.status, message);
-  }
+  headers.set('X-TimberTrail-Client', CLIENT['X-TimberTrail-Client']);
+  const res = await fetch(`${BASE}${path}`, { ...init, headers, credentials: 'include' });
+  if (!res.ok) throw await toApiError(res);
   return res.status === 204 ? (undefined as T) : res.json();
 }
 
-/** Exchange the stored refresh token for a new pair. Concurrent callers share one request. */
+/** Ask the server for a fresh session (it reads the refresh cookie and sets new ones). Concurrent callers share one request. */
 async function tryRefresh(): Promise<boolean> {
-  const token = store.get();
-  if (!token) return false;
-  refreshInFlight ??= raw<AuthResponse>('/auth/refresh', {
-    method: 'POST',
-    body: JSON.stringify({ refreshToken: token }),
-  })
-    .then((r) => {
-      applyAuth(r);
-      return true;
-    })
-    .catch(() => {
-      accessToken = null;
-      store.set(null);
-      return false;
-    })
+  const legacy = takeLegacyToken();
+  refreshInFlight ??= raw('/auth/refresh', { method: 'POST', body: legacy ? JSON.stringify({ refreshToken: legacy }) : undefined })
+    .then(() => true)
+    .catch(() => false)
     .finally(() => {
       refreshInFlight = null;
     });
@@ -114,24 +90,45 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 }
 
+/**
+ * Download a file from the API (e.g. an Excel report) and save it with the
+ * server's filename. Uses the same login/refresh as api().
+ */
+export async function download(path: string): Promise<void> {
+  const get = () => fetch(`${BASE}${path}`, { headers: CLIENT, credentials: 'include' });
+  let res = await get();
+  if (res.status === 401 && (await tryRefresh())) res = await get();
+  if (!res.ok) {
+    if (res.status === 401) onSessionLost();
+    throw await toApiError(res);
+  }
+  const filename = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ?? 'download';
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export const auth = {
   async login(username: string, password: string): Promise<Profile> {
-    return applyAuth(
-      await raw<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
-    );
+    return (await raw<{ user: Profile }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) })).user;
   },
-  /** Restore a session after page reload. */
+  /** Restore a session after page reload: the cookies are still there if the person was signed in. */
   async restore(): Promise<Profile | null> {
-    if (!(await tryRefresh())) return null;
-    return raw<Profile>('/auth/me');
+    try {
+      return await raw<Profile>('/auth/me');
+    } catch (err) {
+      // the access cookie has run out (or this browser still holds an old-style token): refresh once
+      if (err instanceof ApiError && err.status === 401 && (await tryRefresh())) return raw<Profile>('/auth/me');
+      return null;
+    }
   },
   async logout() {
-    const refreshToken = store.get() ?? undefined;
-    try {
-      if (accessToken) await raw('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) });
-    } finally {
-      accessToken = null;
-      store.set(null);
-    }
+    // the server revokes the refresh token and clears both cookies
+    await api('/auth/logout', { method: 'POST' }).catch(() => undefined);
   },
 };

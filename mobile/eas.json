@@ -1,0 +1,61 @@
+{
+  "cli": {
+    "version": ">= 15.0.15",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview": {
+      "channel": "staging",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://mill.example.in/api"
+      }
+    },
+    "previewInternal": {
+      "channel": "staging",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://mill.example.in/api"
+      }
+    },
+    "production": {
+      "channel": "production",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle",
+        "image": "latest",
+        "resourceClass": "large"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://mill.example.in/api"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./play-console-services.json",
+        "track": "internal"
+      }
+    },
+    "previewInternal": {
+      "android": {
+        "serviceAccountKeyPath": "./play-console-services.json",
+        "track": "internal"
+      }
+    }
+  }
+}

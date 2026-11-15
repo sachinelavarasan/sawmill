@@ -8,6 +8,48 @@
       "when": 1794564904889,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794587613571,
+      "tag": "0001_token_version",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794715103008,
+      "tag": "0002_push_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794716461547,
+      "tag": "0003_notifications_inbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794752548639,
+      "tag": "0004_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794758515636,
+      "tag": "0005_log_client_ref",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794759127995,
+      "tag": "0006_wood_types",
+      "breakpoints": true
     }
   ]
 }

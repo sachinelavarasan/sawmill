@@ -1,0 +1,153 @@
+/*
+ * TimberTrail on Android — design tokens. Tailwind v4 through Uniwind.
+ *
+ * Warm industrial: each screen opens on a band where orange melts into warm black (drawn by
+ * components/glow.tsx over --color-hero-top → --color-hero-mid → --color-hero), with white type and
+ * round white buttons. Content rises over it on a white sheet: light grey rounded panels, near-black
+ * for the main action and the selected choice, one orange accent (the open tab, highlights).
+ * The same language as the web app (web/src/tokens.css).
+ *
+ * This file is the single source of truth for colour and radius. Components only ever use these
+ * names (bg-card, text-muted-foreground, bg-saffron-soft …) — never hex.
+ * Type lives in src/components/text.tsx (Inter + Plus Jakarta Sans), icons in src/components/icon.tsx.
+ *
+ * The band and the headline cards are dark in both themes. Dark theme otherwise steps surfaces up in
+ * lightness as they rise, and "primary" flips to white so black-filled elements stay visible.
+ */
+@import 'tailwindcss';
+@import 'uniwind';
+
+/* the shared package holds no class names, but keep it scanned in case it ever does */
+@source '../../packages/shared/src';
+
+@theme {
+  --color-background: #f2f2f4;
+  --color-foreground: #111113;
+  --color-card: #ffffff;
+  --color-secondary: #f4f4f5;
+  --color-border: #ebebed;
+  --color-input: #dcdce0;
+  --color-muted-foreground: #6b6b74;
+  --color-primary: #111113;
+  --color-primary-foreground: #ffffff;
+  --color-primary-soft: #f1f1f3;
+  --color-saffron: #f26b1d;
+  --color-saffron-foreground: #ffffff;
+  --color-saffron-soft: #fff1e8;
+  --color-saffron-strong: #c2410c;
+  --color-success: #15803d;
+  --color-success-soft: #e8f8ee;
+  --color-warning: #a16207;
+  --color-warning-soft: #fef8e1;
+  --color-destructive: #dc2626;
+  --color-destructive-soft: #fdecec;
+  --color-info: #4f46e5;
+  --color-info-soft: #eef0fe;
+  --color-hero: #17110e;
+  --color-hero-top: #f06a1c;
+  --color-hero-mid: #9c3f12;
+  --color-hero-foreground: #ffffff;
+  --color-hero-muted: #d6c8bf;
+  --color-hero-chip: #ffffff24;
+  --color-hero-border: #ffffff26;
+  --color-sidebar: #111113;
+  --color-sidebar-foreground: #ffffff;
+  --color-sidebar-muted: #a1a1aa;
+  --color-sidebar-active: #2a2a2e;
+  --color-sidebar-accent: #f26b1d;
+  --color-chart-1: #f26b1d;
+  --color-chart-2: #3f3f46;
+  --color-chart-3: #c4c4cc;
+
+  /* ── radius: controls 12, cards 16–20, sheets 28 ── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 18px;
+  --radius-3xl: 24px;
+}
+
+@layer theme {
+  :root {
+    @variant light {
+      --color-background: #f2f2f4;
+      --color-foreground: #111113;
+      --color-card: #ffffff;
+      --color-secondary: #f4f4f5;
+      --color-border: #ebebed;
+      --color-input: #dcdce0;
+      --color-muted-foreground: #6b6b74;
+      --color-primary: #111113;
+      --color-primary-foreground: #ffffff;
+      --color-primary-soft: #f1f1f3;
+      --color-saffron: #f26b1d;
+      --color-saffron-foreground: #ffffff;
+      --color-saffron-soft: #fff1e8;
+      --color-saffron-strong: #c2410c;
+      --color-success: #15803d;
+      --color-success-soft: #e8f8ee;
+      --color-warning: #a16207;
+      --color-warning-soft: #fef8e1;
+      --color-destructive: #dc2626;
+      --color-destructive-soft: #fdecec;
+      --color-info: #4f46e5;
+      --color-info-soft: #eef0fe;
+      --color-hero: #17110e;
+      --color-hero-top: #f06a1c;
+      --color-hero-mid: #9c3f12;
+      --color-hero-foreground: #ffffff;
+      --color-hero-muted: #d6c8bf;
+      --color-hero-chip: #ffffff24;
+      --color-hero-border: #ffffff26;
+      --color-sidebar: #111113;
+      --color-sidebar-foreground: #ffffff;
+      --color-sidebar-muted: #a1a1aa;
+      --color-sidebar-active: #2a2a2e;
+      --color-sidebar-accent: #f26b1d;
+      --color-chart-1: #f26b1d;
+      --color-chart-2: #3f3f46;
+      --color-chart-3: #c4c4cc;
+    }
+
+    @variant dark {
+      --color-background: #1c1c20;
+      --color-foreground: #f4f4f5;
+      --color-card: #121214;
+      --color-secondary: #1e1e22;
+      --color-border: #26262b;
+      --color-input: #34343a;
+      --color-muted-foreground: #9a9aa3;
+      --color-primary: #f4f4f5;
+      --color-primary-foreground: #111113;
+      --color-primary-soft: #232328;
+      --color-saffron: #f47a33;
+      --color-saffron-foreground: #ffffff;
+      --color-saffron-soft: #2e1c11;
+      --color-saffron-strong: #fb9a5c;
+      --color-success: #4ade80;
+      --color-success-soft: #10261a;
+      --color-warning: #facc15;
+      --color-warning-soft: #2a2410;
+      --color-destructive: #f87171;
+      --color-destructive-soft: #2d1414;
+      --color-info: #a5b4fc;
+      --color-info-soft: #1b1d3a;
+      --color-hero: #17110e;
+      --color-hero-top: #f06a1c;
+      --color-hero-mid: #9c3f12;
+      --color-hero-foreground: #ffffff;
+      --color-hero-muted: #d6c8bf;
+      --color-hero-chip: #ffffff24;
+      --color-hero-border: #ffffff26;
+      --color-sidebar: #111113;
+      --color-sidebar-foreground: #ffffff;
+      --color-sidebar-muted: #a1a1aa;
+      --color-sidebar-active: #2a2a2e;
+      --color-sidebar-accent: #f26b1d;
+      --color-chart-1: #f47a33;
+      --color-chart-2: #a1a1aa;
+      --color-chart-3: #3a3a40;
+    }
+  }
+}

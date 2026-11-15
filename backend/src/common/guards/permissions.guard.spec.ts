@@ -1,6 +1,6 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Permission, Role } from '@sawmill/shared';
+import { Permission, Role } from '@timbertrail/shared';
 import { AUTHENTICATED_ONLY_KEY, IS_PUBLIC_KEY, PERMISSIONS_KEY } from '../decorators';
 import { PermissionsGuard } from './permissions.guard';
 

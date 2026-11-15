@@ -12,3 +12,7 @@ mobile/android/
 mobile/ios/
 web/dist/
 .turbo/
+
+# Android secrets — never commit (Firebase config; Play Console service-account key)
+google-services.json
+play-console-services.json
