@@ -2,8 +2,8 @@
  * Navigation map, by permission — the same rules as the web menu (web/src/nav.ts).
  * The API checks every request again; hiding an item is only presentation.
  *
- * Bottom bar: Home · Inventory · Production · Reports · More.
- * Everything else (loads in and out, measuring, approvals, parties, money, admin) lives under More.
+ * Bottom bar: Home · Loads in · Production · Loads out · More (the daily work).
+ * Everything else (approvals, stock, reports, parties, money, admin) lives under More.
  */
 import { Permission, type TKey } from '@timbertrail/shared';
 import type { IconName } from '../components/icon';
@@ -30,9 +30,8 @@ export const MORE_GROUPS: { labelKey: TKey; items: MenuItem[] }[] = [
     labelKey: 'operations',
     items: [
       { key: 'approvals', href: '/more/approvals', labelKey: 'approvals', subKey: 'approvalsSubtitle', icon: 'check-circle', tone: 'saffron', permission: Permission.OPERATIONS_APPROVE },
-      { key: 'imports', href: '/more/imports', labelKey: 'imports', subKey: 'importsSub', icon: 'download', tone: 'info', permission: Permission.OPERATIONS_CREATE },
-      { key: 'measurement', href: '/more/measurement', labelKey: 'measurement', subKey: 'measurementSub', icon: 'edit-3', tone: 'saffron', permission: Permission.OPERATIONS_CREATE },
-      { key: 'exports', href: '/more/exports', labelKey: 'exports', subKey: 'exportsSub', icon: 'upload', tone: 'good', permission: Permission.OPERATIONS_CREATE },
+      { key: 'inventory', href: '/inventory', labelKey: 'inventory', icon: 'boxes', tone: 'info' },
+      { key: 'reports', href: '/reports', labelKey: 'reports', icon: 'bar-chart-2', tone: 'good' },
     ],
   },
   {

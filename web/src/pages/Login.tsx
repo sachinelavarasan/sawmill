@@ -3,6 +3,7 @@ import { FormEvent, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { ApiError } from '../api';
 import { useAuth } from '../auth';
 import { GrowthRings, LogoMark, Wordmark, Wordmark3D } from '../components/brand';
@@ -13,7 +14,9 @@ import { useI18n } from '../i18n';
 
 export function LoginPage() {
   const { login } = useAuth();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  // Tamil words run longer, and wide letter-spacing breaks up Tamil letters
+  const ta = lang === 'ta';
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +40,7 @@ export function LoginPage() {
     }
   }
 
-  /** The hero's call to action: bring the form into view (on a phone it sits below) and start typing. */
+  /** The hero's call to action (desktop only): put the cursor in the username box beside it. */
   const toForm = () => {
     userRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     userRef.current?.focus({ preventScroll: true });
@@ -46,7 +49,7 @@ export function LoginPage() {
   return (
     <div className="grid min-h-svh bg-background lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
       {/* ── the hero: what TimberTrail is, and the product itself ── */}
-      <section className="relative isolate flex flex-col overflow-hidden bg-hero px-6 pt-10 pb-12 text-hero-foreground sm:px-10 lg:min-h-svh lg:px-14 lg:pt-12 lg:pb-0">
+      <section className="relative isolate flex flex-col overflow-hidden bg-hero px-6 pt-8 pb-10 text-hero-foreground sm:px-10 lg:min-h-svh lg:px-14 lg:pt-12 lg:pb-0">
         {/* growth rings of a sawn log, faint, behind everything */}
         <div className="hero-rings pointer-events-none absolute -top-40 -left-40 -z-10 size-[720px] opacity-[0.07]" aria-hidden>
           <GrowthRings className="inset-0 size-full" />
@@ -67,11 +70,16 @@ export function LoginPage() {
           </div>
         </Tilt>
 
-        <div className="stagger mt-10 max-w-xl lg:mt-16">
-          <p className="hero-sheen w-fit text-xs font-semibold tracking-[0.18em] text-brand uppercase">{t('heroEyebrow')}</p>
-          <h1 className="mt-3 text-[2rem] leading-[1.1] font-semibold tracking-[-0.02em] text-balance sm:text-[2.5rem] lg:text-[3.25rem] font-display">{t('heroTitle')}</h1>
-          <p className="mt-5 max-w-lg text-[0.9375rem] leading-relaxed text-pretty text-hero-muted sm:text-base">{t('heroSub')}</p>
-          <div className="mt-7 flex flex-wrap items-center gap-3">
+        <div className="stagger mt-6 max-w-xl lg:mt-14">
+          <p className={cn('hero-sheen w-fit font-semibold text-brand', ta ? 'text-sm' : 'text-xs tracking-[0.18em] uppercase')}>{t('heroEyebrow')}</p>
+          <h1
+            className={cn(
+              'mt-3 leading-[1.2] font-semibold text-balance font-display',
+              ta ? 'text-[1.5rem] sm:text-[1.875rem] lg:text-[2.375rem]' : 'text-[1.75rem] tracking-[-0.02em] sm:text-[2.25rem] lg:text-[3rem]',
+            )}
+          >{t('heroTitle')}</h1>
+          <p className="mt-4 max-w-md text-[0.9375rem] leading-relaxed text-pretty text-hero-muted sm:text-base">{t('heroSub')}</p>
+          <div className="mt-6 hidden flex-wrap items-center gap-3 lg:flex">
             <Button size="lg" onClick={toForm} className="hero-cta bg-brand text-brand-foreground hover:bg-brand/90">
               {t('heroCta')}
               <ArrowRightIcon />
@@ -85,8 +93,8 @@ export function LoginPage() {
         </div>
       </section>
 
-      {/* ── signing in ── */}
-      <div className="relative isolate flex flex-col overflow-hidden px-4 py-6 sm:px-8 lg:min-h-svh">
+      {/* ── signing in: first on a phone (people come here to sign in), the right-hand column from lg up ── */}
+      <div className="relative isolate order-first flex flex-col overflow-hidden px-4 py-4 sm:px-8 sm:py-6 lg:order-none lg:min-h-svh">
         {/* the same growth rings as the hero, very faint, in the far corner */}
         <div className="pointer-events-none absolute -right-48 -bottom-48 -z-10 size-[620px] text-foreground opacity-[0.045]" aria-hidden>
           <GrowthRings className="inset-0 size-full" />
@@ -98,17 +106,17 @@ export function LoginPage() {
           <LangToggle />
         </div>
 
-        <div className="flex flex-1 items-start justify-center py-8 lg:items-center">
+        <div className="flex flex-1 items-start justify-center py-4 lg:items-center lg:py-8">
           <div className="w-full max-w-[26rem] animate-in duration-500 ease-smooth fade-in-0 slide-in-from-bottom-3">
             <Card className="gap-0 overflow-hidden py-0 shadow-widget">
               {/* a saffron hairline ties the form to the brand */}
               <div className="h-1 bg-[linear-gradient(90deg,var(--saffron),color-mix(in_oklab,var(--saffron),transparent_70%))]" aria-hidden />
-              <div className="px-7 pt-8 pb-8 sm:px-9 sm:pt-9">
-                <LogoMark variant="auto" className="size-14 shadow-[0_0_0_1px_rgb(15_23_42/0.06),0_8px_18px_-8px_rgb(15_23_42/0.35)]" />
-                <h2 className="mt-5 text-2xl font-semibold tracking-[-0.02em] font-display">{t('loginWelcome')}</h2>
-                <p className="mt-1.5 text-sm text-muted-foreground">{t('loginSub')}</p>
+              <div className="px-6 pt-6 pb-7 sm:px-8 sm:pt-7">
+                <LogoMark variant="auto" className="size-12 shadow-[0_0_0_1px_rgb(15_23_42/0.06),0_8px_18px_-8px_rgb(15_23_42/0.35)]" />
+                <h2 className="mt-4 text-2xl font-semibold tracking-[-0.02em] font-display">{t('loginWelcome')}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{t('loginSub')}</p>
 
-                <form onSubmit={submit} className="mt-7 grid gap-5">
+                <form onSubmit={submit} className="mt-6 grid gap-4">
                   <Field id="login-username" label={t('username')}>
                     <div className="relative">
                       <UserIcon className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -167,7 +175,7 @@ export function LoginPage() {
 
               {/* development only: fill in a seeded account with one click */}
               {import.meta.env.DEV && (
-                <div className="flex flex-wrap items-center gap-2 border-t bg-muted/60 px-7 py-3.5 text-xs text-muted-foreground sm:px-9">
+                <div className="flex flex-wrap items-center gap-2 border-t bg-muted/60 px-6 py-3 text-xs text-muted-foreground sm:px-8">
                   <span className="font-medium">Dev accounts</span>
                   {(
                     [
@@ -193,7 +201,7 @@ export function LoginPage() {
           </div>
         </div>
 
-        <div className="flex justify-center opacity-80">
+        <div className="hidden justify-center opacity-80 lg:flex">
           <Wordmark className="h-8" />
         </div>
       </div>

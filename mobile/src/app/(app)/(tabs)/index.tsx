@@ -50,6 +50,7 @@ import type { ImportSummary } from '../../../lib/imports-api';
 import { QUICK_ADD, visible } from '../../../lib/nav';
 import { useApi } from '../../../lib/query';
 import { useSession, useUser } from '../../../lib/session';
+import { useTabBarInset } from '../../../lib/tab-chrome';
 import type {
   AccountantCharts,
   AccountantDashboard,
@@ -116,6 +117,7 @@ function HomeHero({ pending, children }: { pending?: number; children?: ReactNod
 
 function Body({ hero, children, refreshing, onRefresh }: { hero: ReactNode; children: ReactNode; refreshing: boolean; onRefresh: () => void }) {
   const insets = useSafeAreaInsets();
+  const tabBar = useTabBarInset();
   return (
     <View className="flex-1 overflow-hidden bg-hero">
       {/* orange melting into warm black behind the band; the white sheet rises over it */}
@@ -123,7 +125,9 @@ function Body({ hero, children, refreshing, onRefresh }: { hero: ReactNode; chil
       <View style={{ height: insets.top }} />
       <ScrollView className="flex-1" contentContainerClassName="grow" refreshControl={refresher(refreshing, onRefresh)}>
         {hero}
-        <View className={cn('grow gap-3 px-4 pb-10 pt-6', SHEET_TOP)}>{children}</View>
+        <View className={cn('grow gap-3 px-4 pt-6', SHEET_TOP)} style={{ paddingBottom: 40 + tabBar }}>
+          {children}
+        </View>
       </ScrollView>
     </View>
   );
@@ -190,7 +194,7 @@ function RecentRecords({
   const t = useT();
   const router = useRouter();
   const [tab, setTab] = useState<'imports' | 'production' | 'exports'>(imports ? 'imports' : 'production');
-  const href = { imports: '/more/imports', production: '/runs', exports: '/more/exports' }[tab];
+  const href = { imports: '/loads-in', production: '/runs', exports: '/loads-out' }[tab];
   const q = tab === 'imports' ? imports! : tab === 'production' ? production : exports;
   const items = (q.data?.items ?? []).slice(0, 3);
   const empty = { imports: t('noImports'), production: t('noProduction'), exports: t('noExports') }[tab];
@@ -241,20 +245,47 @@ function ChartCard({ title, sub, legend, children }: { title: string; sub?: stri
   );
 }
 
+/** The one button that opens (and closes) everything beyond the essentials on Home. */
+function MoreToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const t = useT();
+  return (
+    <Tap
+      scale={0.98}
+      onPress={onToggle}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: open }}
+      className="mt-1 min-h-12 flex-row items-center justify-center gap-2 rounded-2xl border border-border bg-card active:opacity-85"
+    >
+      <Text className="text-[15px] font-semibold text-foreground">{t(open ? 'showLess' : 'showMore')}</Text>
+      <Icon name={open ? 'chevron-up' : 'chevron-down'} size={18} colorClassName="accent-muted-foreground" />
+    </Tap>
+  );
+}
+
+/** Refresh what is on screen. Callers pass only shown queries: a hidden section's query has no path to fetch. */
+function refetchShown(queries: { refetch: () => unknown }[]) {
+  for (const q of queries) void q.refetch();
+}
+
 // ───────── owner ─────────
 
+/**
+ * Owner: what needs action and today's figures first; money, charts and recent records sit
+ * behind "Show more" (and are only loaded once opened).
+ */
 function OwnerHome() {
   const t = useT();
   const router = useRouter();
+  const [more, setMore] = useState(false);
   const [period, setPeriod] = useState(presets().thisMonth);
 
   const dash = useApi<OwnerDashboard>('/dashboard/owner');
-  const charts = useApi<OwnerCharts>('/dashboard/owner/charts');
-  const money = useApi<AccountsSummary>(`/accounts/summary?${periodQuery(period)}`);
-  const imports = useApi<Paged<ImportSummary>>('/imports?take=5');
   const production = useApi<Paged<ProductionSummary>>('/production?take=30');
-  const exports = useApi<Paged<ExportSummary>>('/exports?take=5');
-  const movements = useApi<Paged<Movement>>('/stock/movements?take=5');
+  const charts = useApi<OwnerCharts>(more ? '/dashboard/owner/charts' : null);
+  const money = useApi<AccountsSummary>(more ? `/accounts/summary?${periodQuery(period)}` : null);
+  const imports = useApi<Paged<ImportSummary>>(more ? '/imports?take=5' : null);
+  const exports = useApi<Paged<ExportSummary>>(more ? '/exports?take=5' : null);
+  const movements = useApi<Paged<Movement>>(more ? '/stock/movements?take=5' : null);
 
   const k = dash.data?.kpis;
   const today = todayIso();
@@ -267,17 +298,15 @@ function OwnerHome() {
   const loss = !!pnl && pnl.profit < 0;
   const cash = charts.data?.cash ?? [];
   const flow = (charts.data?.flow ?? []).slice(-14);
-  const refreshing = dash.isRefetching || money.isRefetching || charts.isRefetching;
-  const refresh = () => {
-    for (const q of [dash, charts, money, imports, production, exports, movements]) void q.refetch();
-  };
+  const refreshing = dash.isRefetching || production.isRefetching || money.isRefetching || charts.isRefetching;
+  const refresh = () => refetchShown([dash, production, ...(more ? [charts, money, imports, exports, movements] : [])]);
 
   return (
     <Body
       hero={
         <HomeHero pending={k?.pendingApprovals ?? 0}>
           {!k ? (
-            <Skeleton className="h-40 rounded-2xl opacity-20" />
+            <Skeleton className="h-28 rounded-2xl opacity-20" />
           ) : (
             <Appear>
               <HeroCard
@@ -287,17 +316,7 @@ function OwnerHome() {
                 unit="CFT"
                 sub={`${t('raw')} ${num3(k.rawStockCft)} · ${t('finished')} ${num3(k.finishedStockCft)}`}
                 onPress={() => router.push('/inventory')}
-              >
-                {flow.some((f) => f.receivedCft || f.shippedCft) && (
-                  <View className="gap-3">
-                    <BarChart onDark height={56} labelEvery={3} data={flow.map((f) => ({ label: dayNum(f.day), values: [f.receivedCft, f.shippedCft] }))} />
-                    <View className="flex-row gap-5">
-                      <LegendDot onDark className="bg-saffron" label={t('receivedCft')} />
-                      <LegendDot onDark className="bg-hero-muted" label={t('shippedCft')} />
-                    </View>
-                  </View>
-                )}
-              </HeroCard>
+              />
             </Appear>
           )}
         </HomeHero>
@@ -305,14 +324,20 @@ function OwnerHome() {
       refreshing={refreshing}
       onRefresh={refresh}
     >
-      {!k ? (
-        <SkeletonGrid tiles={4} />
-      ) : (
+      {!!k?.pendingApprovals && (
         <Appear index={0}>
+          <AttentionBanner icon="check-circle" tone="warn" text={t('approvalsWaiting', { n: k.pendingApprovals })} onPress={() => router.push('/more/approvals')} />
+        </Appear>
+      )}
+      {dash.error && <ErrorBox message={(dash.error as Error).message} onRetry={() => void dash.refetch()} />}
+
+      <QuickActions />
+
+      {!k ? (
+        <SkeletonGrid tiles={2} />
+      ) : (
+        <Appear index={1}>
           <Grid>
-            <Kpi icon="trending-up" label={t('sales')} value={pnl ? inrShort(pnl.sales) : '—'} hint={periodLabel} onPress={() => router.push('/more/accounts')} />
-            <Kpi icon="wallet" label={t('outstandingBalances')} value={inrShort(k.pendingReceivables)} tone={k.pendingReceivables ? 'warn' : undefined} onPress={() => router.push('/more/accounts')} />
-            <Kpi icon="clock" label={t('pendingPayments')} value={inrShort(k.pendingPayables)} tone={k.pendingPayables ? 'warn' : undefined} onPress={() => router.push('/more/accounts')} />
             <Kpi
               icon="factory"
               label={t('todayProduction')}
@@ -321,86 +346,98 @@ function OwnerHome() {
               hint={todayRuns ? t('runsCount', { n: todayRuns.length }) : undefined}
               onPress={() => router.push('/runs')}
             />
+            <Kpi icon="wallet" label={t('outstandingBalances')} value={inrShort(k.pendingReceivables)} tone={k.pendingReceivables ? 'warn' : undefined} onPress={() => router.push('/more/accounts')} />
           </Grid>
         </Appear>
       )}
-      {dash.error && <ErrorBox message={(dash.error as Error).message} onRetry={() => void dash.refetch()} />}
 
-      {!!k?.pendingApprovals && (
-        <Appear index={1}>
-          <AttentionBanner icon="check-circle" tone="warn" text={t('approvalsWaiting', { n: k.pendingApprovals })} onPress={() => router.push('/more/approvals')} />
-        </Appear>
-      )}
+      <MoreToggle open={more} onToggle={() => setMore((v) => !v)} />
 
-      <QuickActions />
-
-      <SectionTitle right={<Pill icon="lock" text={t('ownerOnly')} />}>{t('financialOverview')}</SectionTitle>
-      <PeriodPicker value={period} onChange={setPeriod} />
-      {money.error && <ErrorBox message={(money.error as Error).message} onRetry={() => void money.refetch()} />}
-      {!pnl || !k ? (
-        <Skeleton className="h-44 rounded-2xl" />
-      ) : (
-        <HeroCard label={loss ? t('netLoss') : t('netProfit')} value={inr(pnl.profit)} icon={loss ? 'trending-down' : 'trending-up'} onPress={() => router.push('/more/accounts')}>
-          <View className="flex-row gap-3 border-t border-hero-border pt-4">
-            {[
-              { label: t('sales'), value: inrShort(pnl.sales) },
-              { label: t('totalExpenses'), value: inrShort(pnl.totalExpenses) },
-              { label: t('outstandingBalances'), value: inrShort(k.pendingReceivables) },
-            ].map((x) => (
-              <View key={x.label} className="flex-1 gap-0.5">
-                <Text className="text-[11px] text-hero-muted" numberOfLines={1}>
-                  {x.label}
-                </Text>
-                <Text className="text-[15px] font-semibold tabular-nums text-hero-foreground" numberOfLines={1} adjustsFontSizeToFit>
-                  {x.value}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </HeroCard>
-      )}
-
-      <SectionTitle>{t('analytics')}</SectionTitle>
-      {charts.error && <ErrorBox message={(charts.error as Error).message} onRetry={() => void charts.refetch()} />}
-      {charts.isPending ? (
-        <Skeleton className="h-56 rounded-2xl" />
-      ) : (
+      {more && (
         <>
-          <ChartCard
-            title={t('chartCashTitle')}
-            sub={t('chartCashSub')}
-            legend={
-              <View className="flex-row gap-5">
-                <LegendDot className="bg-saffron" label={t('sales')} />
-                <LegendDot className="bg-chart-2" label={t('expensesHead')} />
+          <SectionTitle right={<Pill icon="lock" text={t('ownerOnly')} />}>{t('financialOverview')}</SectionTitle>
+          <PeriodPicker value={period} onChange={setPeriod} />
+          {money.error && <ErrorBox message={(money.error as Error).message} onRetry={() => void money.refetch()} />}
+          {!pnl || !k ? (
+            <Skeleton className="h-44 rounded-2xl" />
+          ) : (
+            <HeroCard label={loss ? t('netLoss') : t('netProfit')} value={inr(pnl.profit)} icon={loss ? 'trending-down' : 'trending-up'} onPress={() => router.push('/more/accounts')}>
+              <View className="flex-row gap-3 border-t border-hero-border pt-4">
+                {[
+                  { label: t('sales'), value: inrShort(pnl.sales) },
+                  { label: t('totalExpenses'), value: inrShort(pnl.totalExpenses) },
+                  { label: t('pendingPayments'), value: inrShort(k.pendingPayables) },
+                ].map((x) => (
+                  <View key={x.label} className="flex-1 gap-0.5">
+                    <Text className="text-[11px] text-hero-muted" numberOfLines={1}>
+                      {x.label}
+                    </Text>
+                    <Text className="text-[15px] font-semibold tabular-nums text-hero-foreground" numberOfLines={1} adjustsFontSizeToFit>
+                      {x.value}
+                    </Text>
+                  </View>
+                ))}
               </View>
-            }
-          >
-            {cash.some((c) => c.sales || c.expenses) ? (
-              <BarChart
-                data={cash.map((c) => ({ label: monthShort(c.month), values: [c.sales, c.expenses] }))}
-                accessibilityLabel={cash.map((c) => `${monthShort(c.month)}: ${inr(c.sales)} / ${inr(c.expenses)}`).join(', ')}
-              />
-            ) : (
-              <Muted>{t('noChartData')}</Muted>
-            )}
-          </ChartCard>
+            </HeroCard>
+          )}
+          {!!pnl && <Muted>{periodLabel}</Muted>}
+
+          <SectionTitle>{t('analytics')}</SectionTitle>
+          {charts.error && <ErrorBox message={(charts.error as Error).message} onRetry={() => void charts.refetch()} />}
+          {charts.isPending ? (
+            <Skeleton className="h-56 rounded-2xl" />
+          ) : (
+            <>
+              {flow.some((f) => f.receivedCft || f.shippedCft) && (
+                <ChartCard
+                  title={t('chartFlowTitle')}
+                  legend={
+                    <View className="flex-row gap-5">
+                      <LegendDot className="bg-saffron" label={t('receivedCft')} />
+                      <LegendDot className="bg-chart-2" label={t('shippedCft')} />
+                    </View>
+                  }
+                >
+                  <BarChart labelEvery={3} data={flow.map((f) => ({ label: dayNum(f.day), values: [f.receivedCft, f.shippedCft] }))} />
+                </ChartCard>
+              )}
+              <ChartCard
+                title={t('chartCashTitle')}
+                sub={t('chartCashSub')}
+                legend={
+                  <View className="flex-row gap-5">
+                    <LegendDot className="bg-saffron" label={t('sales')} />
+                    <LegendDot className="bg-chart-2" label={t('expensesHead')} />
+                  </View>
+                }
+              >
+                {cash.some((c) => c.sales || c.expenses) ? (
+                  <BarChart
+                    data={cash.map((c) => ({ label: monthShort(c.month), values: [c.sales, c.expenses] }))}
+                    accessibilityLabel={cash.map((c) => `${monthShort(c.month)}: ${inr(c.sales)} / ${inr(c.expenses)}`).join(', ')}
+                  />
+                ) : (
+                  <Muted>{t('noChartData')}</Muted>
+                )}
+              </ChartCard>
+            </>
+          )}
+
+          <RecentRecords imports={imports} production={production} exports={exports} />
+
+          <SectionTitle action={{ label: t('viewAll'), onPress: () => router.push('/inventory') }}>{t('recentActivity')}</SectionTitle>
+          {movements.isPending ? (
+            <SkeletonList rows={2} />
+          ) : !movements.data?.items.length ? (
+            <EmptyState icon="activity" title={t('noMovements')} />
+          ) : (
+            <MenuGroup>
+              {movements.data.items.map((m, i, all) => (
+                <MovementRow key={m.id} m={m} last={i === all.length - 1} />
+              ))}
+            </MenuGroup>
+          )}
         </>
-      )}
-
-      <RecentRecords imports={imports} production={production} exports={exports} />
-
-      <SectionTitle action={{ label: t('viewAll'), onPress: () => router.push('/inventory') }}>{t('recentActivity')}</SectionTitle>
-      {movements.isPending ? (
-        <SkeletonList rows={2} />
-      ) : !movements.data?.items.length ? (
-        <EmptyState icon="activity" title={t('noMovements')} />
-      ) : (
-        <MenuGroup>
-          {movements.data.items.map((m, i, all) => (
-            <MovementRow key={m.id} m={m} last={i === all.length - 1} />
-          ))}
-        </MenuGroup>
       )}
     </Body>
   );
@@ -408,13 +445,19 @@ function OwnerHome() {
 
 // ───────── accountant ─────────
 
+/**
+ * Accountant (the daily data entry): corrections to make, the action buttons, today's loads and
+ * the loads still being measured. Charts, the status overview and recent records sit behind
+ * "Show more" (loaded once opened).
+ */
 function AccountantHome() {
   const t = useT();
   const router = useRouter();
+  const [more, setMore] = useState(false);
   const dash = useApi<AccountantDashboard>('/dashboard/accountant');
-  const charts = useApi<AccountantCharts>('/dashboard/accountant/charts');
-  const production = useApi<Paged<ProductionSummary>>('/production?take=5');
-  const exports = useApi<Paged<ExportSummary>>('/exports?take=5');
+  const charts = useApi<AccountantCharts>(more ? '/dashboard/accountant/charts' : null);
+  const production = useApi<Paged<ProductionSummary>>(more ? '/production?take=5' : null);
+  const exports = useApi<Paged<ExportSummary>>(more ? '/exports?take=5' : null);
   const k = dash.data?.kpis;
   const progress = dash.data?.measurementProgress ?? [];
   const logs = charts.data?.logsByDay ?? [];
@@ -422,73 +465,29 @@ function AccountantHome() {
 
   return (
     <Body
-      hero={
-        <HomeHero>
-          {logs.length > 0 && (
-            <Appear>
-              <HeroCard bare label={t('chartLogsTitle')} value={int(logs.reduce((sum, l) => sum + l.logs, 0))} unit={t('logs')} sub={t('chartLogsSub')}>
-                {logs.some((l) => l.logs) && <BarChart onDark height={56} labelEvery={2} data={logs.map((l) => ({ label: dayNum(l.day), values: [l.logs] }))} />}
-              </HeroCard>
-            </Appear>
-          )}
-        </HomeHero>
-      }
+      hero={<HomeHero />}
       refreshing={dash.isRefetching}
-      onRefresh={() => {
-        for (const q of [dash, charts, production, exports]) void q.refetch();
-      }}
+      onRefresh={() => refetchShown([dash, ...(more ? [charts, production, exports] : [])])}
     >
-      {!k ? (
-        <SkeletonGrid tiles={4} />
-      ) : (
+      {!!k?.rejectedEntries && (
         <Appear index={0}>
-          <Grid>
-            <Kpi icon="download" label={t('todayImports')} value={int(k.todayImports)} onPress={() => router.push('/more/imports')} />
-            <Kpi icon="upload" label={t('todayExports')} value={int(k.todayExports)} onPress={() => router.push('/more/exports')} />
-            <Kpi icon="clock" label={t('pendingSubmissions')} value={int(k.pendingSubmissions)} tone={k.pendingSubmissions ? 'warn' : undefined} />
-            <Kpi icon="x-circle" label={t('rejectedEntries')} value={int(k.rejectedEntries)} tone={k.rejectedEntries ? 'bad' : undefined} />
-          </Grid>
+          <AttentionBanner icon="alert-triangle" tone="bad" text={t('needsCorrection', { n: k.rejectedEntries })} onPress={() => router.push('/loads-in')} />
         </Appear>
       )}
       {dash.error && <ErrorBox message={(dash.error as Error).message} onRetry={() => void dash.refetch()} />}
 
-      {!!k?.rejectedEntries && (
-        <Appear index={1}>
-          <AttentionBanner icon="alert-triangle" tone="bad" text={t('needsCorrection', { n: k.rejectedEntries })} onPress={() => router.push('/more/imports')} />
-        </Appear>
-      )}
-
       <QuickActions />
 
-      <SectionTitle>{t('entryStatus')}</SectionTitle>
       {!k ? (
-        <Skeleton className="h-40 rounded-2xl" />
+        <SkeletonGrid tiles={2} />
       ) : (
-        <Card className="flex-row items-center gap-5">
-          <Donut
-            size={116}
-            segments={[
-              { value: k.approvedEntries, color: 'success' },
-              { value: k.pendingSubmissions, color: 'saffron' },
-              { value: k.draftEntries, color: 'muted' },
-              { value: k.rejectedEntries, color: 'destructive' },
-            ]}
-            center={
-              <View className="items-center">
-                <Text className="text-xl font-bold tabular-nums text-foreground font-display">{int(statusTotal)}</Text>
-                <Text className="text-[11px] text-muted-foreground">{t('entries')}</Text>
-              </View>
-            }
-          />
-          <View className="flex-1 gap-2.5">
-            <LegendDot className="bg-success" label={t('approved')} value={int(k.approvedEntries)} />
-            <LegendDot className="bg-saffron" label={t('pending')} value={int(k.pendingSubmissions)} />
-            <LegendDot className="bg-muted-foreground" label={t('draft')} value={int(k.draftEntries)} />
-            <LegendDot className="bg-destructive" label={t('rejected')} value={int(k.rejectedEntries)} />
-          </View>
-        </Card>
+        <Appear index={1}>
+          <Grid>
+            <Kpi icon="download" label={t('todayImports')} value={int(k.todayImports)} onPress={() => router.push('/loads-in')} />
+            <Kpi icon="upload" label={t('todayExports')} value={int(k.todayExports)} onPress={() => router.push('/loads-out')} />
+          </Grid>
+        </Appear>
       )}
-
 
       <SectionTitle action={{ label: t('viewAll'), onPress: () => router.push('/more/measurement') }}>{t('measurementProgress')}</SectionTitle>
       {dash.isPending ? (
@@ -501,7 +500,48 @@ function AccountantHome() {
         ))
       )}
 
-      <RecentRecords production={production} exports={exports} />
+      <MoreToggle open={more} onToggle={() => setMore((v) => !v)} />
+
+      {more && (
+        <>
+          {logs.length > 0 && (
+            <ChartCard title={t('chartLogsTitle')} sub={t('chartLogsSub')}>
+              {logs.some((l) => l.logs) ? <BarChart labelEvery={2} data={logs.map((l) => ({ label: dayNum(l.day), values: [l.logs] }))} /> : <Muted>{t('noChartData')}</Muted>}
+            </ChartCard>
+          )}
+
+          <SectionTitle>{t('entryStatus')}</SectionTitle>
+          {!k ? (
+            <Skeleton className="h-40 rounded-2xl" />
+          ) : (
+            <Card className="flex-row items-center gap-5">
+              <Donut
+                size={116}
+                segments={[
+                  { value: k.approvedEntries, color: 'success' },
+                  { value: k.pendingSubmissions, color: 'saffron' },
+                  { value: k.draftEntries, color: 'muted' },
+                  { value: k.rejectedEntries, color: 'destructive' },
+                ]}
+                center={
+                  <View className="items-center">
+                    <Text className="text-xl font-bold tabular-nums text-foreground font-display">{int(statusTotal)}</Text>
+                    <Text className="text-[11px] text-muted-foreground">{t('entries')}</Text>
+                  </View>
+                }
+              />
+              <View className="flex-1 gap-2.5">
+                <LegendDot className="bg-success" label={t('approved')} value={int(k.approvedEntries)} />
+                <LegendDot className="bg-saffron" label={t('pending')} value={int(k.pendingSubmissions)} />
+                <LegendDot className="bg-muted-foreground" label={t('draft')} value={int(k.draftEntries)} />
+                <LegendDot className="bg-destructive" label={t('rejected')} value={int(k.rejectedEntries)} />
+              </View>
+            </Card>
+          )}
+
+          <RecentRecords production={production} exports={exports} />
+        </>
+      )}
     </Body>
   );
 }

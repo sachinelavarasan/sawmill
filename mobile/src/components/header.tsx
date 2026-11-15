@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { createElement, ReactNode } from 'react';
 import { FlatList, type FlatListProps, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabBarInset } from '../lib/tab-chrome';
 import { useT } from '../lib/i18n';
 import { Glow } from './glow';
 import { Text } from './text';
@@ -101,6 +102,7 @@ export function Page({
   bottomInset?: boolean;
 }) {
   const insets = useSafeAreaInsets();
+  const tabBar = useTabBarInset();
   return (
     <ScrollView
       className="flex-1 bg-hero"
@@ -109,7 +111,7 @@ export function Page({
       keyboardShouldPersistTaps="handled"
     >
       <Hero>{hero}</Hero>
-      <View className={cn('grow gap-3 px-4 pt-6', SHEET_TOP, className)} style={{ paddingBottom: 32 + (bottomInset ? insets.bottom : 0) }}>
+      <View className={cn('grow gap-3 px-4 pt-6', SHEET_TOP, className)} style={{ paddingBottom: 32 + (tabBar || (bottomInset ? insets.bottom : 0)) }}>
         {children}
       </View>
     </ScrollView>
@@ -129,6 +131,7 @@ type SheetListProps<T> = Omit<FlatListProps<T>, 'contentContainerClassName' | 'c
  * the screen even when the list is short.
  */
 export function SheetList<T>({ hero, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, renderItem, bottomPad = 24, ...rest }: SheetListProps<T>) {
+  const tabBar = useTabBarInset();
   const node = (c: SheetListProps<T>['ListHeaderComponent']) => (c == null ? null : typeof c === 'function' ? createElement(c) : c);
   return (
     <FlatList
@@ -144,7 +147,7 @@ export function SheetList<T>({ hero, ListHeaderComponent, ListFooterComponent, L
       }
       renderItem={renderItem ? (info) => <View className="bg-card px-4">{renderItem(info)}</View> : undefined}
       ListEmptyComponent={ListEmptyComponent ? <View className="bg-card px-4 pt-2">{node(ListEmptyComponent)}</View> : null}
-      ListFooterComponent={<View style={{ paddingBottom: bottomPad }}>{node(ListFooterComponent)}</View>}
+      ListFooterComponent={<View style={{ paddingBottom: bottomPad + tabBar }}>{node(ListFooterComponent)}</View>}
       ListFooterComponentStyle={{ flexGrow: 1 }}
       ListFooterComponentClassName="bg-card"
     />
@@ -152,10 +155,11 @@ export function SheetList<T>({ hero, ListHeaderComponent, ListFooterComponent, L
 }
 
 /** Action pinned under a scrolling screen (Save, Generate, Add). Stays above the keyboard and the nav bar. */
-export function StickyFooter({ children, tabBar }: { children: ReactNode; /** the screen sits above the tab bar, which already pads the inset */ tabBar?: boolean }) {
+export function StickyFooter({ children, tabBar }: { children: ReactNode; /** on a tab screen: sits just above the floating bar, which pads the phone's inset */ tabBar?: boolean }) {
   const insets = useSafeAreaInsets();
+  const barHeight = useTabBarInset();
   return (
-    <View className="gap-2 border-t border-border bg-card px-4 pt-3" style={{ paddingBottom: 12 + (tabBar ? 0 : insets.bottom) }}>
+    <View className="gap-2 border-t border-border bg-card px-4 pt-3" style={{ paddingBottom: 12 + (tabBar ? 0 : insets.bottom), marginBottom: tabBar ? barHeight : 0 }}>
       {children}
     </View>
   );

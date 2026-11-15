@@ -1,26 +1,29 @@
 /**
  * Motion: small, quick, purposeful (Reanimated 4).
  *
- *  - `Tap`     — a Pressable that springs down a little while pressed (cards, buttons, chips).
+ *  - `Tap`     — a Pressable that eases down a little while pressed (cards, buttons, chips).
  *  - `Appear`  — fades a block up into place when it mounts, staggered by `index`.
  *  - `tick()`  — the light selection haptic used when a choice changes (tabs, chips, switches).
  *
- * Every spring and entrance follows the phone's "Remove animations" setting
+ * Motion is eased, never springy: it starts quickly and settles gently, with no overshoot
+ * (the same curve as the web app's --ease-smooth). Every movement and entrance follows the phone's "Remove animations" setting
  * (Reanimated's ReduceMotion.System default), so nothing moves for people who turned it off.
  */
 import * as Haptics from 'expo-haptics';
 import { forwardRef, type ReactNode, useEffect } from 'react';
 import { type GestureResponderEvent, Pressable, type PressableProps, type View as RNView, View } from 'react-native';
-import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, FadeInDown, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 export const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export const AnimatedView = Animated.createAnimatedComponent(View);
 
-/** Press-in is quick and firm; the release overshoots a touch so it feels springy, not rubbery. */
-export const SPRING_PRESS = { damping: 20, stiffness: 400, mass: 0.6 } as const;
-export const SPRING_RELEASE = { damping: 14, stiffness: 260, mass: 0.6 } as const;
+/** Fast out, gentle settle, no bounce: cubic-bezier(0.22, 1, 0.36, 1), the web app's --ease-smooth. */
+export const EASE_SMOOTH = Easing.bezier(0.22, 1, 0.36, 1);
+/** Press-in is quick; the release eases back without overshooting. */
+export const PRESS_IN = { duration: 110, easing: EASE_SMOOTH } as const;
+export const PRESS_OUT = { duration: 220, easing: EASE_SMOOTH } as const;
 /** Indicators that slide between options (tab bar, segmented control, switch). */
-export const SPRING_SLIDE = { damping: 22, stiffness: 260, mass: 0.8 } as const;
+export const SLIDE = { duration: 320, easing: EASE_SMOOTH } as const;
 
 /** Light selection haptic. Never throws. */
 export function tick() {
@@ -47,11 +50,11 @@ export const Tap = forwardRef<RNView, TapProps>(function Tap({ scale = 0.97, hap
       disabled={disabled}
       style={style}
       onPressIn={(e: GestureResponderEvent) => {
-        s.value = withSpring(scale, SPRING_PRESS);
+        s.value = withTiming(scale, PRESS_IN);
         onPressIn?.(e);
       }}
       onPressOut={(e: GestureResponderEvent) => {
-        s.value = withSpring(1, SPRING_RELEASE);
+        s.value = withTiming(1, PRESS_OUT);
         onPressOut?.(e);
       }}
       onPress={(e: GestureResponderEvent) => {
@@ -70,7 +73,7 @@ export const Tap = forwardRef<RNView, TapProps>(function Tap({ scale = 0.97, hap
  */
 export function Appear({ children, index = 0, className }: { children: ReactNode; index?: number; className?: string }) {
   return (
-    <AnimatedView className={className} entering={FadeInDown.duration(320).delay(Math.min(index, 8) * 45).springify().damping(18).stiffness(180)}>
+    <AnimatedView className={className} entering={FadeInDown.duration(420).delay(Math.min(index, 8) * 50).easing(EASE_SMOOTH)}>
       {children}
     </AnimatedView>
   );

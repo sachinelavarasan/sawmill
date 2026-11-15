@@ -11,7 +11,7 @@
 import type { TKey } from '@timbertrail/shared';
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, RefreshControl, ScrollView, View } from 'react-native';
-import Reanimated, { interpolateColor, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Reanimated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView as RNSafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { useCSSVariable, withUniwind } from 'uniwind';
@@ -19,7 +19,7 @@ import { useLang, useT } from '../lib/i18n';
 import { useThemeToggle } from '../lib/theme';
 import type { Status } from '../lib/types';
 import { Icon, type IconName } from './icon';
-import { Appear, AnimatedView, SPRING_SLIDE, Tap, tick, useGrowIn } from './motion';
+import { Appear, AnimatedView, SLIDE, Tap, tick, useGrowIn } from './motion';
 import { Glow } from './glow';
 import { Text, TextInput } from './text';
 
@@ -703,7 +703,7 @@ export function Segmented<V extends string>({
   const [w, setW] = useState(0);
   const x = useSharedValue(0);
   useEffect(() => {
-    if (w) x.value = withSpring(index * w, SPRING_SLIDE);
+    if (w) x.value = withTiming(index * w, SLIDE);
   }, [index, w, x]);
   const thumb = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (
@@ -779,8 +779,8 @@ export function TabStrip<V extends string>({
       w.value = active.w;
       placed.current = true;
     } else {
-      x.value = withSpring(active.x, SPRING_SLIDE);
-      w.value = withSpring(active.w, SPRING_SLIDE);
+      x.value = withTiming(active.x, SLIDE);
+      w.value = withTiming(active.w, SLIDE);
     }
   }, [active, x, w]);
   const bar = useAnimatedStyle(() => ({ width: w.value, transform: [{ translateX: x.value }] }));
@@ -849,7 +849,7 @@ export function Toggle({ value, onChange, label }: { value: boolean; onChange: (
   const [on, off] = useCSSVariable(['--color-saffron', '--color-input']).map(String);
   const p = useSharedValue(value ? 1 : 0);
   useEffect(() => {
-    p.value = withSpring(value ? 1 : 0, SPRING_SLIDE);
+    p.value = withTiming(value ? 1 : 0, SLIDE);
   }, [value, p]);
   const track = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(p.value, [0, 1], [off, on]) }));
   const thumb = useAnimatedStyle(() => ({ transform: [{ translateX: p.value * 20 }, { scale: 1 + Math.sin(p.value * Math.PI) * 0.08 }] }));

@@ -3,17 +3,20 @@ import { useCallback, useEffect, useState } from 'react';
 
 const THEME_KEY = 'timbertrail.theme';
 
-function saved(): ThemeName | null {
+/** What a person picked on this device; nothing picked yet means light (the app's default theme). */
+function saved(): ThemeChoice {
   try {
     const v = localStorage.getItem(THEME_KEY);
-    return v === 'light' || v === 'dark' ? v : null;
+    return v === 'light' || v === 'dark' || v === 'system' ? v : DEFAULT_THEME;
   } catch {
-    return null;
+    return DEFAULT_THEME;
   }
 }
 
+const DEFAULT_THEME: ThemeName = 'light';
 const systemQuery = () => window.matchMedia('(prefers-color-scheme: dark)');
-const current = (): ThemeName => saved() ?? (systemQuery().matches ? 'dark' : 'light');
+const resolve = (choice: ThemeChoice): ThemeName => (choice === 'system' ? (systemQuery().matches ? 'dark' : 'light') : choice);
+const current = (): ThemeName => resolve(saved());
 
 /** Browser chrome (Android address bar) follows the brand band colour (--hero in tokens.css). */
 function syncMeta(theme: ThemeName) {
@@ -22,12 +25,12 @@ function syncMeta(theme: ThemeName) {
 }
 
 /**
- * Call once before the first render. With no saved choice the stylesheet
- * follows the device setting on its own; a saved choice pins the theme.
+ * Call once before the first render. Light unless the person picked otherwise; "system"
+ * leaves the stylesheet to follow the device setting on its own.
  */
 export function initTheme() {
   const choice = saved();
-  if (choice) document.documentElement.dataset.theme = choice;
+  if (choice !== 'system') document.documentElement.dataset.theme = choice;
   syncMeta(current());
 }
 
@@ -44,12 +47,12 @@ function fadeColours() {
 
 export function useTheme() {
   const [theme, setTheme] = useState<ThemeName>(current);
-  const [choice, setChoiceState] = useState<ThemeChoice>(() => saved() ?? 'system');
+  const [choice, setChoiceState] = useState<ThemeChoice>(saved);
 
   useEffect(() => {
     const mq = systemQuery();
     const onChange = () => {
-      if (!saved()) setTheme(mq.matches ? 'dark' : 'light');
+      if (saved() === 'system') setTheme(mq.matches ? 'dark' : 'light');
     };
     mq.addEventListener('change', onChange);
     return () => mq.removeEventListener('change', onChange);
@@ -61,15 +64,15 @@ export function useTheme() {
   const setChoice = useCallback((next: ThemeChoice) => {
     fadeColours();
     try {
-      if (next === 'system') localStorage.removeItem(THEME_KEY);
-      else localStorage.setItem(THEME_KEY, next);
+      // "system" is stored too: with nothing stored the app starts in light
+      localStorage.setItem(THEME_KEY, next);
     } catch {
       /* storage unavailable — the choice lasts for this page only */
     }
     if (next === 'system') delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = next;
     setChoiceState(next);
-    setTheme(next === 'system' ? (systemQuery().matches ? 'dark' : 'light') : next);
+    setTheme(resolve(next));
   }, []);
 
   const toggle = useCallback(() => setChoice(theme === 'dark' ? 'light' : 'dark'), [theme, setChoice]);

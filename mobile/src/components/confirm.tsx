@@ -10,6 +10,7 @@ import { Modal, Pressable, View } from 'react-native';
 import { Text, TextInput } from './text';
 import { useT } from '../lib/i18n';
 import Animated, { ZoomIn } from 'react-native-reanimated';
+import { EASE_SMOOTH } from './motion';
 import { Button, cn } from './ui';
 
 export interface ConfirmOptions {
@@ -75,7 +76,7 @@ function DialogView({ open, onClose }: { open: Open; onClose: (v: boolean | stri
     <Modal transparent visible animationType="fade" statusBarTranslucent navigationBarTranslucent onRequestClose={() => onClose(isPrompt ? null : false)}>
       <KeyboardView>
         <View className="flex-1 items-center justify-center bg-black/50 px-6">
-          <AnimatedCard entering={ZoomIn.springify().damping(18).stiffness(260).withInitialValues({ transform: [{ scale: 0.92 }] })} className="w-full max-w-[420px] gap-4 rounded-3xl border border-border bg-card p-6 shadow-lg" accessibilityViewIsModal>
+          <AnimatedCard entering={ZoomIn.duration(240).easing(EASE_SMOOTH).withInitialValues({ transform: [{ scale: 0.94 }] })} className="w-full max-w-[420px] gap-4 rounded-3xl border border-border bg-card p-6 shadow-lg" accessibilityViewIsModal>
             <Text className="text-lg font-bold tracking-tight text-foreground font-display" accessibilityRole="header">
               {o.title}
             </Text>
