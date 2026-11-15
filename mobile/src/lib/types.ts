@@ -1,3 +1,4 @@
+import type { PaymentMode } from '@timbertrail/shared';
 /** Shapes the API returns (contracts: the backend services; the web pages use the same). */
 
 export type Status = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
@@ -206,6 +207,42 @@ export interface PurchaseFinancials {
   notes: string | null;
 }
 
+/** [OWNER-ONLY] one payment against a load (paid to a supplier / received from a client) */
+export interface Payment {
+  id: string;
+  date: string;
+  amount: number;
+  mode: PaymentMode;
+  reference: string | null;
+  notes: string | null;
+  createdByName: string | null;
+}
+/** [OWNER-ONLY] GET /{imports|exports}/:id/payments — also what add / delete return */
+export interface PaymentSummary {
+  items: Payment[];
+  billAmount: number | null;
+  totalPaid: number;
+  paymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID';
+  balance: number;
+  overpaid: number;
+}
+/** [OWNER-ONLY] GET /{suppliers|clients}/:id/statement */
+export interface PartyStatement {
+  party: { id: string; name: string; phone: string | null; address: string | null; gstNumber: string | null };
+  entries: {
+    date: string;
+    type: 'BILL' | 'PAYMENT';
+    amount: number;
+    balance: number;
+    loadId: string;
+    loadCode: string;
+    cft: number | null;
+    mode: PaymentMode | null;
+    reference: string | null;
+  }[];
+  totals: { billed: number; paid: number; balance: number };
+}
+
 // ── approvals ──
 export type ApprovalKind = 'IMPORT' | 'PRODUCTION' | 'EXPORT' | 'ADJUSTMENT';
 interface ApprovalBase {
@@ -364,6 +401,8 @@ export interface MillSettings {
   defaultUnloadingRatePerHour: number | null;
   defaultLanguage: 'en' | 'ta';
   utcOffsetMinutes: number;
+  /** [] = no list yet (any name accepted) */
+  woodTypes: string[];
 }
 
 // ── reports ──

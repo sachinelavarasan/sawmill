@@ -292,10 +292,12 @@ describe('access control', () => {
       supplierId: sup.body.id,
       purchaseRatePerCft: 850,
       purchaseAmount: 100000,
-      amountPaid: 40000,
     });
     expect(save.status).toBe(200);
-    expect(save.body.paymentStatus).toBe('PARTIAL');
+    expect(save.body.paymentStatus).toBe('UNPAID');
+    const paid = await owner('POST', `/imports/${load.id}/payments`, { date: new Date().toISOString().slice(0, 10), amount: 40000, mode: 'BANK' });
+    expect(paid.status).toBe(201);
+    expect((await owner('GET', `/imports/${load.id}/financials`)).body).toMatchObject({ amountPaid: 40000, paymentStatus: 'PARTIAL' });
 
     expect((await accA('GET', `/imports/${load.id}/financials`)).status).toBe(403);
     expect((await accA('PUT', `/imports/${load.id}/financials`, { purchaseAmount: 1 })).status).toBe(403);
@@ -308,12 +310,17 @@ describe('access control', () => {
     expect(asText).not.toMatch(/Sri Murugan/i);
   });
 
-  it('payment status is derived from the amounts, never typed in', async () => {
+  it('payment status is derived from the payments, never typed in', async () => {
     const load = await createLoad(accA);
     const put = (body: object) => owner('PUT', `/imports/${load.id}/financials`, body);
     expect((await put({ purchaseAmount: 5000 })).body.paymentStatus).toBe('UNPAID');
-    expect((await put({ purchaseAmount: 5000, amountPaid: 5000 })).body.paymentStatus).toBe('PAID');
+    // a typed amountPaid (older app versions) is accepted but ignored
+    expect((await put({ purchaseAmount: 5000, amountPaid: 5000 })).body).toMatchObject({ amountPaid: 0, paymentStatus: 'UNPAID' });
     expect((await put({ purchaseAmount: 5000, amountPaid: 5000, paymentStatus: 'UNPAID' })).status).toBe(400);
+    await owner('POST', `/imports/${load.id}/payments`, { date: new Date().toISOString().slice(0, 10), amount: 5000, mode: 'CASH' });
+    expect((await put({ purchaseAmount: 5000 })).body).toMatchObject({ amountPaid: 5000, paymentStatus: 'PAID' });
+    // raising the bill re-derives the status from the same payments
+    expect((await put({ purchaseAmount: 8000 })).body).toMatchObject({ amountPaid: 5000, paymentStatus: 'PARTIAL' });
   });
 
   it('once submitted, the accountant can no longer add, change or remove logs or unloading', async () => {
@@ -330,5 +337,45 @@ describe('access control', () => {
 
     const detail = await accA('GET', `/imports/${load.id}`);
     expect(detail.body).toMatchObject({ status: 'SUBMITTED', editable: false, totalLogs: 1 });
+  });
+});
+
+describe('offline measuring (clientRef)', () => {
+  const ref = () => crypto.randomUUID();
+
+  it('a log sent twice with the same clientRef is stored once', async () => {
+    const load = await createLoad(accA);
+    const clientRef = ref();
+    const first = await accA('POST', `/imports/${load.id}/logs`, { girthIn: 24, lengthFt: 10, clientRef });
+    expect(first.status).toBe(201);
+    const again = await accA('POST', `/imports/${load.id}/logs`, { girthIn: 24, lengthFt: 10, clientRef });
+    expect(again.status).toBe(201);
+    expect(again.body.log.id).toBe(first.body.log.id);
+    expect(again.body).toMatchObject({ totalLogs: 1, totalCft: 2.5 });
+
+    // a different ref is a different log, numbered next
+    const other = await accA('POST', `/imports/${load.id}/logs`, { girthIn: 24, lengthFt: 10, clientRef: ref() });
+    expect(other.body.log.logNumber).toBe(2);
+    expect(other.body.totalLogs).toBe(2);
+  });
+
+  it('a resend after the load was submitted is still answered with the stored log, not refused', async () => {
+    const load = await createLoad(accA);
+    const clientRef = ref();
+    await accA('POST', `/imports/${load.id}/logs`, { girthIn: 12, lengthFt: 8, clientRef });
+    expect((await accA('POST', `/imports/${load.id}/submit`)).status).toBe(200);
+    const resend = await accA('POST', `/imports/${load.id}/logs`, { girthIn: 12, lengthFt: 8, clientRef });
+    expect(resend.status).toBe(201);
+    expect(resend.body).toMatchObject({ totalLogs: 1 });
+    // but a new log on the submitted load is refused as before
+    expect((await accA('POST', `/imports/${load.id}/logs`, { girthIn: 12, lengthFt: 8, clientRef: ref() })).status).toBe(409);
+  });
+
+  it('clientRef must be a UUID, and someone else cannot replay into a load they cannot see', async () => {
+    const load = await createLoad(accA);
+    expect((await accA('POST', `/imports/${load.id}/logs`, { girthIn: 12, lengthFt: 8, clientRef: 'abc' })).status).toBe(400);
+    const clientRef = ref();
+    await accA('POST', `/imports/${load.id}/logs`, { girthIn: 12, lengthFt: 8, clientRef });
+    expect((await accB('POST', `/imports/${load.id}/logs`, { girthIn: 12, lengthFt: 8, clientRef })).status).toBe(404);
   });
 });

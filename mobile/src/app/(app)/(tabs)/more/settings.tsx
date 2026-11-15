@@ -1,6 +1,7 @@
 /**
  * Settings: who you are (on the navy), then grouped rows — appearance and language on this
- * phone, the mill's settings (owner, opens its own form), help, about, and log out.
+ * phone, app lock, the mill's settings (owner, opens its own form), help, about (with app
+ * updates), and log out.
  */
 import { Permission } from '@timbertrail/shared';
 import Constants from 'expo-constants';
@@ -13,7 +14,10 @@ import { Page, ScreenHeader } from '../../../../components/header';
 import { Appear } from '../../../../components/motion';
 import { Sheet, useSheet } from '../../../../components/sheet';
 import { Text } from '../../../../components/text';
-import { Avatar, Chip, Icon, KV, LangPills, MenuGroup, MenuRow, Muted, Overline, Pill, Toggle } from '../../../../components/ui';
+import { Avatar, Button, Chip, Icon, KV, LangPills, MenuGroup, MenuRow, Muted, Overline, Pill, Toggle } from '../../../../components/ui';
+import { toast } from '../../../../components/toast';
+import { useAppLock } from '../../../../lib/app-lock';
+import { checkForAppUpdate, restartIntoUpdate, runningUpdateLabel, updatesOn, useUpdateWaiting } from '../../../../lib/app-updates';
 import { APP_NAME } from '../../../../lib/brand';
 import { useT } from '../../../../lib/i18n';
 import { useSession, useUser } from '../../../../lib/session';
@@ -30,6 +34,19 @@ export default function SettingsScreen() {
   const help = useSheet();
   const about = useSheet();
   const version = Constants.expoConfig?.version ?? '';
+  const lock = useAppLock();
+  const updateWaiting = useUpdateWaiting();
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const runningUpdate = runningUpdateLabel();
+
+  const checkUpdate = async () => {
+    setCheckingUpdate(true);
+    const r = await checkForAppUpdate();
+    setCheckingUpdate(false);
+    // 'downloaded' is announced by the "update ready" prompt (app/_layout.tsx)
+    if (r === 'latest') toast(t('upToDate'));
+    else if (r === 'failed') toast(t('updateCheckFailed'), 'error');
+  };
 
   return (
     <View className="flex-1 bg-hero">
@@ -58,6 +75,11 @@ export default function SettingsScreen() {
           <MenuRow icon="languages" title={t('language')} last right={<LangPills />} />
         </MenuGroup>
 
+        <Overline className="mt-3 px-1">{t('appLock')}</Overline>
+        <MenuGroup>
+          <MenuRow icon="lock" title={t('appLock')} subtitle={t('appLockSub')} value={lock.enabled ? t('switchOn') : t('switchOff')} last onPress={() => router.push('/app-lock')} />
+        </MenuGroup>
+
         <NotificationSettings />
 
         {can(Permission.SETTINGS_MANAGE) && (
@@ -72,7 +94,7 @@ export default function SettingsScreen() {
         <Overline className="mt-3 px-1">{t('support')}</Overline>
         <MenuGroup>
           <MenuRow icon="help" title={t('helpSupport')} onPress={help.open} />
-          <MenuRow icon="info" title={t('aboutApp')} value={`v${version}`} last onPress={about.open} />
+          <MenuRow icon="info" title={t('aboutApp')} value={updateWaiting ? t('updateReady') : `v${version}`} last onPress={about.open} />
         </MenuGroup>
 
         <MenuGroup>
@@ -116,9 +138,16 @@ export default function SettingsScreen() {
           </View>
           <View className="gap-2.5 px-1">
             <KV label={t('version')} value={version || '—'} />
+            {runningUpdate && <KV label={t('appUpdate')} value={runningUpdate} />}
             <KV label={t('millName')} value={user.mill.name} />
             <KV label={t('millCode')} value={user.mill.code} />
           </View>
+          {updatesOn &&
+            (updateWaiting ? (
+              <Button icon="refresh-cw" title={t('restartNow')} onPress={() => void restartIntoUpdate()} />
+            ) : (
+              <Button kind="secondary" size="md" icon="refresh-cw" title={t('checkUpdates')} busy={checkingUpdate} onPress={() => void checkUpdate()} />
+            ))}
           <Muted className="text-center">© {new Date().getFullYear()} {APP_NAME}</Muted>
         </View>
       </Sheet>

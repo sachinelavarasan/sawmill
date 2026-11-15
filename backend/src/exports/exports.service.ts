@@ -1,11 +1,12 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { ACCOUNTANT_EDITABLE_STATUSES, exportPieceCft, hasPermission, Permission, roundTo, sizeLabel } from '@timbertrail/shared';
+import { ACCOUNTANT_EDITABLE_STATUSES, exportPieceCft, hasPermission, paymentStatusFor, Permission, roundTo, sizeLabel } from '@timbertrail/shared';
 import { and, asc, count, desc, eq, inArray, max, SQL, sum } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.module';
 import { nextCode } from '../common/codes';
 import { assertEditable, assertVisible, canEdit } from '../common/editability';
 import { textSearch } from '../common/search';
+import { resolveOptionalWoodType, resolveWoodType } from '../common/wood-types';
 import type { AuthUser } from '../common/types';
 import { Database, DbOrTx, InjectDb } from '../db/db.module';
 import { clients, exportFinancials, exportLoads, exportMeasurements, importLoads, users } from '../db/schema';
@@ -86,6 +87,7 @@ export class ExportsService {
 
   async create(actor: AuthUser, dto: CreateExportDto) {
     const row = await this.db.transaction(async (tx) => {
+      const woodType = await resolveWoodType(tx, actor.millId, dto.woodType);
       if (dto.importLoadId) await this.findSourceLoad(tx, actor, dto.importLoadId);
       const startAt = when(dto.startAt) ?? null;
       const endAt = when(dto.endAt) ?? null;
@@ -98,7 +100,7 @@ export class ExportsService {
           code,
           exportDate: dto.exportDate,
           lorryNumber: dto.lorryNumber,
-          woodType: dto.woodType,
+          woodType,
           driverName: text(dto.driverName),
           driverMobile: text(dto.driverMobile),
           lorryOwnerName: text(dto.lorryOwnerName),
@@ -193,6 +195,7 @@ export class ExportsService {
     await this.db.transaction(async (tx) => {
       const before = await this.findExport(tx, actor, id, true);
       const action = assertEditable(actor, before);
+      const woodType = await resolveOptionalWoodType(tx, actor.millId, dto.woodType);
       if (dto.importLoadId) await this.findSourceLoad(tx, actor, dto.importLoadId);
       const startAt = when(dto.startAt);
       const endAt = when(dto.endAt);
@@ -202,7 +205,7 @@ export class ExportsService {
         .set({
           exportDate: dto.exportDate,
           lorryNumber: dto.lorryNumber,
-          woodType: dto.woodType,
+          woodType,
           driverName: text(dto.driverName),
           driverMobile: text(dto.driverMobile),
           lorryOwnerName: text(dto.lorryOwnerName),
@@ -325,7 +328,7 @@ export class ExportsService {
     return financialsView(row);
   }
 
-  /** Create or replace the sale side of an export. Payment status is derived, never typed in. */
+  /** Create or replace the sale side of an export. Amount received comes from the payments; status is derived. */
   async saveFinancials(actor: AuthUser, id: string, dto: ExportFinancialsDto) {
     return this.db.transaction(async (tx) => {
       await this.findExport(tx, actor, id, true);
@@ -336,19 +339,18 @@ export class ExportsService {
           .where(and(eq(clients.id, dto.clientId), eq(clients.millId, actor.millId)));
         if (!client) throw new BadRequestException('Client not found');
       }
+      const [before] = await tx.select().from(exportFinancials).where(eq(exportFinancials.exportLoadId, id));
+      // amount_received is the sum of the load's payments (see PaymentsService); only the status is re-derived here.
       const amount = dto.saleAmount ?? null;
-      const received = dto.amountReceived ?? 0;
-      const paymentStatus = received <= 0 ? 'UNPAID' : amount != null && received >= amount ? 'PAID' : 'PARTIAL';
+      const received = Number(before?.amountReceived ?? 0);
       const values = {
         clientId: dto.clientId ?? null,
         sellingRatePerCft: dto.sellingRatePerCft == null ? null : String(dto.sellingRatePerCft),
         saleAmount: amount == null ? null : String(amount),
-        amountReceived: String(received),
-        paymentStatus,
+        paymentStatus: paymentStatusFor(amount, received),
         notes: dto.notes || null,
         updatedAt: new Date(),
       } as const;
-      const [before] = await tx.select().from(exportFinancials).where(eq(exportFinancials.exportLoadId, id));
       const [after] = await tx
         .insert(exportFinancials)
         .values({ exportLoadId: id, ...values })

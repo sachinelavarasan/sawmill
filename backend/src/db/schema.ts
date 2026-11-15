@@ -5,9 +5,10 @@
  * [OWNER-ONLY] hold restricted data and are never read by accountant endpoints.
  * numeric columns are returned as strings by the driver — convert explicitly.
  */
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 import {
   boolean,
+  check,
   date,
   index,
   integer,
@@ -35,6 +36,7 @@ export const stockSourceEnum = pgEnum('stock_source', [
   'ADJUSTMENT',
 ]);
 export const paymentStatusEnum = pgEnum('payment_status', ['UNPAID', 'PARTIAL', 'PAID']);
+export const paymentModeEnum = pgEnum('payment_mode', ['CASH', 'UPI', 'BANK', 'CHEQUE', 'OTHER']);
 
 // ───────────────────────── Column helpers ─────────────────────────
 
@@ -75,6 +77,8 @@ export interface MillSettings {
   defaultLanguage?: 'en' | 'ta';
   /** minutes from UTC used for "today" (default 330 = India) */
   utcOffsetMinutes?: number;
+  /** the names offered for a load's wood type; once set, new names must be added here first (common/wood-types.ts) */
+  woodTypes?: string[];
 }
 
 export const mills = pgTable('mills', {
@@ -308,13 +312,18 @@ export const logMeasurements = pgTable(
     lengthFt: dimCol('length_ft').notNull(),
     girthIn: dimCol('girth_in').notNull(),
     cft: numeric('cft', { precision: 12, scale: 3 }).notNull(),
+    /** id the phone gave the log when measuring (offline queue): a resend is recognised, not stored twice */
+    clientRef: uuid('client_ref'),
     createdById: uuid('created_by_id')
       .notNull()
       .references(() => users.id),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [uniqueIndex('log_measurements_load_number_uq').on(t.importLoadId, t.logNumber)],
+  (t) => [
+    uniqueIndex('log_measurements_load_number_uq').on(t.importLoadId, t.logNumber),
+    uniqueIndex('log_measurements_load_client_ref_uq').on(t.importLoadId, t.clientRef),
+  ],
 );
 
 /** [OWNER-ONLY] purchase side of an import load */
@@ -509,6 +518,41 @@ export const exportFinancials = pgTable('export_financials', {
   notes: text('notes'),
   updatedAt: updatedAt(),
 });
+
+// ───────────────────────── Payments [OWNER-ONLY] ─────────────────────────
+
+/**
+ * One row per payment: money paid to a supplier against an import load, or received from a
+ * client against an export load (exactly one of the two is set). The financials tables keep
+ * amount_paid / amount_received as the sum of these rows (recomputed on every change), so
+ * dashboards and reports read one number per load.
+ */
+export const payments = pgTable(
+  'payments',
+  {
+    id: id(),
+    millId: millRef(),
+    importLoadId: uuid('import_load_id').references(() => importLoads.id, { onDelete: 'cascade' }),
+    exportLoadId: uuid('export_load_id').references(() => exportLoads.id, { onDelete: 'cascade' }),
+    date: date('date', { mode: 'string' }).notNull(),
+    amount: moneyCol('amount').notNull(),
+    mode: paymentModeEnum('mode').notNull(),
+    /** UPI / cheque / bank transaction number */
+    reference: text('reference'),
+    notes: text('notes'),
+    createdById: uuid('created_by_id')
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('payments_import_idx').on(t.importLoadId),
+    index('payments_export_idx').on(t.exportLoadId),
+    index('payments_mill_date_idx').on(t.millId, t.date),
+    check('payments_one_load_ck', sql`(${t.importLoadId} is null) <> (${t.exportLoadId} is null)`),
+    check('payments_amount_ck', sql`${t.amount} > 0`),
+  ],
+);
 
 // ───────────────────────── Accounts [OWNER-ONLY] ─────────────────────────
 

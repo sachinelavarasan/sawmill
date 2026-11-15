@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { ACCOUNTANT_EDITABLE_STATUSES, exportPieceCft, hasPermission, Permission, roundTo } from '@timbertrail/shared';
 import { and, asc, count, desc, eq, inArray, SQL, sql, sum } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
+import { resolveWoodType } from '../common/wood-types';
 import { NotificationsService } from '../notifications/notifications.module';
 import { nextCode } from '../common/codes';
 import { assertEditable, assertVisible, canEdit } from '../common/editability';
@@ -366,7 +367,8 @@ export class StockService {
     return {
       kind: 'FINISHED' as const,
       importLoadId: load.id,
-      woodType: dto.woodType || load.woodType,
+      // one spelling per wood type (common/wood-types.ts); defaults to the load's
+      woodType: dto.woodType ? await resolveWoodType(tx, actor.millId, dto.woodType) : load.woodType,
       thicknessIn: String(dto.thicknessIn),
       widthIn: String(dto.widthIn),
       lengthFt: String(dto.lengthFt),

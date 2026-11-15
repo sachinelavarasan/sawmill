@@ -14,7 +14,7 @@
  */
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
-import { exportPieceCft, importLogCft, productionWaste, roundTo, totalCft, unloadingCharges } from '@timbertrail/shared';
+import { cleanWoodTypeList, exportPieceCft, importLogCft, productionWaste, roundTo, totalCft, unloadingCharges } from '@timbertrail/shared';
 import * as bcrypt from 'bcryptjs';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -229,6 +229,32 @@ async function main() {
     const unloadings: Row<typeof s.unloadingEntries>[] = [];
     const logs: Row<typeof s.logMeasurements>[] = [];
     const importFinancials: Row<typeof s.importFinancials>[] = [];
+    const paymentRows: Row<typeof s.payments>[] = [];
+    const MODES = ['BANK', 'BANK', 'UPI', 'CHEQUE', 'CASH'] as const;
+    /** Splits what was paid on a load into 1–3 payments on or after day `d`, none in the future; they add up exactly. */
+    const addPayments = (load: { importLoadId: string } | { exportLoadId: string }, d: number, total: number) => {
+      if (total <= 0) return;
+      const parts = total >= 50_000 ? int(1, 3) : 1;
+      let left = money(total);
+      for (let k = 0; k < parts; k++) {
+        const amount = k === parts - 1 ? left : money(Math.floor((total / parts) / 1000) * 1000);
+        left = money(left - amount);
+        const mode = pick(MODES);
+        const daysLater = Math.min(d, int(k * 7, k * 7 + 10));
+        paymentRows.push({
+          millId,
+          importLoadId: 'importLoadId' in load ? load.importLoadId : null,
+          exportLoadId: 'exportLoadId' in load ? load.exportLoadId : null,
+          date: day(d - daysLater),
+          amount: str(amount),
+          mode,
+          reference: mode === 'CASH' ? null : mode === 'CHEQUE' ? String(int(100000, 999999)) : `${mode === 'UPI' ? 'UPI' : 'NEFT'}${int(10_000_000, 99_999_999)}`,
+          notes: null,
+          createdById: owner.id,
+          createdAt: at(d - daysLater, 17, int(0, 50)),
+        });
+      }
+    };
 
     interface ImportSpec {
       d: number;
@@ -352,6 +378,7 @@ async function main() {
             notes: paid > 0 && paid < amount ? 'Balance after the next auction settlement.' : null,
             updatedAt: plus(reviewedAt, 45),
           });
+          addPayments({ importLoadId: id }, d, money(paid));
           audit(plus(reviewedAt, 45), owner.id, 'CREATE', 'ImportFinancials', id, { supplier: supplier.name, purchaseAmount: amount });
         }
       }
@@ -623,6 +650,7 @@ async function main() {
           notes: received > 0 && received < amount ? 'Balance by cheque, due this month.' : null,
           updatedAt: plus(reviewedAt, 30),
         });
+        addPayments({ exportLoadId: id }, d, money(Math.min(received, amount)));
         audit(plus(reviewedAt, 30), owner.id, 'CREATE', 'ExportFinancials', id, { client: client.name, saleAmount: amount });
       }
     };
@@ -750,9 +778,15 @@ async function main() {
     await insert(s.exportLoads, exportsOut);
     await insert(s.exportMeasurements, exportLines);
     await insert(s.exportFinancials, exportFinancials);
+    await insert(s.payments, paymentRows);
     await insert(s.stockMovements, movements);
     await insert(s.expenses, expenses);
     await insert(s.auditLogs, audits);
+    // the wood types list (Settings → Wood types): every wood the demo trades in
+    await tx
+      .update(s.mills)
+      .set({ settings: { ...mill.settings, woodTypes: cleanWoodTypeList(WOODS.map((w) => w.name)) } })
+      .where(eq(s.mills.id, millId));
     for (const [key, value] of counters) {
       await tx
         .insert(s.counters)

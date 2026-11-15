@@ -27,6 +27,7 @@ const SuppliersPage = lazy(() => import('./pages/Suppliers').then((m) => ({ defa
 const ExportDetailPage = lazy(() => import('./pages/ExportDetail').then((m) => ({ default: m.ExportDetailPage })));
 const ExportsPage = lazy(() => import('./pages/Exports').then((m) => ({ default: m.ExportsPage })));
 const NewExportPage = lazy(() => import('./pages/Exports').then((m) => ({ default: m.NewExportPage })));
+const StatementPage = lazy(() => import('./pages/Statement').then((m) => ({ default: m.StatementPage })));
 const UsersPage = lazy(() => import('./pages/Users').then((m) => ({ default: m.UsersPage })));
 
 function Guard({ permission, children }: { permission: Permission; children: ReactNode }) {
@@ -80,6 +81,7 @@ export default function App() {
         <Route path="/settings" element={<Guard permission={Permission.SETTINGS_MANAGE}><SettingsPage /></Guard>} />
         <Route path="/reports" element={<Guard permission={Permission.REPORTS_OPERATIONAL}><ReportsPage /></Guard>} />
         <Route path="/accounts" element={<Guard permission={Permission.FINANCE_VIEW}><AccountsPage /></Guard>} />
+        <Route path="/statement/:kind/:id" element={<Guard permission={Permission.FINANCE_VIEW}><StatementPage /></Guard>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </Suspense>

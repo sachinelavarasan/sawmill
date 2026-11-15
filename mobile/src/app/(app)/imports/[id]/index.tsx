@@ -28,6 +28,7 @@ import { dateTime, inr, int, num3, parseNum, timeOnly } from '../../../../lib/fo
 import { useSubmit } from '../../../../lib/hooks';
 import { useT } from '../../../../lib/i18n';
 import { type ImportDetail, importsApi, type Unloading } from '../../../../lib/imports-api';
+import { usePendingLogs } from '../../../../lib/offline-logs';
 import { invalidateOperations, useApi } from '../../../../lib/query';
 import { useSession } from '../../../../lib/session';
 
@@ -35,9 +36,12 @@ export default function ImportDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const t = useT();
   const router = useRouter();
-  const { can } = useSession();
+  const { can, user } = useSession();
   const q = useApi<ImportDetail>(`/imports/${id}`);
   const load = q.data;
+  /** logs measured offline for this load that the server hasn't got yet */
+  const pending = usePendingLogs(user?.id, id);
+  const waiting = pending.filter((p) => !p.error).length;
 
   const details: [string, string | null][] = load
     ? [
@@ -76,6 +80,7 @@ export default function ImportDetailScreen() {
             {!load.editable && load.status !== 'APPROVED' && load.status !== 'SUBMITTED' && <Notice icon="lock">{t('lockedRecord')}</Notice>}
 
             <StatPair a={{ label: t('logsMeasured'), value: int(load.totalLogs) }} b={{ label: t('totalCft'), value: num3(load.totalCft) }} />
+            {pending.length > 0 && <Notice icon="upload-cloud">{waiting > 0 ? `${t('pendingLogs', { n: waiting })}. ${t('pendingLogsSub')}` : t('notSent')}</Notice>}
             <Button
               kind={load.editable ? 'primary' : 'secondary'}
               icon={load.editable ? 'edit-3' : 'list'}
@@ -90,7 +95,7 @@ export default function ImportDetailScreen() {
               canSubmit={load.canSubmit}
               canReview={load.canReview}
               confirmApprove={t('confirmApprove', { code: load.code, cft: num3(load.totalCft) })}
-              submitBlocked={load.totalLogs === 0 ? t('needLogsToSubmit') : null}
+              submitBlocked={pending.length > 0 ? t('submitPendingBlocked') : load.totalLogs === 0 ? t('needLogsToSubmit') : null}
               approvedNote={t('approvedStockNote')}
               onDone={() => void q.refetch()}
             />

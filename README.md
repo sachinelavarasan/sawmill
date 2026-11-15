@@ -91,6 +91,26 @@ Phase 6 is built on the web: the owner's Approvals queue (everything submitted, 
 
 Phase 7 is built on the web: Accounts (profit & loss for any period, other expenses, what suppliers are owed and clients owe) and Reports (registers, stock, P&L, balances, expenses) with Excel download and Print / Save as PDF.
 
+Phase 12: yield reports (Reports → Yield by Wood Type; owner: Yield by Supplier). Recovery = finished ÷ raw CFT of
+approved production; the supplier report adds the average purchase rate and the cost per finished CFT (what a usable
+CFT really cost from that supplier). Maths in `backend/src/reports/yield.ts`.
+
+Phase 11 (Android): over-the-air updates (EAS Update — on once `EAS_PROJECT_ID` is set; publish with
+`eas update`, see `docs/DEPLOYMENT.md` § 4a) and app lock (Settings → App lock: a 4-digit PIN per person on
+the phone, optional fingerprint (no face unlock); locks on open and after 3 minutes away; "use password instead" signs out).
+Both need one new build.
+
+Phase 10: a fixed list of wood types (Settings → Wood types, web and Android). Load forms pick from it, and the API
+saves every wood type with one spelling, so "teak" and "Teak" can no longer split stock or reports. Existing
+spelling variants were merged by migration `0006`.
+
+Phase 9: payment history and offline measuring.
+- Every payment to a supplier or from a client is recorded on its own (date, cash / UPI / bank / cheque, reference),
+  on the load's purchase / sale details (web and Android). Paid amount and status are worked out from them.
+  Each supplier and client has a statement with a running balance (web: Print / Save as PDF; Android: share as text).
+- Android: logs measured with no signal are kept on the phone, shown as "waiting to send", and sent by themselves
+  when the connection is back — never twice (`clientRef`). See `docs/TECHNICAL_PLAN.md` § Phases.
+
 Phase 8 (web): security hardening, deployment and backups.
 - Security: account lockout after 5 wrong passwords, sessions end at once on password reset / disable / role change,
   production settings checked at startup, report size limits, and a test that every API route has a permission

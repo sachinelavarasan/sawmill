@@ -146,6 +146,29 @@ sudo -u sawmill ./deploy/update.sh
 restart API → health check. It stops at the first failure; the running app is not touched
 before the migration step. Browsers pick up the new web app on their next page load.
 
+## 4a. Android app: builds and over-the-air updates
+
+**Once:** `cd mobile && npx eas init`, then put the printed project id in `EAS_PROJECT_ID` — in
+`mobile/.env` and in the `env` of the `preview`, `previewInternal` and `production` profiles in
+`eas.json`. Then make one new build (`npx eas build -p android --profile production`): builds made
+before this don't have the update or app-lock code.
+
+**JavaScript-only fix** (screens, text, logic — no new native package):
+
+```bash
+cd mobile
+npx eas update --channel production --message "Fix totals on the measure screen"   # Play Store builds
+npx eas update --channel staging --message "…"                                      # preview APKs
+```
+
+Phones download it in the background the next time the app opens (or returns after 30 minutes)
+and offer "Restart now"; otherwise it is used from the next start. An update only reaches builds
+with the same app `version` (`runtimeVersion: appVersion` in `app.config.js`).
+
+**Native change** (a new Expo / native package, permissions, icons, splash): bump `version` in
+`app.config.js` and make a new build. Older builds keep running their last update and never get
+JavaScript that expects native code they don't have.
+
 ## 5. Security checklist
 
 - [ ] HTTPS works and http:// redirects; certificate auto-renews (`sudo certbot renew --dry-run`)

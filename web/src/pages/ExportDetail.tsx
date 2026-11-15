@@ -1,8 +1,7 @@
-import { exportPieceCft, Permission, sizeLabel } from '@timbertrail/shared';
+import { balanceDue, exportPieceCft, Permission, sizeLabel } from '@timbertrail/shared';
 import { AlertTriangleIcon, CheckIcon, PackageIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,6 +14,7 @@ import { dateTime, money, num3, useLoad } from '../components/common';
 import { useEditGuard } from '../components/leave-guard';
 import { ALL, EntryField, Field, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
+import { PaymentsPanel, PayBadge } from '../components/payments';
 import { WorkflowBar } from '../components/workflow';
 import { useConfirmDelete } from '../components/confirm';
 import { useToast } from '../components/toast';
@@ -588,29 +588,22 @@ interface Financials {
 const str = (n: number | null) => (n == null ? '' : String(n));
 const numOrNull = (v: string) => (v.trim() === '' ? null : Number(v));
 
-const PAY_BADGE = {
-  UNPAID: { key: 'unpaid', className: 'bg-muted text-muted-foreground' },
-  PARTIAL: { key: 'partial', className: 'bg-warning-soft text-warning' },
-  PAID: { key: 'paid', className: 'bg-success-soft text-success' },
-} as const;
+type SaleForm = Record<'clientId' | 'rate' | 'amount' | 'notes', string>;
+const saleForm = (d: Financials): SaleForm => ({ clientId: d.clientId ?? '', rate: str(d.sellingRatePerCft), amount: str(d.saleAmount), notes: d.notes ?? '' });
 
 function SaleSection({ exp, canPickClient }: { exp: ExportDetail; canPickClient: boolean }) {
   const { t } = useI18n();
   const { data, loading, error, reload } = useLoad(() => api<Financials>(`/exports/${exp.id}/financials`), [exp.id]);
   const clients = useLoad(() => (canPickClient ? api<{ id: string; name: string }[]>('/clients') : Promise.resolve([])), [canPickClient]);
-  const [form, setForm] = useState<Record<'clientId' | 'rate' | 'amount' | 'received' | 'notes', string> | null>(null);
+  const [form, setForm] = useState<SaleForm | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const toast = useToast();
+  /** bumped after saving, so the payments panel re-reads the sale amount */
+  const [paymentsKey, setPaymentsKey] = useState(0);
 
+  // Filled once from what is saved; later reloads (after a payment) refresh the figures, not the half-typed form.
   useEffect(() => {
-    if (data)
-      setForm({
-        clientId: data.clientId ?? '',
-        rate: str(data.sellingRatePerCft),
-        amount: str(data.saleAmount),
-        received: data.amountReceived ? String(data.amountReceived) : '',
-        notes: data.notes ?? '',
-      });
+    if (data) setForm((f) => f ?? saleForm(data));
   }, [data]);
 
   const set = (k: keyof NonNullable<typeof form>) => (e: { target: { value: string } }) => setForm((f) => (f ? { ...f, [k]: e.target.value } : f));
@@ -620,16 +613,17 @@ function SaleSection({ exp, canPickClient }: { exp: ExportDetail; canPickClient:
     if (!form) return;
     setMessage(null);
     try {
-      await api(`/exports/${exp.id}/financials`, {
+      const saved = await api<Financials>(`/exports/${exp.id}/financials`, {
         method: 'PUT',
         body: JSON.stringify({
           clientId: form.clientId || null,
           sellingRatePerCft: numOrNull(form.rate),
           saleAmount: numOrNull(form.amount),
-          amountReceived: numOrNull(form.received),
           notes: form.notes,
         }),
       });
+      setForm(saleForm(saved));
+      setPaymentsKey((k) => k + 1);
       setMessage(null);
       toast(t('saved'));
       reload();
@@ -640,8 +634,7 @@ function SaleSection({ exp, canPickClient }: { exp: ExportDetail; canPickClient:
 
   const rate = form ? positive(form.rate) : null;
   const fillAmount = () => rate != null && setForm((f) => (f ? { ...f, amount: (rate * exp.totalCft).toFixed(2) } : f));
-  const balance = data?.saleAmount != null ? data.saleAmount - data.amountReceived : null;
-  const pay = PAY_BADGE[data?.paymentStatus ?? 'UNPAID'];
+  const balance = data?.saleAmount != null ? balanceDue(data.saleAmount, data.amountReceived) : null;
 
   return (
     <Section
@@ -667,11 +660,7 @@ function SaleSection({ exp, canPickClient }: { exp: ExportDetail; canPickClient:
               <div key={label} className="min-w-0 bg-card px-5 py-5 sm:px-6">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   {label}
-                  {i === 3 && (
-                    <Badge variant="secondary" className={cn('rounded-full border-transparent font-semibold', pay.className)}>
-                      {t(pay.key)}
-                    </Badge>
-                  )}
+                  {i === 3 && <PayBadge status={data.paymentStatus} />}
                 </div>
                 <div className={cn('mt-1 truncate text-xl leading-tight font-semibold tabular-nums', tone)}>{value}</div>
               </div>
@@ -707,20 +696,18 @@ function SaleSection({ exp, canPickClient }: { exp: ExportDetail; canPickClient:
                 {rate != null && ` = ${money(rate * exp.totalCft)}`}
               </Button>
             </Field>
-            <Field id="sale-received" label={t('amountReceived')}>
-              <Input id="sale-received" type="number" value={form.received} onChange={set('received')} min={0} step="0.01" inputMode="decimal" />
-            </Field>
             <Field id="sale-notes" label={t('notes')} className="sm:col-span-full lg:col-span-2">
               <Input id="sale-notes" value={form.notes} onChange={set('notes')} maxLength={1000} />
             </Field>
           </FormGrid>
           {message && <Notice tone={message.kind}>{message.text}</Notice>}
-          {/* payment status and balance are in the summary above the form */}
+          {/* amount received, status and balance are in the summary above, worked out from the payments below */}
           <FormActions>
             <Button type="submit">{t('save')}</Button>
           </FormActions>
         </FormCard>
       )}
+      {data && <PaymentsPanel key={paymentsKey} kind="exports" loadId={exp.id} onChanged={reload} />}
     </Section>
   );
 }

@@ -1,5 +1,6 @@
 /**
- * [OWNER-ONLY] Sale side of an export: client, selling rate, amount, received.
+ * [OWNER-ONLY] Sale side of an export: client, selling rate, amount — and the payments
+ * received against it (each one recorded on its own, see Payments).
  * Only rendered for finance:view; the API refuses everyone else. Payment status comes from the server.
  */
 import { useState } from 'react';
@@ -11,11 +12,10 @@ import { useT } from '../lib/i18n';
 import { invalidate, useApi } from '../lib/query';
 import type { Party, SaleFinancials } from '../lib/types';
 import { Field, NumberField } from './form';
+import { Payments } from './Payments';
 import { SelectField, Sheet, useSheet } from './sheet';
 import { toast } from './toast';
 import { Button, Card, ErrorBox, KV, Pill, SectionTitle, Skeleton } from './ui';
-
-const PAY_TONE = { UNPAID: 'bad', PARTIAL: 'warn', PAID: 'good' } as const;
 
 export function SaleDetails({ exportId, totalCft }: { exportId: string; totalCft: number }) {
   const t = useT();
@@ -23,7 +23,7 @@ export function SaleDetails({ exportId, totalCft }: { exportId: string; totalCft
   const fin = useApi<SaleFinancials>(path);
   const clients = useApi<Party[]>('/clients');
   const sheet = useSheet();
-  const [f, setF] = useState({ clientId: '', rate: '', amount: '', received: '', notes: '' });
+  const [f, setF] = useState({ clientId: '', rate: '', amount: '', notes: '' });
 
   const open = () => {
     const d = fin.data;
@@ -31,7 +31,6 @@ export function SaleDetails({ exportId, totalCft }: { exportId: string; totalCft
       clientId: d?.clientId ?? '',
       rate: d?.sellingRatePerCft != null ? String(d.sellingRatePerCft) : '',
       amount: d?.saleAmount != null ? String(d.saleAmount) : '',
-      received: d?.amountReceived ? String(d.amountReceived) : '',
       notes: d?.notes ?? '',
     });
     sheet.open();
@@ -44,11 +43,10 @@ export function SaleDetails({ exportId, totalCft }: { exportId: string; totalCft
         clientId: f.clientId || null,
         sellingRatePerCft: parseNum(f.rate),
         saleAmount: parseNum(f.amount),
-        amountReceived: parseNum(f.received),
         notes: f.notes.trim() || null,
       },
     });
-    await invalidate(path, '/accounts', '/dashboard');
+    await invalidate(path, `/exports/${exportId}/payments`, '/accounts', '/dashboard');
     toast(t('saved'));
     sheet.close();
   });
@@ -66,15 +64,13 @@ export function SaleDetails({ exportId, totalCft }: { exportId: string; totalCft
         <Skeleton className="h-28 rounded-xl" />
       ) : (
         <Card>
-          <Pill tone={PAY_TONE[d.paymentStatus]} text={t(d.paymentStatus.toLowerCase() as 'paid')} />
           <KV label={t('client')} value={clientName ?? t('notSet')} />
           <KV label={t('sellingRate')} value={d.sellingRatePerCft != null ? `${inr(d.sellingRatePerCft)} / CFT` : '—'} />
           <KV label={t('saleAmount')} value={d.saleAmount != null ? inr(d.saleAmount) : '—'} strong />
-          <KV label={t('amountReceived')} value={inr(d.amountReceived)} />
-          {d.saleAmount != null && <KV label={t('balance')} value={inr(Math.max(0, d.saleAmount - d.amountReceived))} strong />}
           <Button size="md" kind="secondary" icon="edit-2" title={t('edit')} onPress={open} />
         </Card>
       )}
+      <Payments kind="exports" loadId={exportId} />
       <Sheet ref={sheet.ref} title={t('saleDetails')} footer={<Button title={t('save')} busy={busy} onPress={() => void save()} />}>
         <View className="gap-3.5 px-5">
           <SelectField
@@ -97,7 +93,6 @@ export function SaleDetails({ exportId, totalCft }: { exportId: string; totalCft
           {suggested != null && f.amount === '' && (
             <Button size="md" kind="ghost" title={`${t('rateTimesCft')} → ${inr(suggested)}`} onPress={() => setF((x) => ({ ...x, amount: String(suggested) }))} />
           )}
-          <NumberField label={t('amountReceived')} unit="₹" value={f.received} onChangeText={(received) => setF((x) => ({ ...x, received }))} />
           <Field label={t('notes')} value={f.notes} onChangeText={(notes) => setF((x) => ({ ...x, notes }))} multiline />
           {error && <ErrorBox message={error} />}
         </View>

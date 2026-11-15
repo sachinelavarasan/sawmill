@@ -72,6 +72,7 @@ export class ExportFinancialsDto {
   @IsOptional() @IsUUID() clientId?: string | null;
   @Money() sellingRatePerCft?: number | null;
   @Money() saleAmount?: number | null;
+  /** @deprecated ignored — payments are recorded one by one (POST /exports/:id/payments). Still accepted so older app versions don't fail. */
   @Money() amountReceived?: number | null;
   @Text(1000) notes?: string | null;
 }

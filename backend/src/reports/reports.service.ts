@@ -10,13 +10,14 @@
 import { ForbiddenException, Injectable, NotFoundException, PayloadTooLargeException } from '@nestjs/common';
 import { hasPermission, Lang, Permission, recoveryPercent, roundTo, sizeLabel, TKey, translate } from '@timbertrail/shared';
 import ExcelJS from 'exceljs';
-import { and, asc, eq, gte, lt, lte, SQL, sum } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, isNotNull, lt, lte, SQL, sum } from 'drizzle-orm';
 import { AccountsService } from '../accounts/accounts.service';
 import { AuditService } from '../audit/audit.service';
 import { millOffsetMinutes, Period, resolvePeriod } from '../common/period';
 import type { AuthUser } from '../common/types';
 import { Database, InjectDb } from '../db/db.module';
-import { expenses, exportLoads, importLoads, mills, productionRuns, stockMovements, users } from '../db/schema';
+import { expenses, exportLoads, importFinancials, importLoads, mills, productionRuns, stockMovements, suppliers, users } from '../db/schema';
+import { aggregateYield, type YieldRun } from './yield';
 
 export type ColType = 'text' | 'date' | 'datetime' | 'int' | 'cft' | 'money' | 'percent';
 type Row = Record<string, string | number | null>;
@@ -26,9 +27,11 @@ interface ColumnDef {
   type: ColType;
   /** add up in the totals row */
   total?: boolean;
+  /** a figure for the totals row that isn't a sum (e.g. overall recovery = Σ out ÷ Σ in); read from all rows */
+  ratio?: (rows: Row[]) => number | null;
 }
 
-export const REPORT_KEYS = ['imports', 'production', 'exports', 'stock', 'pnl', 'payables', 'receivables', 'expenses'] as const;
+export const REPORT_KEYS = ['imports', 'production', 'yieldWood', 'exports', 'stock', 'pnl', 'payables', 'receivables', 'yieldSupplier', 'expenses'] as const;
 export type ReportKey = (typeof REPORT_KEYS)[number];
 
 interface Ctx {
@@ -58,6 +61,10 @@ export interface ReportQuery {
 
 const STATUS_KEY: Record<string, TKey> = { DRAFT: 'draft', SUBMITTED: 'pending', APPROVED: 'approved', REJECTED: 'rejected' };
 const n = (v: string | number | null | undefined) => (v == null ? null : Number(v));
+/** sum of a numeric column across rows (hidden `_` columns included) */
+const sumOf = (rows: Row[], key: string) => rows.reduce((acc, r) => acc + (typeof r[key] === 'number' ? (r[key] as number) : 0), 0);
+/** overall recovery for the totals row */
+const overallRecovery = (rows: Row[]) => recoveryPercent(sumOf(rows, 'inputCft'), sumOf(rows, 'outputCft'));
 
 /** Upper bound for one report (screen or Excel), so a 5-year register can't exhaust memory. */
 export const MAX_REPORT_ROWS = 20_000;
@@ -141,6 +148,24 @@ export class ReportsService {
             status: t(STATUS_KEY[r.status]),
           }));
         },
+      },
+      yieldWood: {
+        title: 'reportYieldWood',
+        group: 'operational',
+        periodic: true,
+        statusFilter: false,
+        columns: [
+          { key: 'woodType', label: 'woodType', type: 'text' },
+          { key: 'runs', label: 'runs', type: 'int', total: true },
+          { key: 'inputCft', label: 'inputCft', type: 'cft', total: true },
+          { key: 'outputCft', label: 'outputCft', type: 'cft', total: true },
+          { key: 'wasteCft', label: 'wasteCft', type: 'cft', total: true },
+          { key: 'recovery', label: 'recovery', type: 'percent', ratio: overallRecovery },
+        ],
+        rows: async ({ actor, period }) =>
+          aggregateYield(await this.yieldRuns(actor, period, false), (r) => r.woodType)
+            .sort((a, b) => b.input - a.input)
+            .map((g) => ({ woodType: g.woodType, runs: g.runs, inputCft: g.input, outputCft: g.output, wasteCft: g.waste, recovery: g.recovery })),
       },
       exports: {
         title: 'reportExports',
@@ -270,6 +295,43 @@ export class ReportsService {
         rows: async ({ actor, t }) =>
           (await this.accounts.receivables(actor.millId)).map((r) => ({ name: r.name ?? t('noClientName'), loads: r.loads, amount: r.amount, received: r.received, balance: r.balance })),
       },
+      yieldSupplier: {
+        title: 'reportYieldSupplier',
+        group: 'financial',
+        periodic: true,
+        statusFilter: false,
+        columns: [
+          { key: 'supplier', label: 'supplier', type: 'text' },
+          { key: 'woodType', label: 'woodType', type: 'text' },
+          { key: 'loads', label: 'loadsUsed', type: 'int', total: true },
+          { key: 'inputCft', label: 'inputCft', type: 'cft', total: true },
+          { key: 'outputCft', label: 'outputCft', type: 'cft', total: true },
+          { key: 'recovery', label: 'recovery', type: 'percent', ratio: overallRecovery },
+          { key: 'avgRate', label: 'avgPurchaseRate', type: 'money' },
+          {
+            key: 'costPerFinished',
+            label: 'costPerFinishedCft',
+            type: 'money',
+            ratio: (rows) => (sumOf(rows, '_costedOutput') > 0 ? roundTo(sumOf(rows, '_cost') / sumOf(rows, '_costedOutput'), 2) : null),
+          },
+        ],
+        rows: async ({ actor, period, t }) =>
+          aggregateYield(await this.yieldRuns(actor, period, true), (r) => `${r.supplierId ?? ''}|${r.woodType}`)
+            .map((g) => ({ ...g, supplierName: g.supplierName ?? t('noSupplierName') }))
+            .sort((a, b) => a.supplierName.localeCompare(b.supplierName) || b.input - a.input)
+            .map((g) => ({
+              supplier: g.supplierName,
+              woodType: g.woodType,
+              loads: g.loads,
+              inputCft: g.input,
+              outputCft: g.output,
+              recovery: g.recovery,
+              avgRate: g.avgRate,
+              costPerFinished: g.costPerFinished,
+              _cost: g.cost,
+              _costedOutput: g.costedOutput,
+            })),
+      },
       expenses: {
         title: 'reportExpenses',
         group: 'financial',
@@ -323,9 +385,15 @@ export class ReportsService {
     }
     const totals: Record<string, number> = {};
     for (const c of def.columns.filter((c) => c.total)) {
-      const s = rows.reduce((acc, r) => acc + (typeof r[c.key] === 'number' ? (r[c.key] as number) : 0), 0);
+      const s = sumOf(rows, c.key);
       totals[c.key] = c.type === 'money' ? roundTo(s, 2) : c.type === 'cft' ? roundTo(s) : s;
     }
+    for (const c of def.columns.filter((c) => c.ratio)) {
+      const v = c.ratio!(rows);
+      if (v != null) totals[c.key] = v;
+    }
+    // hidden helper columns (`_…`) feed the totals only
+    for (const r of rows) for (const k of Object.keys(r)) if (k.startsWith('_')) delete r[k];
     return {
       key,
       title: t(def.title),
@@ -336,7 +404,7 @@ export class ReportsService {
       period: def.periodic ? { from: period.from, to: period.to } : null,
       approvedOnly: def.statusFilter ? approvedOnly : null,
       generatedAt: new Date().toISOString(),
-      columns: def.columns.map((c) => ({ key: c.key, label: t(c.label), type: c.type, total: !!c.total })),
+      columns: def.columns.map((c) => ({ key: c.key, label: t(c.label), type: c.type, total: !!(c.total || c.ratio) })),
       rows,
       totals,
       totalLabel: t('total'),
@@ -410,6 +478,38 @@ export class ReportsService {
   }
 
   /** Mill + (approved only) + (own entries for accountants). */
+  /**
+   * Approved production runs in the period that record the raw CFT used. With `withPurchase`
+   * (supplier report, owner only) each run also carries its load's supplier and purchase amount;
+   * without it no financial table is read.
+   */
+  private async yieldRuns(actor: AuthUser, period: Period, withPurchase: boolean): Promise<YieldRun[]> {
+    const where = and(
+      ...this.scope(actor, productionRuns, true),
+      gte(productionRuns.productionDate, period.from),
+      lte(productionRuns.productionDate, period.to),
+      isNotNull(productionRuns.inputCft),
+      gt(productionRuns.inputCft, '0'),
+    );
+    const base = { loadId: importLoads.id, woodType: productionRuns.woodType, input: productionRuns.inputCft, output: productionRuns.outputCft, loadCft: importLoads.totalCft };
+    const rows = withPurchase
+      ? await this.db
+          .select({ ...base, purchaseAmount: importFinancials.purchaseAmount, supplierId: importFinancials.supplierId, supplierName: suppliers.name })
+          .from(productionRuns)
+          .innerJoin(importLoads, eq(importLoads.id, productionRuns.importLoadId))
+          .leftJoin(importFinancials, eq(importFinancials.importLoadId, importLoads.id))
+          .leftJoin(suppliers, eq(suppliers.id, importFinancials.supplierId))
+          .where(where)
+      : await this.db.select(base).from(productionRuns).innerJoin(importLoads, eq(importLoads.id, productionRuns.importLoadId)).where(where);
+    return rows.map((r) => ({
+      ...r,
+      input: Number(r.input),
+      output: Number(r.output),
+      loadCft: Number(r.loadCft),
+      purchaseAmount: 'purchaseAmount' in r ? n(r.purchaseAmount as string | null) : null,
+    }));
+  }
+
   private scope(actor: AuthUser, t: typeof importLoads | typeof productionRuns | typeof exportLoads, approvedOnly: boolean): SQL[] {
     const c: SQL[] = [eq(t.millId, actor.millId)];
     if (approvedOnly) c.push(eq(t.status, 'APPROVED'));

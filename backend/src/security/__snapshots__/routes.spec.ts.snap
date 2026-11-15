@@ -3,7 +3,9 @@
 exports[`API route policies route → policy table is unchanged (review any diff) 1`] = `
 "DELETE /expenses/:id                             finance:view   [owner only]
 DELETE /exports/:id/measurements/:lineId         operations:create
+DELETE /exports/:id/payments/:paymentId          finance:view   [owner only]
 DELETE /imports/:id/logs/:logId                  operations:create
+DELETE /imports/:id/payments/:paymentId          finance:view   [owner only]
 DELETE /imports/:id/unloading/:unloadingId       operations:create
 DELETE /notifications/tokens                     login
 DELETE /production/:id/outputs/:outputId         operations:create
@@ -13,6 +15,7 @@ GET /approvals/count                             operations:approve   [owner onl
 GET /audit-logs                                  audit:view   [owner only]
 GET /auth/me                                     login
 GET /clients                                     clients:manage   [owner only]
+GET /clients/:id/statement                       finance:view   [owner only]
 GET /dashboard/accountant                        dashboard:accountant
 GET /dashboard/accountant/charts                 dashboard:accountant
 GET /dashboard/owner                             dashboard:owner   [owner only]
@@ -21,10 +24,12 @@ GET /expenses                                    finance:view   [owner only]
 GET /exports                                     operations:create
 GET /exports/:id                                 operations:create
 GET /exports/:id/financials                      operations:create + finance:view   [owner only]
+GET /exports/:id/payments                        finance:view   [owner only]
 GET /health                                      public
 GET /imports                                     operations:create
 GET /imports/:id                                 operations:create
 GET /imports/:id/financials                      operations:create + finance:view   [owner only]
+GET /imports/:id/payments                        finance:view   [owner only]
 GET /notifications                               login
 GET /notifications/unread-count                  login
 GET /production                                  operations:create
@@ -38,7 +43,9 @@ GET /stock-adjustments                           operations:create
 GET /stock-adjustments/:id                       operations:create
 GET /stock/movements                             operations:create
 GET /suppliers                                   suppliers:manage   [owner only]
+GET /suppliers/:id/statement                     finance:view   [owner only]
 GET /users                                       users:manage   [owner only]
+GET /wood-types                                  operations:create
 PATCH /clients/:id                               clients:manage   [owner only]
 PATCH /expenses/:id                              finance:view   [owner only]
 PATCH /exports/:id                               operations:create
@@ -60,11 +67,13 @@ POST /expenses                                   finance:view   [owner only]
 POST /exports                                    operations:create
 POST /exports/:id/approve                        operations:approve   [owner only]
 POST /exports/:id/measurements                   operations:create
+POST /exports/:id/payments                       finance:view   [owner only]
 POST /exports/:id/reject                         operations:approve   [owner only]
 POST /exports/:id/submit                         operations:submit
 POST /imports                                    operations:create
 POST /imports/:id/approve                        operations:approve   [owner only]
 POST /imports/:id/logs                           operations:create
+POST /imports/:id/payments                       finance:view   [owner only]
 POST /imports/:id/reject                         operations:approve   [owner only]
 POST /imports/:id/submit                         operations:submit
 POST /imports/:id/unloading                      operations:create

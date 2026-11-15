@@ -9,6 +9,8 @@ import {
   FileTextIcon,
   HandshakeIcon,
   LayersIcon,
+  PercentIcon,
+  ScaleIcon,
   type LucideIcon,
   PrinterIcon,
   ReceiptIndianRupeeIcon,
@@ -55,11 +57,13 @@ interface ReportData extends ReportInfo {
 const REPORT_META: Record<string, { icon: LucideIcon; sub: TKey }> = {
   imports: { icon: ArrowDownToLineIcon, sub: 'reportImportsSub' },
   production: { icon: FactoryIcon, sub: 'reportProductionSub' },
+  yieldWood: { icon: PercentIcon, sub: 'reportYieldWoodSub' },
   exports: { icon: ArrowUpFromLineIcon, sub: 'reportExportsSub' },
   stock: { icon: LayersIcon, sub: 'reportStockSub' },
   pnl: { icon: TrendingUpIcon, sub: 'reportPnlSub' },
   payables: { icon: TruckIcon, sub: 'reportPayablesSub' },
   receivables: { icon: HandshakeIcon, sub: 'reportReceivablesSub' },
+  yieldSupplier: { icon: ScaleIcon, sub: 'reportYieldSupplierSub' },
   expenses: { icon: ReceiptIndianRupeeIcon, sub: 'reportExpensesSub' },
 };
 

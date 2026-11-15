@@ -4,6 +4,12 @@
  * The API address comes from EXPO_PUBLIC_API_URL (.env locally, eas.json for builds).
  * Splash: the logo on light #F4F6F9 / navy #0F1B2E, held until fonts and the saved login
  * are ready (src/app/_layout.tsx), then faded out.
+ *
+ * Over-the-air updates (EAS Update): on once EAS_PROJECT_ID is set. Each build listens on its
+ * eas.json channel (preview → staging, production → production) and only takes updates made for
+ * the same app `version` (runtimeVersion: appVersion) — bump `version` when native code changes.
+ * The app starts at once from what it has and downloads a new update in the background; it is
+ * used from the next start, or straight away if the person taps "Restart" (src/lib/app-updates.ts).
  */
 const fs = require('fs');
 const path = require('path');
@@ -25,6 +31,8 @@ const withIncreasedMetaspace = (config) =>
  * next to this file (git-ignored), or point GOOGLE_SERVICES_JSON at it (an EAS file secret).
  * Without it the app still builds; only remote push is off on Android.
  */
+const projectId = process.env.EAS_PROJECT_ID;
+
 const googleServicesFile =
   process.env.GOOGLE_SERVICES_JSON || (fs.existsSync(path.join(__dirname, 'google-services.json')) ? './google-services.json' : undefined);
 
@@ -57,6 +65,7 @@ module.exports = {
       'expo-secure-store',
       'expo-font',
       'expo-sharing',
+      ['expo-local-authentication', { faceIDPermission: false }],
       [
         'expo-splash-screen',
         {
@@ -91,8 +100,18 @@ module.exports = {
     extra: {
       router: {},
       // `eas init` prints the project id; put it in EAS_PROJECT_ID (.env / eas.json) — a dynamic config can't be edited for you
-      ...(process.env.EAS_PROJECT_ID ? { eas: { projectId: process.env.EAS_PROJECT_ID } } : {}),
+      ...(projectId ? { eas: { projectId } } : {}),
     },
+    ...(projectId
+      ? {
+          updates: {
+            url: `https://u.expo.dev/${projectId}`,
+            checkAutomatically: 'ON_LOAD',
+            // never hold the app on a slow yard connection: start from the cache, fetch in the background
+            fallbackToCacheTimeout: 0,
+          },
+        }
+      : {}),
     runtimeVersion: {
       policy: 'appVersion',
     },

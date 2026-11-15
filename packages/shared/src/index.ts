@@ -6,3 +6,5 @@ export * from './theme';
 export * from './unloading';
 export * from './production';
 export * from './api-error';
+export * from './payments';
+export * from './wood-types';

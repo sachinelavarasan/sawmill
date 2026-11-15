@@ -63,6 +63,15 @@ export default function PartyFormScreen() {
         />
       }
     >
+      {id && (
+        <Button
+          kind="secondary"
+          size="md"
+          icon="file-text"
+          title={t('viewStatement')}
+          onPress={() => router.push({ pathname: '/statement/[kind]/[id]', params: { kind, id } })}
+        />
+      )}
       <FormSection title={t('secContact')}>
         <Field label={t('name')} required value={f.name} onChangeText={set('name')} autoCapitalize="words" error={touched ? errors.name : undefined} />
         <Field label={t('mobile')} value={f.phone} onChangeText={set('phone')} keyboardType="phone-pad" error={errors.phone} hint={t('mobileHint')} />

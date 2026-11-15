@@ -16,6 +16,7 @@ import { useConfirmDelete } from '../components/confirm';
 import { useEditGuard } from '../components/leave-guard';
 import { Field, FigureStrip, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, TableCard, useClientPaging, wide } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
+import { PaymentsPanel } from '../components/payments';
 import { WorkflowBar } from '../components/workflow';
 import { useToast } from '../components/toast';
 import { type TKey, useI18n } from '../i18n';
@@ -414,31 +415,33 @@ interface Financials {
   paymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID';
   notes: string | null;
 }
+type PurchaseForm = Record<'supplierId' | 'rate' | 'amount' | 'transport' | 'notes', string>;
 
 const str = (n: number | null) => (n == null ? '' : String(n));
 const numOrNull = (v: string) => (v.trim() === '' ? null : Number(v));
 /** Radix Select can't hold '', so "no supplier" is this sentinel in the picker. */
 const NO_SUPPLIER = 'none';
-const PAY_TONE = { UNPAID: 'bg-muted text-muted-foreground', PARTIAL: 'bg-warning-soft text-warning', PAID: 'bg-success-soft text-success' } as const;
+const purchaseForm = (d: Financials): PurchaseForm => ({
+  supplierId: d.supplierId ?? '',
+  rate: str(d.purchaseRatePerCft),
+  amount: str(d.purchaseAmount),
+  transport: str(d.transportCharges),
+  notes: d.notes ?? '',
+});
 
 function PurchaseSection({ load, canPickSupplier }: { load: ImportDetail; canPickSupplier: boolean }) {
   const { t } = useI18n();
   const { data, loading, error, reload } = useLoad(() => api<Financials>(`/imports/${load.id}/financials`), [load.id]);
   const suppliers = useLoad(() => (canPickSupplier ? api<{ id: string; name: string }[]>('/suppliers') : Promise.resolve([])), [canPickSupplier]);
-  const [form, setForm] = useState<Record<'supplierId' | 'rate' | 'amount' | 'transport' | 'paid' | 'notes', string> | null>(null);
+  const [form, setForm] = useState<PurchaseForm | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const toast = useToast();
+  /** bumped after saving, so the payments panel re-reads the bill amount */
+  const [paymentsKey, setPaymentsKey] = useState(0);
 
+  // Filled once from what is saved; later reloads (after a payment) refresh the figures, not the half-typed form.
   useEffect(() => {
-    if (data)
-      setForm({
-        supplierId: data.supplierId ?? '',
-        rate: str(data.purchaseRatePerCft),
-        amount: str(data.purchaseAmount),
-        transport: str(data.transportCharges),
-        paid: data.amountPaid ? String(data.amountPaid) : '',
-        notes: data.notes ?? '',
-      });
+    if (data) setForm((f) => f ?? purchaseForm(data));
   }, [data]);
 
   const set = (k: keyof NonNullable<typeof form>) => (e: { target: { value: string } }) =>
@@ -449,17 +452,18 @@ function PurchaseSection({ load, canPickSupplier }: { load: ImportDetail; canPic
     if (!form) return;
     setMessage(null);
     try {
-      await api(`/imports/${load.id}/financials`, {
+      const saved = await api<Financials>(`/imports/${load.id}/financials`, {
         method: 'PUT',
         body: JSON.stringify({
           supplierId: form.supplierId || null,
           purchaseRatePerCft: numOrNull(form.rate),
           purchaseAmount: numOrNull(form.amount),
           transportCharges: numOrNull(form.transport),
-          amountPaid: numOrNull(form.paid),
           notes: form.notes,
         }),
       });
+      setForm(purchaseForm(saved));
+      setPaymentsKey((k) => k + 1);
       setMessage(null);
       toast(t('saved'));
       reload();
@@ -470,9 +474,6 @@ function PurchaseSection({ load, canPickSupplier }: { load: ImportDetail; canPic
 
   const rate = form ? positive(form.rate) : null;
   const fillAmount = () => rate != null && setForm((f) => (f ? { ...f, amount: (rate * load.totalCft).toFixed(2) } : f));
-  const balance = data?.purchaseAmount != null ? data.purchaseAmount - data.amountPaid : null;
-  const pay = data?.paymentStatus ?? 'UNPAID';
-  const payKey = ({ UNPAID: 'unpaid', PARTIAL: 'partial', PAID: 'paid' } as const)[pay];
 
   return (
     <Section
@@ -519,36 +520,18 @@ function PurchaseSection({ load, canPickSupplier }: { load: ImportDetail; canPic
             <Field id="pur-transport" label={t('transportCharges')}>
               <Input id="pur-transport" type="number" value={form.transport} onChange={set('transport')} min={0} step="0.01" inputMode="decimal" />
             </Field>
-            <Field id="pur-paid" label={t('amountPaid')}>
-              <Input id="pur-paid" type="number" value={form.paid} onChange={set('paid')} min={0} step="0.01" inputMode="decimal" />
-            </Field>
             <Field id="pur-notes" label={t('notes')}>
               <Input id="pur-notes" value={form.notes} onChange={set('notes')} maxLength={1000} />
             </Field>
           </FormGrid>
           {message && <Notice tone={message.kind}>{message.text}</Notice>}
-          <FormActions
-            summary={
-              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                {t('paymentStatus')}:
-                <Badge variant="secondary" className={cn('rounded-full border-transparent font-semibold', PAY_TONE[pay])}>
-                  {t(payKey)}
-                </Badge>
-                {balance != null && (
-                  <>
-                    <span>·</span>
-                    <span>
-                      {t('balance')}: <strong className="text-foreground tabular-nums">{money(balance)}</strong>
-                    </span>
-                  </>
-                )}
-              </span>
-            }
-          >
+          {/* what has been paid, and what is left, is worked out from the payments below */}
+          <FormActions>
             <Button type="submit">{t('save')}</Button>
           </FormActions>
         </FormCard>
       )}
+      {data && <PaymentsPanel key={paymentsKey} kind="imports" loadId={load.id} onChanged={reload} />}
     </Section>
   );
 }

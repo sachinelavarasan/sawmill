@@ -1,7 +1,7 @@
 /**
- * [OWNER-ONLY] Purchase side of an import load: supplier, rate, amount, transport, paid.
+ * [OWNER-ONLY] Purchase side of an import load: supplier, rate, amount, transport — and
+ * the payments made against it (each one recorded on its own, see Payments).
  * Rendered only for people with finance:view, and the API refuses everyone else.
- * Payment status is worked out by the server from amount and paid.
  */
 import { useState } from 'react';
 import { View } from 'react-native';
@@ -12,11 +12,10 @@ import { importsApi } from '../lib/imports-api';
 import { invalidate, useApi } from '../lib/query';
 import type { Party, PurchaseFinancials } from '../lib/types';
 import { Field, NumberField } from './form';
+import { Payments } from './Payments';
 import { SelectField, Sheet, useSheet } from './sheet';
 import { toast } from './toast';
 import { Button, Card, ErrorBox, KV, Pill, SectionTitle, Skeleton } from './ui';
-
-const PAY_TONE = { UNPAID: 'bad', PARTIAL: 'warn', PAID: 'good' } as const;
 
 export function PurchaseDetails({ importId, totalCft }: { importId: string; totalCft: number }) {
   const t = useT();
@@ -24,7 +23,7 @@ export function PurchaseDetails({ importId, totalCft }: { importId: string; tota
   const fin = useApi<PurchaseFinancials>(path);
   const suppliers = useApi<Party[]>('/suppliers');
   const sheet = useSheet();
-  const [f, setF] = useState({ supplierId: '', rate: '', amount: '', transport: '', paid: '', notes: '' });
+  const [f, setF] = useState({ supplierId: '', rate: '', amount: '', transport: '', notes: '' });
 
   const open = () => {
     const d = fin.data;
@@ -33,7 +32,6 @@ export function PurchaseDetails({ importId, totalCft }: { importId: string; tota
       rate: d?.purchaseRatePerCft != null ? String(d.purchaseRatePerCft) : '',
       amount: d?.purchaseAmount != null ? String(d.purchaseAmount) : '',
       transport: d?.transportCharges != null ? String(d.transportCharges) : '',
-      paid: d?.amountPaid ? String(d.amountPaid) : '',
       notes: d?.notes ?? '',
     });
     sheet.open();
@@ -45,10 +43,9 @@ export function PurchaseDetails({ importId, totalCft }: { importId: string; tota
       purchaseRatePerCft: parseNum(f.rate),
       purchaseAmount: parseNum(f.amount),
       transportCharges: parseNum(f.transport),
-      amountPaid: parseNum(f.paid),
       notes: f.notes.trim() || null,
     });
-    await invalidate(path, '/accounts', '/dashboard');
+    await invalidate(path, `/imports/${importId}/payments`, '/accounts', '/dashboard');
     toast(t('saved'));
     sheet.close();
   });
@@ -65,18 +62,14 @@ export function PurchaseDetails({ importId, totalCft }: { importId: string; tota
         <Skeleton className="h-28 rounded-xl" />
       ) : (
         <Card>
-          <View className="flex-row items-center justify-between">
-            <Pill tone={PAY_TONE[d.paymentStatus ?? 'UNPAID']} text={t((d.paymentStatus ?? 'UNPAID').toLowerCase() as 'paid')} />
-          </View>
           <KV label={t('supplier')} value={supplierName ?? t('noSupplier')} />
           <KV label={t('purchaseRate')} value={d.purchaseRatePerCft != null ? `${inr(d.purchaseRatePerCft)} / CFT` : '—'} />
           <KV label={t('purchaseAmount')} value={d.purchaseAmount != null ? inr(d.purchaseAmount) : '—'} strong />
           <KV label={t('transportCharges')} value={d.transportCharges != null ? inr(d.transportCharges) : '—'} />
-          <KV label={t('amountPaid')} value={inr(d.amountPaid)} />
-          {d.purchaseAmount != null && <KV label={t('balance')} value={inr(Math.max(0, d.purchaseAmount - d.amountPaid))} strong />}
           <Button size="md" kind="secondary" icon="edit-2" title={t('edit')} onPress={open} />
         </Card>
       )}
+      <Payments kind="imports" loadId={importId} />
       <Sheet ref={sheet.ref} title={t('purchaseDetails')} footer={<Button title={t('save')} busy={busy} onPress={() => void save()} />}>
         <View className="gap-3.5 px-5">
           <SelectField
@@ -101,7 +94,6 @@ export function PurchaseDetails({ importId, totalCft }: { importId: string; tota
             <Button size="md" kind="ghost" title={`${t('rateTimesCft')} → ${inr(rateTimesCft)}`} onPress={() => setF((x) => ({ ...x, amount: String(rateTimesCft) }))} />
           )}
           <NumberField label={t('transportCharges')} unit="₹" value={f.transport} onChangeText={(transport) => setF((x) => ({ ...x, transport }))} />
-          <NumberField label={t('amountPaid')} unit="₹" value={f.paid} onChangeText={(paid) => setF((x) => ({ ...x, paid }))} />
           <Field label={t('notes')} value={f.notes} onChangeText={(notes) => setF((x) => ({ ...x, notes }))} multiline />
           {error && <ErrorBox message={error} />}
         </View>

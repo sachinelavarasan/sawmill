@@ -10,10 +10,13 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { DialogProvider } from '../components/confirm';
+import { DialogProvider, useConfirm } from '../components/confirm';
+import { LockScreen } from '../components/LockScreen';
 import { FONT_FILES } from '../components/text';
 import { ToastHost } from '../components/toast';
-import { LangProvider, useLang } from '../lib/i18n';
+import { AppLockProvider } from '../lib/app-lock';
+import { restartIntoUpdate, useAppUpdates } from '../lib/app-updates';
+import { LangProvider, useLang, useT } from '../lib/i18n';
 import { configureNotifications, NotificationProvider } from '../lib/notifications';
 import { queryClient } from '../lib/query';
 import { SessionProvider, useSession } from '../lib/session';
@@ -48,9 +51,13 @@ function WithSession() {
   const { adopt } = useLang();
   return (
     <SessionProvider onLogin={(p) => adopt(p.preferredLanguage)}>
-      <NotificationProvider>
-        <Routes />
-      </NotificationProvider>
+      <AppLockProvider>
+        <NotificationProvider>
+          <Routes />
+        </NotificationProvider>
+        <LockScreen />
+        <UpdatePrompt />
+      </AppLockProvider>
       <ToastHost />
     </SessionProvider>
   );
@@ -82,4 +89,14 @@ function Routes() {
       </Stack>
     </>
   );
+}
+
+/** Once per downloaded over-the-air update: offer to restart into it now (lib/app-updates.ts). */
+function UpdatePrompt() {
+  const t = useT();
+  const confirm = useConfirm();
+  useAppUpdates(async () => {
+    if (await confirm({ title: t('updateReady'), message: t('updateReadySub'), confirmText: t('restartNow'), cancelText: t('later') })) await restartIntoUpdate();
+  });
+  return null;
 }

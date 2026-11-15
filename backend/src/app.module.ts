@@ -17,6 +17,7 @@ import { ExportsModule } from './exports/exports.controller';
 import { ApprovalsModule } from './approvals/approvals.module';
 import { SettingsModule } from './settings/settings.module';
 import { AccountsModule } from './accounts/accounts.module';
+import { PaymentsModule } from './payments/payments.module';
 import { ReportsModule } from './reports/reports.module';
 import { ProductionModule } from './production/production.controller';
 import { StockModule } from './stock/stock.controller';
@@ -55,6 +56,7 @@ import { UsersModule } from './users/users.module';
     ApprovalsModule,
     SettingsModule,
     AccountsModule,
+    PaymentsModule,
     ReportsModule,
   ],
   controllers: [HealthController],

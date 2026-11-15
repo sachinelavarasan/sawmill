@@ -4,6 +4,7 @@ import {
   durationMinutes,
   hasPermission,
   importLogCft,
+  paymentStatusFor,
   Permission,
   roundTo,
   UnloadingInputError,
@@ -11,6 +12,7 @@ import {
 } from '@timbertrail/shared';
 import { and, asc, count, desc, eq, inArray, max, ne, SQL, sum } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
+import { resolveOptionalWoodType, resolveWoodType } from '../common/wood-types';
 import { NotificationsService } from '../notifications/notifications.module';
 import { nextCode } from '../common/codes';
 import { textSearch } from '../common/search';
@@ -19,6 +21,7 @@ import { Database, DbOrTx, InjectDb } from '../db/db.module';
 import { importFinancials, importLoads, logMeasurements, mills, stockMovements, suppliers, unloadingEntries, users } from '../db/schema';
 import { assertStockNotNegative, syncMovements } from '../stock/ledger';
 import {
+  AddLogDto,
   CreateImportDto,
   CreateUnloadingDto,
   FinancialsDto,
@@ -143,12 +146,16 @@ export class ImportsService {
         .where(inArray(importFinancials.importLoadId, rows.map((r) => r.id)));
       for (const n of named) supplierOf.set(n.loadId, n.name);
     }
-    return { items: rows.map((r) => ({ ...r, totalCft: Number(r.totalCft), supplierName: supplierOf.get(r.id) ?? null })), total, take: q.take, skip: q.skip };
+    // The key itself is left out for accountants, so owner-only field names never reach them.
+    const seesFinance = hasPermission(actor.role, Permission.FINANCE_VIEW);
+    const items = rows.map((r) => ({ ...r, totalCft: Number(r.totalCft), ...(seesFinance ? { supplierName: supplierOf.get(r.id) ?? null } : {}) }));
+    return { items, total, take: q.take, skip: q.skip };
   }
 
   async create(actor: AuthUser, dto: CreateImportDto) {
     const arrivalAt = dto.arrivalAt ? new Date(dto.arrivalAt) : new Date();
     const load = await this.db.transaction(async (tx) => {
+      const woodType = await resolveWoodType(tx, actor.millId, dto.woodType);
       const code = await nextCode(tx, actor.millId, 'IMP');
       const [row] = await tx
         .insert(importLoads)
@@ -157,7 +164,7 @@ export class ImportsService {
           code,
           arrivalAt,
           lorryNumber: dto.lorryNumber,
-          woodType: dto.woodType,
+          woodType,
           woodCategory: text(dto.woodCategory),
           driverName: text(dto.driverName),
           driverMobile: text(dto.driverMobile),
@@ -220,7 +227,8 @@ export class ImportsService {
   async update(actor: AuthUser, id: string, dto: UpdateImportDto) {
     await this.db.transaction(async (tx) => {
       const { load: before, action } = await this.findEditableLoad(tx, actor, id);
-      if (before.status === 'APPROVED' && dto.woodType && dto.woodType !== before.woodType) {
+      const woodType = await resolveOptionalWoodType(tx, actor.millId, dto.woodType);
+      if (before.status === 'APPROVED' && woodType && woodType !== before.woodType) {
         // Production, exports and adjustments copied the old wood type onto their own
         // stock lines; moving only the import's raw stock would split the load across
         // two wood types. Allow the correction only while nothing else has used the load.
@@ -239,7 +247,7 @@ export class ImportsService {
         .set({
           arrivalAt: dto.arrivalAt ? new Date(dto.arrivalAt) : undefined,
           lorryNumber: dto.lorryNumber,
-          woodType: dto.woodType,
+          woodType,
           woodCategory: text(dto.woodCategory),
           driverName: text(dto.driverName),
           driverMobile: text(dto.driverMobile),
@@ -349,8 +357,18 @@ export class ImportsService {
    * Adding a log is not audited row by row (a lorry carries hundreds); edits and
    * deletions of an existing log are.
    */
-  async addLog(actor: AuthUser, loadId: string, dto: LogDto) {
+  async addLog(actor: AuthUser, loadId: string, dto: AddLogDto) {
     return this.db.transaction(async (tx) => {
+      // A log sent again by the phone (offline queue, lost reply) is answered with the one already
+      // stored — even if the load was submitted since — instead of being added twice.
+      if (dto.clientRef) {
+        const visible = await this.findLoad(tx, actor, loadId, true);
+        const [existing] = await tx
+          .select()
+          .from(logMeasurements)
+          .where(and(eq(logMeasurements.importLoadId, loadId), eq(logMeasurements.clientRef, dto.clientRef)));
+        if (existing) return { log: logView(existing), totalLogs: visible.totalLogs, totalCft: Number(visible.totalCft) };
+      }
       const { load, action } = await this.findEditableLoad(tx, actor, loadId);
       const [{ last }] = await tx
         .select({ last: max(logMeasurements.logNumber) })
@@ -364,6 +382,7 @@ export class ImportsService {
           girthIn: String(dto.girthIn),
           lengthFt: String(dto.lengthFt),
           cft: String(importLogCft(dto.girthIn, dto.lengthFt)),
+          clientRef: dto.clientRef ?? null,
           createdById: actor.id,
         })
         .returning();
@@ -477,7 +496,7 @@ export class ImportsService {
     return financialsView(row);
   }
 
-  /** Create or replace the purchase side of a load. Payment status is derived, never typed in. */
+  /** Create or replace the purchase side of a load. Amount paid comes from the payments; status is derived. */
   async saveFinancials(actor: AuthUser, loadId: string, dto: FinancialsDto) {
     return this.db.transaction(async (tx) => {
       await this.findLoad(tx, actor, loadId, true);
@@ -488,21 +507,20 @@ export class ImportsService {
           .where(and(eq(suppliers.id, dto.supplierId), eq(suppliers.millId, actor.millId)));
         if (!supplier) throw new BadRequestException('Supplier not found');
       }
+      const [before] = await tx.select().from(importFinancials).where(eq(importFinancials.importLoadId, loadId));
+      // amount_paid is the sum of the load's payments (see PaymentsService); only the status is re-derived here.
       const amount = dto.purchaseAmount ?? null;
-      const paid = dto.amountPaid ?? 0;
-      const paymentStatus = paid <= 0 ? 'UNPAID' : amount != null && paid >= amount ? 'PAID' : 'PARTIAL';
+      const paid = Number(before?.amountPaid ?? 0);
       const values = {
         supplierId: dto.supplierId ?? null,
         purchaseRatePerCft: dto.purchaseRatePerCft == null ? null : String(dto.purchaseRatePerCft),
         purchaseAmount: amount == null ? null : String(amount),
         transportCharges: dto.transportCharges == null ? null : String(dto.transportCharges),
-        amountPaid: String(paid),
-        paymentStatus,
+        paymentStatus: paymentStatusFor(amount, paid),
         notes: dto.notes || null,
         updatedAt: new Date(),
       } as const;
 
-      const [before] = await tx.select().from(importFinancials).where(eq(importFinancials.importLoadId, loadId));
       const [after] = await tx
         .insert(importFinancials)
         .values({ importLoadId: loadId, ...values })

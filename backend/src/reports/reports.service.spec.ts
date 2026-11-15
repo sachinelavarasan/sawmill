@@ -12,8 +12,9 @@ describe('ReportsService.list', () => {
   it('offers financial reports to the owner only', () => {
     const ownerKeys = service().list(owner).map((r) => r.key);
     const accKeys = service().list(accountant).map((r) => r.key);
-    expect(ownerKeys).toEqual(['imports', 'production', 'exports', 'stock', 'pnl', 'payables', 'receivables', 'expenses']);
-    expect(accKeys).toEqual(['imports', 'production', 'exports', 'stock']);
+    expect(ownerKeys).toEqual(['imports', 'production', 'yieldWood', 'exports', 'stock', 'pnl', 'payables', 'receivables', 'yieldSupplier', 'expenses']);
+    // supplier yield names suppliers and prices: owner only
+    expect(accKeys).toEqual(['imports', 'production', 'yieldWood', 'exports', 'stock']);
   });
 
   it('treats object built-ins as unknown reports, not a server error', async () => {

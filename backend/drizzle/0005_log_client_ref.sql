@@ -1,0 +1,2 @@
+ALTER TABLE "log_measurements" ADD COLUMN "client_ref" uuid;--> statement-breakpoint
+CREATE UNIQUE INDEX "log_measurements_load_client_ref_uq" ON "log_measurements" USING btree ("import_load_id","client_ref");

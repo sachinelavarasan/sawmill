@@ -88,8 +88,9 @@ export const importsApi = {
     api<Unloading>(`/imports/${id}/unloading/${uid}`, json('PATCH', { endAt: new Date().toISOString() })),
   removeUnloading: (id: string, uid: string) => api<void>(`/imports/${id}/unloading/${uid}`, json('DELETE')),
 
-  addLog: (id: string, girthIn: number, lengthFt: number) =>
-    api<{ log: Log } & Totals>(`/imports/${id}/logs`, json('POST', { girthIn, lengthFt })),
+  /** `clientRef`: the phone's id for this log, so a resend (offline queue) is not stored twice */
+  addLog: (id: string, girthIn: number, lengthFt: number, clientRef?: string) =>
+    api<{ log: Log } & Totals>(`/imports/${id}/logs`, json('POST', { girthIn, lengthFt, clientRef })),
   updateLog: (id: string, logId: string, girthIn: number, lengthFt: number) =>
     api<{ log: Log } & Totals>(`/imports/${id}/logs/${logId}`, json('PATCH', { girthIn, lengthFt })),
   removeLog: (id: string, logId: string) => api<Totals>(`/imports/${id}/logs/${logId}`, json('DELETE')),

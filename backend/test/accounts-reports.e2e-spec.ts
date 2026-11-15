@@ -24,7 +24,8 @@ async function tradeOnce() {
   await accA('POST', `/imports/${load.id}/unloading`, { vehicleNumber: 'TN 41 X 1', startAt: new Date(Date.now() - 3_600_000).toISOString(), endAt: new Date().toISOString(), ratePerHour: 300 });
   await accA('POST', `/imports/${load.id}/submit`);
   await owner('POST', `/imports/${load.id}/approve`);
-  await owner('PUT', `/imports/${load.id}/financials`, { supplierId: sup.id, purchaseAmount: 10000, transportCharges: 1500, amountPaid: 4000 });
+  await owner('PUT', `/imports/${load.id}/financials`, { supplierId: sup.id, purchaseAmount: 10000, transportCharges: 1500 });
+  await owner('POST', `/imports/${load.id}/payments`, { date: today, amount: 4000, mode: 'BANK' });
 
   const { body: run } = await accA('POST', '/production', { importLoadId: load.id, productionDate: today, inputCft: 5 });
   await accA('POST', `/production/${run.id}/outputs`, { thicknessIn: 4, widthIn: 2, lengthFt: 8, pieces: 10 });
@@ -35,7 +36,8 @@ async function tradeOnce() {
   await accA('POST', `/exports/${exp.id}/measurements`, { thicknessIn: 4, widthIn: 2, lengthFt: 8, pieces: 10 });
   await accA('POST', `/exports/${exp.id}/submit`);
   await owner('POST', `/exports/${exp.id}/approve`);
-  await owner('PUT', `/exports/${exp.id}/financials`, { clientId: cli.id, saleAmount: 20000, amountReceived: 5000 });
+  await owner('PUT', `/exports/${exp.id}/financials`, { clientId: cli.id, saleAmount: 20000 });
+  await owner('POST', `/exports/${exp.id}/payments`, { date: today, amount: 5000, mode: 'CHEQUE', reference: '445566' });
   return { load, exp, sup, cli };
 }
 
@@ -101,8 +103,8 @@ describe('accounts summary', () => {
 
 describe('reports', () => {
   it('lists operational reports for accountants, everything for the owner', async () => {
-    expect((await accA('GET', '/reports')).body.map((r: { key: string }) => r.key)).toEqual(['imports', 'production', 'exports', 'stock']);
-    expect((await owner('GET', '/reports')).body).toHaveLength(8);
+    expect((await accA('GET', '/reports')).body.map((r: { key: string }) => r.key)).toEqual(['imports', 'production', 'yieldWood', 'exports', 'stock']);
+    expect((await owner('GET', '/reports')).body).toHaveLength(10);
   });
 
   it('registers default to approved entries, and accountants see only their own', async () => {

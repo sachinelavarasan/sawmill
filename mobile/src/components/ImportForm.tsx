@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { type ComponentProps, useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { Field, FormScreen, FormSection, RequiredNote } from './form';
+import { SelectField } from './sheet';
 import { toast } from './toast';
 import { Button, Chip, Loading } from './ui';
 import { useSubmit, useUnsavedGuard } from '../lib/hooks';
@@ -31,9 +32,13 @@ export function ImportForm({ id }: { id?: string }) {
   const [form, setForm] = useState<Form | null>(initial);
   const [touched, setTouched] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  // the mill's own previous wood types — never a hard-coded list
-  const recent = useApi<{ items: { woodType: string; woodCategory?: string | null }[] }>('/imports?take=100');
-  const woodTypes = useMemo(() => [...new Set((recent.data?.items ?? []).map((i) => i.woodType).filter(Boolean))].slice(0, 8), [recent.data]);
+  // the mill's wood types (Settings → Wood types); with no list yet, the names already used
+  const choices = useApi<{ items: string[]; fixed: boolean }>('/wood-types').data;
+  const woodTypes = useMemo(() => {
+    const items = choices?.items ?? [];
+    // an older load may carry a name since removed from the list: keep it selectable
+    return form?.woodType && choices?.fixed && !items.includes(form.woodType) ? [form.woodType, ...items] : items;
+  }, [choices, form?.woodType]);
 
   useEffect(() => {
     if (!id) return;
@@ -115,15 +120,29 @@ export function ImportForm({ id }: { id?: string }) {
         <>
           <FormSection title={t('secImportInfo')} subtitle={t('secImportInfoSub')}>
             {field('lorryNumber', 'lorryNumber', { required: true, autoCapitalize: 'characters', hint: t('lorryNumberHint') })}
-            <Field label={t('woodType')} required value={form.woodType} onChangeText={set('woodType')} error={err('woodType')} placeholder={t('woodTypeHint')} autoCapitalize="words">
-              {woodTypes.length > 0 && (
-                <View className="flex-row flex-wrap gap-1.5">
-                  {woodTypes.map((w) => (
-                    <Chip key={w} text={w} on={form.woodType === w} onPress={() => set('woodType')(w)} />
-                  ))}
-                </View>
-              )}
-            </Field>
+            {choices?.fixed ? (
+              // a fixed list: picked, never typed, so one wood is never spelled two ways
+              <SelectField
+                label={t('woodType')}
+                required
+                value={form.woodType}
+                options={woodTypes.map((w) => ({ value: w, label: w }))}
+                onChange={(w) => set('woodType')(w)}
+                placeholder={t('pickWoodType')}
+                error={err('woodType')}
+                hint={t('woodTypeMissing')}
+              />
+            ) : (
+              <Field label={t('woodType')} required value={form.woodType} onChangeText={set('woodType')} error={err('woodType')} placeholder={t('woodTypeHint')} autoCapitalize="words">
+                {woodTypes.length > 0 && (
+                  <View className="flex-row flex-wrap gap-1.5">
+                    {woodTypes.slice(0, 12).map((w) => (
+                      <Chip key={w} text={w} on={form.woodType === w} onPress={() => set('woodType')(w)} />
+                    ))}
+                  </View>
+                )}
+              </Field>
+            )}
             {field('woodCategory', 'woodCategory', { autoCapitalize: 'words' })}
             <RequiredNote />
           </FormSection>

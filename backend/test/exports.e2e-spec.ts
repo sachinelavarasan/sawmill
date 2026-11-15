@@ -199,9 +199,11 @@ describe('sale details & clients (owner only)', () => {
     const { body: c } = await owner('POST', '/clients', { name: 'Kumar Timbers', phone: '9876543210' });
     expect(c.name).toBe('Kumar Timbers');
     const exp = await newExport();
-    const res = await owner('PUT', `/exports/${exp.id}/financials`, { clientId: c.id, sellingRatePerCft: 1200, saleAmount: 9332.4, amountReceived: 5000 });
+    const res = await owner('PUT', `/exports/${exp.id}/financials`, { clientId: c.id, sellingRatePerCft: 1200, saleAmount: 9332.4 });
     expect(res.status).toBe(200);
-    expect(res.body.paymentStatus).toBe('PARTIAL');
+    expect(res.body.paymentStatus).toBe('UNPAID');
+    const paid = await owner('POST', `/exports/${exp.id}/payments`, { date: new Date().toISOString().slice(0, 10), amount: 5000, mode: 'UPI', reference: 'UPI123' });
+    expect(paid.body).toMatchObject({ totalPaid: 5000, paymentStatus: 'PARTIAL', balance: 4332.4 });
   });
 
   it('accountants cannot see clients or sale details', async () => {

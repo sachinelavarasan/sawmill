@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { forwardRef } from 'react';
 import { View } from 'react-native';
 import { useT } from '../lib/i18n';
+import { pendingFor } from '../lib/offline-logs';
 import { useSession, useUser } from '../lib/session';
 import { useThemeToggle } from '../lib/theme';
 import { useConfirm } from './confirm';
@@ -71,7 +72,10 @@ export const ProfileSheet = forwardRef<SheetHandle>(function ProfileSheet(_, ref
             last
             onPress={async () => {
               close();
-              if (await confirm({ title: t('logout'), message: t('logoutConfirm'), confirmText: t('logout'), cancelText: t('cancel'), destructive: true })) await logout();
+              // logs measured offline only go out while their measurer is signed in: say so before signing out
+              const waiting = pendingFor(user.id).filter((p) => !p.error).length;
+              const message = waiting ? `${t('pendingLogs', { n: waiting })}. ${t('logoutPendingNote')}` : t('logoutConfirm');
+              if (await confirm({ title: t('logout'), message, confirmText: t('logout'), cancelText: t('cancel'), destructive: true })) await logout();
             }}
           />
         </MenuGroup>

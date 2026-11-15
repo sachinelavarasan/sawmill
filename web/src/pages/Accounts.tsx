@@ -296,7 +296,13 @@ function BalanceTable({
           {paged.rows.map((r) => (
             <TableRow key={r.id ?? 'none'}>
               <TableCell className="pl-4 font-medium whitespace-normal">
-                {r.name ?? <span className="text-muted-foreground">{noName}</span>}
+                {r.id && r.name ? (
+                  <Link to={`/statement/${paidKey === 'paid' ? 'suppliers' : 'clients'}/${r.id}`} className="text-primary hover:underline" title={t('viewStatement')}>
+                    {r.name}
+                  </Link>
+                ) : (
+                  (r.name ?? <span className="text-muted-foreground">{noName}</span>)
+                )}
                 <div className="text-xs font-normal text-muted-foreground">{t('loadsCount', { n: r.loads })}</div>
               </TableCell>
               <TableCell className={cn(numCell, wide)}>{money2(r.amount)}</TableCell>

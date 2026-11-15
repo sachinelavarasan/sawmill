@@ -1,11 +1,11 @@
 /** [OWNER-ONLY] Profit and loss for a period, the expense breakdown, and who still owes / is owed. */
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Page, ScreenHeader } from '../../../../components/header';
 import { PeriodPicker } from '../../../../components/sheet';
 import { Text } from '../../../../components/text';
-import { Avatar, Button, Card, cn, Divider, EmptyState, ErrorBox, HeroCard, KV, MenuGroup, Muted, Segmented, SectionTitle, Skeleton, SkeletonList } from '../../../../components/ui';
+import { Avatar, Button, Card, cn, Divider, EmptyState, ErrorBox, HeroCard, Icon, KV, MenuGroup, Muted, Segmented, SectionTitle, Skeleton, SkeletonList } from '../../../../components/ui';
 import { inr, int, periodQuery, presets } from '../../../../lib/format';
 import { useT } from '../../../../lib/i18n';
 import { useApi } from '../../../../lib/query';
@@ -92,7 +92,14 @@ export default function AccountsScreen() {
             ) : (
               <MenuGroup>
                 {balances.map((b, i) => (
-                  <View key={b.id ?? `none-${i}`} className={cn('min-h-[64px] flex-row items-center gap-3 px-4 py-3', i < balances.length - 1 && 'border-b border-border')}>
+                  <Pressable
+                    key={b.id ?? `none-${i}`}
+                    disabled={!b.id}
+                    accessibilityRole="button"
+                    accessibilityHint={t('viewStatement')}
+                    onPress={() => b.id && router.push({ pathname: '/statement/[kind]/[id]', params: { kind: side === 'receivables' ? 'clients' : 'suppliers', id: b.id } })}
+                    className={cn('min-h-[64px] flex-row items-center gap-3 px-4 py-3 active:bg-secondary', i < balances.length - 1 && 'border-b border-border')}
+                  >
                     <Avatar name={b.name ?? '?'} size="sm" />
                     <View className="flex-1">
                       <Text className="text-[15px] font-semibold text-foreground">{b.name ?? t(side === 'receivables' ? 'noClientName' : 'noSupplierName')}</Text>
@@ -101,7 +108,8 @@ export default function AccountsScreen() {
                       </Muted>
                     </View>
                     <Text className="text-[15px] font-bold tabular-nums text-warning">{inr(b.balance)}</Text>
-                  </View>
+                    {b.id && <Icon name="chevron-right" size={18} colorClassName="accent-muted-foreground" />}
+                  </Pressable>
                 ))}
               </MenuGroup>
             )}

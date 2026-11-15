@@ -38,11 +38,13 @@ import type { AccountsSummary, OwnerCharts, ReportInfo } from '../../../../lib/t
 const META: Record<string, { sub?: TKey; icon: IconName; tone: TileTone }> = {
   imports: { sub: 'reportImportsSub', icon: 'download', tone: 'info' },
   production: { sub: 'reportProductionSub', icon: 'settings', tone: 'saffron' },
+  yieldWood: { sub: 'reportYieldWoodSub', icon: 'pie-chart', tone: 'saffron' },
   exports: { sub: 'reportExportsSub', icon: 'upload', tone: 'good' },
   stock: { sub: 'reportStockSub', icon: 'layers', tone: 'navy' },
   pnl: { sub: 'reportPnlSub', icon: 'trending-up', tone: 'good' },
   payables: { sub: 'reportPayablesSub', icon: 'arrow-up-circle', tone: 'bad' },
   receivables: { sub: 'reportReceivablesSub', icon: 'arrow-down-circle', tone: 'info' },
+  yieldSupplier: { sub: 'reportYieldSupplierSub', icon: 'truck', tone: 'navy' },
   expenses: { sub: 'reportExpensesSub', icon: 'receipt', tone: 'warn' },
 };
 

@@ -102,7 +102,7 @@ All tables are created now so later phases add APIs, not migrations of the core 
 | Production | `ProductionRun`, `ProductionOutput` | — |
 | Stock | `StockMovement` (ledger), `StockAdjustment` | — |
 | Export | `ExportLoad`, `ExportMeasurement` | `ExportFinancials` |
-| Accounts | — | `Expense` |
+| Accounts | — | `Expense`, `Payment` |
 
 **Stock is a ledger.** Raw and finished stock balances are the sum of
 `StockMovement` rows. Movements are written **only inside the approval
@@ -169,6 +169,9 @@ Base path `/api`. ✅ = implemented, with the phase it was delivered in.
 | `GET/PATCH /settings` | `settings:manage` | ✅ 6 |
 | `GET /accounts/summary`, `/expenses` | `finance:view` | ✅ 7 |
 | `GET /reports`, `/reports/:key`, `/reports/:key/xlsx` (PDF = browser print) | `reports:operational` / `reports:financial` | ✅ 7 |
+| `GET/POST /{imports,exports}/:id/payments`, `DELETE …/payments/:paymentId` | `finance:view` | ✅ 9 |
+| `GET /suppliers/:id/statement`, `GET /clients/:id/statement` | `finance:view` | ✅ 9 |
+| `GET /wood-types` (list offered on the load forms; owner edits it via `PATCH /settings { woodTypes }`) | `operations:create` | ✅ 10 |
 
 ## 6. Screens (wireframe outline)
 
@@ -196,6 +199,33 @@ Theme: dark green (`#1B4332`) + white. Tamil/English toggle on every screen.
 | 6 | Approval workflow & owner controls | built (web) — approval queue across imports, production, exports and adjustments; mill settings (name, unloading rate, new-user language, time zone). Android screens not yet built |
 | 7 | Accounts, reports & analytics (PDF/Excel) | built (web) — Accounts: P&L for any period, other expenses, supplier/client balances. Reports: import/production/export registers, stock summary, P&L, balances, expenses; Excel download (server, exceljs) and Print / Save as PDF (browser, keeps Tamil text correct). Android screens not yet built |
 | 8 | Security testing, UAT, deployment, backups | built (web) — security review fixes, lockout, instant session revoke, route-policy test, all 68 API integration tests passing on PostgreSQL 16; deployment + backup guide in `docs/DEPLOYMENT.md`; client test checklist in `docs/UAT.md`. UAT with the client still to run |
+
+| 9 | Payment history & offline measuring | built — each payment to a supplier / from a client is its own record (date, mode, reference); a load's paid figure and status are worked out from them; statement per supplier / client with running balance (web print, Android share). Android keeps logs measured without signal on the phone and sends them when the connection is back (`clientRef` makes a resend safe) |
+
+**Payments.** `payments` rows belong to exactly one import or export load (DB check).
+`import_financials.amount_paid` / `export_financials.amount_received` are the sum of those rows,
+recomputed in the same transaction as every add / delete, so dashboards, accounts and reports
+still read one figure per load. The typed "amount paid" field is gone from the forms; the API
+still accepts it from older app versions and ignores it. Migration `0004` turned each load's
+existing amount into one payment ("Recorded before payment history").
+
+**Offline measuring (Android).** A log whose save can't reach the server is kept in
+`pending-logs.json` on the phone (measurements only — never financial figures) and sent in
+measuring order on app foreground, every 20 s, and after any successful save. Each log carries a
+phone-made `clientRef` (unique per load), so a resend after a lost reply returns the stored log
+instead of adding a second one, even if the load was submitted meanwhile. A load can't be
+submitted from the phone while it still has waiting logs. Logs the server refuses stay on the
+phone with the reason until deleted.
+
+| 10 | Wood types list | built — owner keeps the mill's wood types in Settings (web + Android); load forms pick from it |
+
+**Wood types.** Stock, production and reports group by the exact `wood_type` text, so every
+entry point (imports, exports, stock adjustments) goes through `common/wood-types.ts`: the name
+is tidied, matched against the list and the names already in use ignoring case, and saved with
+that spelling. Once a list exists (`mills.settings.woodTypes`), a name that is neither listed nor
+in use is refused; names in use stay valid after removal, so stock on hand can still move.
+Migration `0006` tidied existing names, merged case variants per mill (most-used spelling wins)
+across loads, runs, stock, adjustments and exports, and created each mill's list from them.
 
 Per the kickoff document, Phases 2–3 (Import + Measurement) will be demonstrated
 for workflow approval before Phases 4+ are built.

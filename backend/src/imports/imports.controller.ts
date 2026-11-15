@@ -3,6 +3,7 @@ import { Permission } from '@timbertrail/shared';
 import { CurrentUser, RequirePermissions } from '../common/decorators';
 import type { AuthUser } from '../common/types';
 import {
+  AddLogDto,
   CreateImportDto,
   CreateUnloadingDto,
   FinancialsDto,
@@ -68,7 +69,7 @@ export class ImportsController {
   }
 
   @Post(':id/logs')
-  addLog(@CurrentUser() user: AuthUser, @Id('id') id: string, @Body() dto: LogDto) {
+  addLog(@CurrentUser() user: AuthUser, @Id('id') id: string, @Body() dto: AddLogDto) {
     return this.imports.addLog(user, id, dto);
   }
 
