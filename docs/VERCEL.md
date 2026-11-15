@@ -4,22 +4,31 @@
 > [GO-LIVE.md](GO-LIVE.md). This page explains how the API behaves on Vercel.
 
 An alternative to the single Linux server in [DEPLOYMENT.md](DEPLOYMENT.md): the API and the
-web app run as **two Vercel projects** from this one repository, with PostgreSQL hosted
-elsewhere (Neon, Supabase, or any managed Postgres).
+web app run as **one Vercel project with two [services](https://vercel.com/docs/services)**,
+configured in the root `vercel.json`, with PostgreSQL hosted elsewhere (Neon, Supabase, or any
+managed Postgres).
 
 ```
- browser ──https──▶ web project (mill.example.in)
-                     ├─ /        web/dist (static, security headers from web/vercel.json)
-                     └─ /api/*  ──rewrite──▶ API project (Nest on Vercel Functions) ──▶ PostgreSQL
- phone app ─────────────────────────────────▶ API project (directly, Bearer tokens)
+ browser ───https──▶ mill.example.in (one Vercel project)
+ phone app ─────────▶  ├─ /api/*  ──▶ backend service (Nest on Vercel Functions) ──▶ PostgreSQL
+                       └─ /*      ──▶ web service (web/dist, SPA fallback to index.html)
 ```
 
-**Why the web app reaches the API through its own domain.** Browser sessions are httpOnly
-cookies with `SameSite=Strict`. A browser never sends those to a *different* site, so if the
-web app called `https://…-api.vercel.app` directly, sign-in would appear to work and then every
-request would come back 401. The `/api/*` rewrite in `web/vercel.json` makes the API look like
-part of the web site, so the cookies stay first-party. Leave `VITE_API_URL` unset on the web
-project.
+| Service | Folder | Public path | Notes |
+|---|---|---|---|
+| `backend` | `backend/` | `/api/*` | Receives the full path (`/api/users`), matching Nest's global `api` prefix. |
+| `web` | `web/` | everything else | Static Vite build; unknown paths fall back to `index.html` so deep links survive a refresh. Security headers (CSP, HSTS…) are set on this service. |
+
+Neither service calls the other server-side, so there are no service bindings: the browser
+loads the web app and calls `/api` on the same domain.
+
+**Why one domain matters.** Browser sessions are httpOnly cookies with `SameSite=Strict`, scoped
+to `/api`. A browser never sends those to a *different* site, so the web app must call the API on
+its own origin. With both services behind one domain this is automatic — leave `VITE_API_URL`
+unset.
+
+Both services install at the repo root (`cd .. && npm ci`) so the workspace package
+`@timbertrail/shared` resolves, and Turborepo builds it before the API / web app.
 
 ## 1. Database (once)
 
@@ -37,13 +46,13 @@ DATABASE_URL="postgresql://…" npm run setup:owner -- --mill "<mill name>" --co
 
 Run `db:migrate` again before deploying any release that adds a migration (`backend/drizzle/`).
 
-## 2. API project
+## 2. The Vercel project
 
-New project → import the repository → **Root Directory: `backend`**. Framework, install and
-build commands come from `backend/vercel.json` (installs at the repo root so the workspace
-package `@timbertrail/shared` resolves; Turborepo builds it before the API).
+New project → import the repository → **Root Directory: the repository root** (where
+`vercel.json` is). Vercel reads both services from `vercel.json`; leave framework, build and
+install settings on their defaults.
 
-Environment variables (Production):
+Environment variables (Production) — the web service needs none, these are for `backend`:
 
 | Name | Value |
 |---|---|
@@ -52,25 +61,26 @@ Environment variables (Production):
 | `JWT_ACCESS_SECRET` | `openssl rand -base64 48` (never reuse the dev value) |
 | `JWT_ACCESS_TTL` | `15m` |
 | `REFRESH_TOKEN_TTL_DAYS` | `30` |
-| `CORS_ORIGINS` | the web project's address, e.g. `https://mill.example.in` (no `*`, no localhost) |
+| `CORS_ORIGINS` | the project's own address, e.g. `https://mill.example.in` (no `*`, no localhost) |
 | `TRUST_PROXY` | `1` (Vercel sets `X-Forwarded-For`; rate limits and the audit log need the real IP) |
 | `EXPO_ACCESS_TOKEN` | only if enhanced push security is on for the Expo project |
 
 `NODE_ENV=production` is set by Vercel. The API refuses to start if a production setting is
 missing or still an example value; the reason is in the function's logs.
 
-Check: `https://<api-project>.vercel.app/api/health` → `{"status":"ok",…}`.
+Check: `https://mill.example.in/api/health` → `{"status":"ok",…}`, then open
+`https://mill.example.in` and sign in.
 
-## 3. Web project
+## 3. Phone app
 
-New project → same repository → **Root Directory: `web`**. In `web/vercel.json`, replace
-`REPLACE-WITH-API-PROJECT.vercel.app` with the API project's address and commit. Add your
-domain to this project.
-
-## 4. Phone app
-
-Point the app at the API: `EXPO_PUBLIC_API_URL=https://<api-project>.vercel.app/api` in
+Point the app at the same domain: `EXPO_PUBLIC_API_URL=https://mill.example.in/api` in
 `mobile/.env` (or the EAS build profile), then rebuild.
+
+## Local testing
+
+`npm run dev` (Nest on :3000, Vite on :5173 proxying `/api`) is still the everyday setup.
+To try the Vercel routing itself, run `vercel dev` from the repo root — it runs both services
+behind one address, exactly as deployed.
 
 ## Logs
 
