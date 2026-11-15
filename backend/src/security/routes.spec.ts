@@ -79,8 +79,8 @@ describe('API route policies', () => {
     expect(routes.filter((r) => Array.isArray(r.policy) && r.policy.length === 0).map((r) => r.route)).toEqual([]);
   });
 
-  it('only login, refresh and health are public', () => {
-    expect(routes.filter((r) => r.policy === 'public').map((r) => r.route)).toEqual(['GET /health', 'POST /auth/login', 'POST /auth/refresh']);
+  it('only login, refresh, health and the status page are public', () => {
+    expect(routes.filter((r) => r.policy === 'public').map((r) => r.route)).toEqual(['GET /', 'GET /health', 'POST /auth/login', 'POST /auth/refresh']);
   });
 
   it('an accountant cannot reach money, clients, suppliers, users, settings or the audit log', () => {

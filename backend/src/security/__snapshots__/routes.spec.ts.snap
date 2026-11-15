@@ -9,6 +9,7 @@ DELETE /imports/:id/payments/:paymentId          finance:view   [owner only]
 DELETE /imports/:id/unloading/:unloadingId       operations:create
 DELETE /notifications/tokens                     login
 DELETE /production/:id/outputs/:outputId         operations:create
+GET /                                            public
 GET /accounts/summary                            finance:view   [owner only]
 GET /approvals                                   operations:approve   [owner only]
 GET /approvals/count                             operations:approve   [owner only]
