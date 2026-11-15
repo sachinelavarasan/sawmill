@@ -9,6 +9,7 @@ Timber mill management: an Android app plus a web dashboard, with Owner and Acco
 | `mobile/` | Expo React Native Android app |
 | `packages/shared/` | Roles, permission matrix, CFT formulas, EN/TA text shared by all three |
 | `docs/TECHNICAL_PLAN.md` | Architecture, DB design, API permissions, CFT test cases, phases |
+| `docs/GO-LIVE.md` | Step-by-step deployment: Neon + Vercel (API, web) + Expo / Play Store, with all env variables |
 
 ## Run locally
 

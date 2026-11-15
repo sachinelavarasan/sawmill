@@ -1,5 +1,8 @@
 # Deploying on Vercel
 
+> **Step-by-step go-live (Neon + Vercel + Play Store), with every environment variable:**
+> [GO-LIVE.md](GO-LIVE.md). This page explains how the API behaves on Vercel.
+
 An alternative to the single Linux server in [DEPLOYMENT.md](DEPLOYMENT.md): the API and the
 web app run as **two Vercel projects** from this one repository, with PostgreSQL hosted
 elsewhere (Neon, Supabase, or any managed Postgres).
@@ -29,7 +32,7 @@ Run the migrations and create the first owner from your own machine (Vercel does
 ```bash
 cd backend
 DATABASE_URL="postgresql://…" npm run db:migrate
-DATABASE_URL="postgresql://…" NODE_ENV=production JWT_ACCESS_SECRET="$(openssl rand -base64 48)" npm run setup:owner
+DATABASE_URL="postgresql://…" npm run setup:owner -- --mill "<mill name>" --code <CODE> --name "<owner name>" --username <login>
 ```
 
 Run `db:migrate` again before deploying any release that adds a migration (`backend/drizzle/`).

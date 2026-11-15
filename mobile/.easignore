@@ -25,3 +25,6 @@ ios/
 
 *.tsbuildinfo
 .DS_Store
+
+# only `eas submit` reads it, on this computer — never upload it with a build
+play-console-services.json
