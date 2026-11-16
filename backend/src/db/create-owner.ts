@@ -23,7 +23,7 @@ import { createInterface } from 'readline';
 import * as schema from './schema';
 import { databaseUrl } from './url';
 
-const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*\d).{10,72}$/;
+const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*\d).{8,72}$/;
 const USERNAME_RULE = /^[a-z0-9._-]{3,32}$/;
 
 const USAGE = `Usage: npm run setup:mill -- --mill "<mill name>" --code <CODE> --name "<owner name>" --username <login>
@@ -62,8 +62,8 @@ function fail(message: string): never {
 
 /** Ask for a password twice and check it against the rule. */
 async function askPassword(username: string): Promise<string> {
-  const password = await askHidden(`Password for ${username} (10+ characters, letters and numbers): `);
-  if (!PASSWORD_RULE.test(password)) fail('Password must be 10–72 characters with letters and numbers');
+  const password = await askHidden(`Password for ${username} (8+ characters, letters and numbers): `);
+  if (!PASSWORD_RULE.test(password)) fail('Password must be 8–72 characters with letters and numbers');
   if ((await askHidden('Type it again: ')) !== password) fail('The two passwords do not match');
   return password;
 }
@@ -91,7 +91,7 @@ async function main() {
     : undefined;
 
   if (!millName || !code || !ownerName || !ownerUsername) fail(USAGE);
-  if (!/^[A-Z0-9]{2,10}$/.test(code)) fail('--code: 2–10 letters/numbers, e.g. SMSM');
+  if (!/^[A-Z0-9]{2,8}$/.test(code)) fail('--code: 2–8 letters/numbers, e.g. SMSM');
   if (!USERNAME_RULE.test(ownerUsername)) fail('--username: 3–32 letters, numbers, . _ -');
   if (Boolean(accountantName) !== Boolean(accountantUsername)) fail('Give both --accountant-name and --accountant-username (or neither)');
   if (accountantUsername && !USERNAME_RULE.test(accountantUsername)) fail('--accountant-username: 3–32 letters, numbers, . _ -');
