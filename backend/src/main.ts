@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { ConsoleLogger, Logger, ValidationPipe } from '@nestjs/common';
+import { ConsoleLogger, Logger, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
@@ -24,7 +24,8 @@ async function bootstrap() {
   app.useBodyParser('urlencoded', { limit: '100kb', extended: false });
 
   app.use(helmet());
-  app.setGlobalPrefix('api');
+  // GET / stays outside /api: it is the status page (and Vercel's deployment preview)
+  app.setGlobalPrefix('api', { exclude: [{ path: '/', method: RequestMethod.GET }] });
   app.enableCors({
     origin: (process.env.CORS_ORIGINS ?? 'http://localhost:5173').split(',').map((s) => s.trim()),
     credentials: true,

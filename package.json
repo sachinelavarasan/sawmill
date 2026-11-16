@@ -27,7 +27,8 @@
     "db:seed": "npm run db:seed -w backend",
     "db:seed:demo": "npm run db:seed:demo -w backend",
     "db:seed:demo:reset": "npm run db:seed:demo:reset -w backend",
-    "setup:owner": "npm run setup:owner -w backend --"
+    "setup:owner": "npm run setup:owner -w backend --",
+    "setup:mill": "npm run setup:mill -w backend --"
   },
   "allowScripts": {
     "esbuild@0.21.5": true,

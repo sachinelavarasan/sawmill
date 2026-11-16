@@ -4,7 +4,7 @@
  * every test file). The development database is never touched.
  */
 import 'reflect-metadata';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as bcrypt from 'bcryptjs';
 import { config as loadEnv } from 'dotenv';
@@ -81,7 +81,7 @@ export async function startApp(): Promise<Ctx> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication();
   // Same global setup as src/main.ts
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', { exclude: [{ path: '/', method: RequestMethod.GET }] });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
   await app.listen(0, '127.0.0.1');
   const base = `${await app.getUrl()}/api`.replace('[::1]', '127.0.0.1');

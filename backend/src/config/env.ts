@@ -23,6 +23,10 @@ export function validateEnv(env: Record<string, unknown>): Record<string, unknow
     errors.push('TRUST_PROXY must be a hop count (e.g. 1), "loopback", "true" or "false"');
   }
 
+  if (get('DB_SSL') && !/^(true|false)$/i.test(get('DB_SSL'))) {
+    errors.push('DB_SSL must be "true" or "false" (default: true in production)');
+  }
+
   if (get('LOG_FORMAT') && !isLogFormat(get('LOG_FORMAT'))) {
     errors.push(`LOG_FORMAT must be one of: ${LOG_FORMATS.join(', ')}`);
   }

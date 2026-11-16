@@ -1,4 +1,12 @@
+/**
+ * HTTP client for the TimberTrail API (axios), the web twin of mobile/src/lib/api.ts.
+ *
+ * Auth: the session lives in httpOnly cookies the server sets — page scripts (and so anything
+ * injected into the page) can never read the tokens. A 401 triggers one shared refresh, then the
+ * request is retried once; if the refresh fails the session is ended (onSessionLost → login).
+ */
 import { apiErrorText, type Permission, type Role } from '@timbertrail/shared';
+import axios, { AxiosError, type AxiosResponse, type Method } from 'axios';
 
 export interface Profile {
   id: string;
@@ -10,6 +18,7 @@ export interface Profile {
   permissions: Permission[];
 }
 
+/** Every failed request becomes one of these. status 0 = the server could not be reached. */
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -21,21 +30,28 @@ export class ApiError extends Error {
   }
 }
 
-/** The error a failed response becomes; the text (and a 5xx's "(ref …)") comes from the shared apiErrorText. */
-async function toApiError(res: Response): Promise<ApiError> {
-  const body: unknown = await res.json().catch(() => null);
-  const requestId = res.headers.get('X-Request-Id') ?? undefined;
-  return new ApiError(res.status, apiErrorText(res.status, body, res.statusText, requestId), requestId);
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    /** login / refresh / session restore: a 401 there is an answer, not an expired token */
+    skipAuthRefresh?: boolean;
+    /** set on the one retry after a refresh */
+    _retried?: boolean;
+  }
 }
 
-const BASE = import.meta.env.VITE_API_URL ?? '/api';
-/**
- * The session lives in httpOnly cookies the server sets: page scripts (and so anything
- * injected into the page) can never read the tokens. This header tells the API we are the
- * web app — it answers login / refresh with cookies, and it is the CSRF check on every request.
- */
-const CLIENT = { 'X-TimberTrail-Client': 'web' };
-/** Where older versions kept the refresh token; moved into a cookie the first time it is seen. */
+export const http = axios.create({
+  baseURL: import.meta.env.VITE_API_URL ?? '/api',
+  // send the session cookies (also when VITE_API_URL points at another origin in development)
+  withCredentials: true,
+  timeout: 30_000,
+  headers: {
+    Accept: 'application/json',
+    // tells the API we are the web app: it answers login / refresh with cookies, and it is the
+    // CSRF check on every cookie-authenticated request
+    'X-TimberTrail-Client': 'web',
+  },
+});
+
 /** where versions before httpOnly cookies kept the token — keep this old name, it is what they wrote */
 const LEGACY_REFRESH_KEY = 'sawmill.refresh';
 
@@ -44,6 +60,31 @@ let onSessionLost: () => void = () => {};
 
 export function setSessionLostHandler(fn: () => void) {
   onSessionLost = fn;
+}
+
+http.interceptors.response.use(undefined, async (error: unknown) => {
+  if (axios.isCancel(error) || !(error instanceof AxiosError)) throw error;
+  const config = error.config;
+  if (error.response?.status === 401 && config && !config.skipAuthRefresh && !config._retried) {
+    if (await tryRefresh()) return http.request({ ...config, _retried: true });
+    onSessionLost();
+  }
+  throw await toApiError(error);
+});
+
+/** Turn an axios failure into an ApiError; the text (and a 5xx's "(ref …)") comes from the shared apiErrorText. */
+async function toApiError(e: AxiosError): Promise<ApiError> {
+  if (!e.response) {
+    const timedOut = e.code === AxiosError.ECONNABORTED || e.code === AxiosError.ETIMEDOUT;
+    return new ApiError(0, timedOut ? 'The server took too long to answer' : 'Cannot reach the server');
+  }
+  const { status, statusText, headers } = e.response;
+  let data: unknown = e.response.data;
+  // a failed download arrives as a Blob: read the JSON error out of it
+  if (data instanceof Blob) data = await data.text().then((t) => JSON.parse(t) as unknown).catch(() => null);
+  const rid = headers['x-request-id'];
+  const requestId = typeof rid === 'string' ? rid : undefined;
+  return new ApiError(status, apiErrorText(status, data, statusText || `HTTP ${status}`, requestId), requestId);
 }
 
 /** The refresh token an older version left in localStorage, removed as it is read. */
@@ -57,19 +98,11 @@ function takeLegacyToken(): string | null {
   }
 }
 
-async function raw<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers = new Headers(init.headers);
-  if (init.body) headers.set('Content-Type', 'application/json');
-  headers.set('X-TimberTrail-Client', CLIENT['X-TimberTrail-Client']);
-  const res = await fetch(`${BASE}${path}`, { ...init, headers, credentials: 'include' });
-  if (!res.ok) throw await toApiError(res);
-  return res.status === 204 ? (undefined as T) : res.json();
-}
-
 /** Ask the server for a fresh session (it reads the refresh cookie and sets new ones). Concurrent callers share one request. */
-async function tryRefresh(): Promise<boolean> {
+function tryRefresh(): Promise<boolean> {
   const legacy = takeLegacyToken();
-  refreshInFlight ??= raw('/auth/refresh', { method: 'POST', body: legacy ? JSON.stringify({ refreshToken: legacy }) : undefined })
+  refreshInFlight ??= http
+    .post('/auth/refresh', legacy ? { refreshToken: legacy } : undefined, { skipAuthRefresh: true })
     .then(() => true)
     .catch(() => false)
     .finally(() => {
@@ -78,16 +111,27 @@ async function tryRefresh(): Promise<boolean> {
   return refreshInFlight;
 }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
-  try {
-    return await raw<T>(path, init);
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 401 && (await tryRefresh())) {
-      return raw<T>(path, init);
-    }
-    if (err instanceof ApiError && err.status === 401) onSessionLost();
-    throw err;
-  }
+export interface ApiOptions {
+  method?: Method | string;
+  /** a JSON string or a plain object (sent as JSON) */
+  body?: unknown;
+  /** cancels the request when it is no longer needed */
+  signal?: AbortSignal;
+}
+
+const dataOf = <T,>(res: AxiosResponse<T>): T => (res.status === 204 ? (undefined as T) : res.data);
+
+/** Call the API: `api<T>('/imports?take=30')`, `api('/imports', { method: 'POST', body })`. */
+export async function api<T>(path: string, { method = 'GET', body, signal }: ApiOptions = {}): Promise<T> {
+  return dataOf(
+    await http.request<T>({
+      url: path,
+      method,
+      data: body,
+      signal,
+      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    }),
+  );
 }
 
 /**
@@ -95,15 +139,11 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
  * server's filename. Uses the same login/refresh as api().
  */
 export async function download(path: string): Promise<void> {
-  const get = () => fetch(`${BASE}${path}`, { headers: CLIENT, credentials: 'include' });
-  let res = await get();
-  if (res.status === 401 && (await tryRefresh())) res = await get();
-  if (!res.ok) {
-    if (res.status === 401) onSessionLost();
-    throw await toApiError(res);
-  }
-  const filename = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ?? 'download';
-  const url = URL.createObjectURL(await res.blob());
+  // reports can take a while to build: no client-side timeout
+  const res = await http.get<Blob>(path, { responseType: 'blob', timeout: 0 });
+  const disposition = res.headers['content-disposition'];
+  const filename = /filename="([^"]+)"/.exec(typeof disposition === 'string' ? disposition : '')?.[1] ?? 'download';
+  const url = URL.createObjectURL(res.data);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
@@ -115,15 +155,16 @@ export async function download(path: string): Promise<void> {
 
 export const auth = {
   async login(username: string, password: string): Promise<Profile> {
-    return (await raw<{ user: Profile }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) })).user;
+    return (await http.post<{ user: Profile }>('/auth/login', { username, password }, { skipAuthRefresh: true })).data.user;
   },
   /** Restore a session after page reload: the cookies are still there if the person was signed in. */
   async restore(): Promise<Profile | null> {
+    const me = async () => (await http.get<Profile>('/auth/me', { skipAuthRefresh: true })).data;
     try {
-      return await raw<Profile>('/auth/me');
+      return await me();
     } catch (err) {
       // the access cookie has run out (or this browser still holds an old-style token): refresh once
-      if (err instanceof ApiError && err.status === 401 && (await tryRefresh())) return raw<Profile>('/auth/me');
+      if (err instanceof ApiError && err.status === 401 && (await tryRefresh())) return me().catch(() => null);
       return null;
     }
   },
