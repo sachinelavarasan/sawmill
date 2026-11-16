@@ -85,6 +85,7 @@ POST /production/:id/approve                     operations:approve   [owner onl
 POST /production/:id/outputs                     operations:create
 POST /production/:id/reject                      operations:approve   [owner only]
 POST /production/:id/submit                      operations:submit
+POST /settings/wood-types                        settings:manage   [owner only]
 POST /stock-adjustments                          operations:create
 POST /stock-adjustments/:id/approve              operations:approve   [owner only]
 POST /stock-adjustments/:id/reject               operations:approve   [owner only]

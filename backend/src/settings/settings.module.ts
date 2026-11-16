@@ -3,8 +3,8 @@
  * for new users, the time zone used for "today" on the dashboards, and the list of
  * wood types (read by everyone who enters loads through GET /wood-types).
  */
-import { Body, Controller, Get, Injectable, Module, Patch } from '@nestjs/common';
-import { cleanWoodTypeList, Permission } from '@timbertrail/shared';
+import { Body, Controller, Get, Injectable, Module, Patch, Post } from '@nestjs/common';
+import { cleanWoodTypeList, matchWoodType, Permission, tidyWoodType } from '@timbertrail/shared';
 import { Transform } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength, ValidateIf } from 'class-validator';
 import { eq } from 'drizzle-orm';
@@ -24,6 +24,11 @@ export class UpdateSettingsDto {
   @IsOptional() @IsInt() @Min(-720) @Max(840) utcOffsetMinutes?: number;
   /** The whole list (replaces it). Tidied, case-insensitive repeats dropped, sorted. [] = no list (any name accepted). */
   @IsOptional() @IsArray() @ArrayMaxSize(200) @IsString({ each: true }) @MinLength(2, { each: true }) @MaxLength(60, { each: true }) woodTypes?: string[];
+}
+
+/** One wood type added from a load form, without sending the whole list back. */
+export class AddWoodTypeDto {
+  @Transform(({ value }) => (typeof value === 'string' ? tidyWoodType(value) : value)) @IsString() @MinLength(2) @MaxLength(60) name: string;
 }
 
 type Mill = typeof mills.$inferSelect;
@@ -72,6 +77,27 @@ export class SettingsService {
       return view(after);
     });
   }
+
+  /**
+   * Adds one name to the list and answers with the spelling to use. A name already on it
+   * (ignoring case and spacing) is not added twice: its listed spelling comes back instead.
+   */
+  async addWoodType(actor: AuthUser, name: string) {
+    return this.db.transaction(async (tx) => {
+      const [before] = await tx.select().from(mills).where(eq(mills.id, actor.millId)).for('update');
+      const list = before.settings.woodTypes ?? [];
+      const known = matchWoodType(list, name);
+      if (known) return { name: known, items: list };
+      const items = cleanWoodTypeList([...list, name]);
+      const [after] = await tx
+        .update(mills)
+        .set({ settings: { ...before.settings, woodTypes: items }, updatedAt: new Date() })
+        .where(eq(mills.id, actor.millId))
+        .returning();
+      await this.audit.log({ millId: actor.millId, userId: actor.id, action: 'UPDATE', entityType: 'Mill', entityId: actor.millId, before, after }, tx);
+      return { name, items };
+    });
+  }
 }
 
 @Controller('settings')
@@ -87,6 +113,12 @@ export class SettingsController {
   @Patch()
   update(@CurrentUser() user: AuthUser, @Body() dto: UpdateSettingsDto) {
     return this.settings.update(user, dto);
+  }
+
+  /** The owner adds a wood type straight from a load form. */
+  @Post('wood-types')
+  addWoodType(@CurrentUser() user: AuthUser, @Body() dto: AddWoodTypeDto) {
+    return this.settings.addWoodType(user, dto.name);
   }
 }
 

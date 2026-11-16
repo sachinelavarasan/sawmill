@@ -9,6 +9,7 @@ import { inr, num3, parseNum } from '../lib/format';
 import { useSubmit } from '../lib/hooks';
 import { useT } from '../lib/i18n';
 import { importsApi } from '../lib/imports-api';
+import { useCreateParty } from '../lib/parties';
 import { invalidate, useApi } from '../lib/query';
 import type { Party, PurchaseFinancials } from '../lib/types';
 import { Field, NumberField } from './form';
@@ -22,6 +23,7 @@ export function PurchaseDetails({ importId, totalCft }: { importId: string; tota
   const path = `/imports/${importId}/financials`;
   const fin = useApi<PurchaseFinancials>(path);
   const suppliers = useApi<Party[]>('/suppliers');
+  const addSupplier = useCreateParty('suppliers');
   const sheet = useSheet();
   const [f, setF] = useState({ supplierId: '', rate: '', amount: '', transport: '', notes: '' });
 
@@ -81,6 +83,7 @@ export function PurchaseDetails({ importId, totalCft }: { importId: string; tota
             onChange={(v) => setF((x) => ({ ...x, supplierId: v }))}
             hint={t('supplierHint')}
             emptyText={t('noSuppliers')}
+            onCreate={addSupplier}
           />
           <NumberField label={t('purchaseRate')} unit="₹/CFT" value={f.rate} onChangeText={(rate) => setF((x) => ({ ...x, rate }))} />
           <NumberField

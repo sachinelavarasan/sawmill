@@ -1,5 +1,5 @@
 /** New import load, or edit one that is still a draft / rejected. Arrival is "now" on the server for new loads. */
-import type { TKey } from '@timbertrail/shared';
+import { Permission, type TKey } from '@timbertrail/shared';
 import { useRouter } from 'expo-router';
 import { type ComponentProps, useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
@@ -7,10 +7,12 @@ import { Field, FormScreen, FormSection, RequiredNote } from './form';
 import { SelectField } from './sheet';
 import { toast } from './toast';
 import { Button, Chip, Loading } from './ui';
+import { api } from '../lib/api';
 import { useSubmit, useUnsavedGuard } from '../lib/hooks';
 import { useT } from '../lib/i18n';
 import { type ImportForm as Form, importsApi } from '../lib/imports-api';
-import { invalidateOperations, useApi } from '../lib/query';
+import { invalidate, invalidateOperations, useApi } from '../lib/query';
+import { useSession } from '../lib/session';
 
 const EMPTY: Form = {
   lorryNumber: '',
@@ -39,6 +41,16 @@ export function ImportForm({ id }: { id?: string }) {
     // an older load may carry a name since removed from the list: keep it selectable
     return form?.woodType && choices?.fixed && !items.includes(form.woodType) ? [form.woodType, ...items] : items;
   }, [choices, form?.woodType]);
+  // the owner can add a missing wood to the list right here, without a trip to Settings
+  const { can } = useSession();
+  const addWoodType = can(Permission.SETTINGS_MANAGE)
+    ? async (name: string) => {
+        const r = await api<{ name: string }>('/settings/wood-types', { method: 'POST', body: { name } });
+        toast(t('woodTypeAdded', { name: r.name }));
+        void invalidate('/wood-types', '/settings');
+        return r.name;
+      }
+    : undefined;
 
   useEffect(() => {
     if (!id) return;
@@ -130,7 +142,8 @@ export function ImportForm({ id }: { id?: string }) {
                 onChange={(w) => set('woodType')(w)}
                 placeholder={t('pickWoodType')}
                 error={err('woodType')}
-                hint={t('woodTypeMissing')}
+                hint={t(addWoodType ? 'woodTypeAddHint' : 'woodTypeMissing')}
+                onCreate={addWoodType}
               />
             ) : (
               <Field label={t('woodType')} required value={form.woodType} onChangeText={set('woodType')} error={err('woodType')} placeholder={t('woodTypeHint')} autoCapitalize="words">

@@ -12,8 +12,9 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { dateTime, money, num3, useLoad } from '../components/common';
 import { useEditGuard } from '../components/leave-guard';
-import { ALL, EntryField, Field, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging } from '../components/page';
+import { EntryField, Field, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
+import { PartyPicker, type PartyOption } from '../components/party-picker';
 import { PaymentsPanel, PayBadge } from '../components/payments';
 import { WorkflowBar } from '../components/workflow';
 import { useConfirmDelete } from '../components/confirm';
@@ -594,7 +595,7 @@ const saleForm = (d: Financials): SaleForm => ({ clientId: d.clientId ?? '', rat
 function SaleSection({ exp, canPickClient }: { exp: ExportDetail; canPickClient: boolean }) {
   const { t } = useI18n();
   const { data, loading, error, reload } = useLoad(() => api<Financials>(`/exports/${exp.id}/financials`), [exp.id]);
-  const clients = useLoad(() => (canPickClient ? api<{ id: string; name: string }[]>('/clients') : Promise.resolve([])), [canPickClient]);
+  const clients = useLoad(() => (canPickClient ? api<PartyOption[]>('/clients') : Promise.resolve([])), [canPickClient]);
   const [form, setForm] = useState<SaleForm | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const toast = useToast();
@@ -672,19 +673,15 @@ function SaleSection({ exp, canPickClient }: { exp: ExportDetail; canPickClient:
         <FormCard onSubmit={submit}>
           <FormGrid>
             <Field id="sale-client" label={t('client')}>
-              <Select value={form.clientId || ALL} onValueChange={(v) => setForm((f) => (f ? { ...f, clientId: v === ALL ? '' : v } : f))}>
-                <SelectTrigger id="sale-client" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>{t('notSet')}</SelectItem>
-                  {clients.data?.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <PartyPicker
+                id="sale-client"
+                path="/clients"
+                items={clients.data}
+                value={form.clientId}
+                onChange={(clientId) => setForm((f) => (f ? { ...f, clientId } : f))}
+                onCreated={clients.reload}
+                noneLabel={t('notSet')}
+              />
             </Field>
             <Field id="sale-rate" label={t('sellingRate')}>
               <Input id="sale-rate" type="number" value={form.rate} onChange={set('rate')} min={0} step="0.01" inputMode="decimal" />

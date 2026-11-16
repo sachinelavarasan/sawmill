@@ -79,7 +79,9 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
       {BlurView ? (
         <BlurView
           style={StyleSheet.absoluteFill}
-          intensity={90}
+          // a strong frost under a light tint, so the page shows through as soft colour
+          // a strong frost; the light tint below gives the glass the same look on every tab
+          intensity={dark ? 100 : 90}
           // Android divides the intensity by this (default 4); 2.5 makes the frost clearly visible there too
           blurReductionFactor={2.5}
           tint={dark ? 'dark' : 'light'}
@@ -87,8 +89,9 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
           blurTarget={Platform.OS === 'android' ? target : undefined}
         />
       ) : null}
-      {/* the glass's tint: lighter over a real blur, nearly solid where there is none (old builds) */}
-      <View pointerEvents="none" style={StyleSheet.absoluteFill} className={BlurView ? 'bg-card/55' : 'bg-card/90'} />
+      {/* the glass's own faint colour, so the bar looks the same over coloured cards (Home) and plain
+          sheet (More); nearly solid where there is no blur (old builds) */}
+      <View pointerEvents="none" style={StyleSheet.absoluteFill} className={BlurView ? (dark ? 'bg-card/15' : 'bg-card/20') : 'bg-card/90'} />
       <View className="flex-row rounded-full bg-sidebar" style={{ padding: PAD, gap: GAP }} accessibilityRole="tablist">
         <AnimatedView pointerEvents="none" className="absolute rounded-full bg-saffron" style={[{ left: PAD, top: PAD, width: SIZE, height: SIZE }, dot]} />
         {TABS.map((tb, i) => (

@@ -8,7 +8,7 @@ import { requestLogger } from './common/request-logger';
 import { logFormat, trustProxy } from './config/env';
 
 async function bootstrap() {
-  // JSON lines in production (Vercel / journald can search and filter them); readable colours on a dev machine
+  // Coloured text by default (Vercel's log viewer shows the colours); LOG_FORMAT=json for machine-parsed lines
   const json = logFormat(process.env) === 'json';
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,

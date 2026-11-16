@@ -108,7 +108,7 @@ above **before** deploying the API.
 | `REFRESH_TOKEN_TTL_DAYS` | `30` | ✅ | How long a device stays signed in (1–90). |
 | `CORS_ORIGINS` | `https://mill.example.in` | ✅ | The web address(es), comma-separated, exact `https://` origin, no trailing `/`. No `*`, no localhost — the API refuses them. Put the `*.vercel.app` web address here first, add your domain later (step 3.5). |
 | `TRUST_PROXY` | `1` | ✅ | Vercel sets `X-Forwarded-For`; rate limits and the audit log need the real IP. |
-| `LOG_FORMAT` | `json` | optional | Default in production already; `text` for plain lines. |
+| `LOG_FORMAT` | `text` | optional | Coloured text is the default; `json` for one JSON object per line. |
 | `EXPO_ACCESS_TOKEN` | expo.dev → Account → Access tokens | optional | Only if "Enhanced push security" is on for the Expo project. |
 | `NODE_ENV` | — | — | **Don't set**: Vercel sets `production`. |
 | `SEED_OWNER_PASSWORD`, `SEED_ACCOUNTANT_PASSWORD` | — | ❌ | **Must not exist** in production (the API refuses to start). |

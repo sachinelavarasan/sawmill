@@ -61,11 +61,13 @@ const LOG_FORMATS = ['json', 'text'] as const;
 type LogFormat = (typeof LOG_FORMATS)[number];
 const isLogFormat = (v: string | undefined): v is LogFormat => (LOG_FORMATS as readonly string[]).includes(v ?? '');
 
-/** LOG_FORMAT if set; otherwise JSON lines in production and readable text elsewhere. */
+/**
+ * LOG_FORMAT if set; otherwise coloured text everywhere. Vercel's log viewer renders the
+ * colours, so readable lines are the better default; set "json" for a log shipper that parses lines.
+ */
 export function logFormat(env: Record<string, string | undefined>): LogFormat {
   const v = env.LOG_FORMAT?.trim();
-  if (isLogFormat(v)) return v;
-  return env.NODE_ENV === 'production' ? 'json' : 'text';
+  return isLogFormat(v) ? v : 'text';
 }
 
 /** Express "trust proxy" value from TRUST_PROXY: a hop count, 'loopback', or a boolean. */

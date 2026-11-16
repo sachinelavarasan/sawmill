@@ -24,6 +24,8 @@ interface TabChrome {
   height: number;
   setHeight: (h: number) => void;
   targets: Map<string, RefObject<View | null>>;
+  /** re-renders the bar when a screen's target comes or goes (the Map itself changes silently) */
+  targetsChanged: () => void;
 }
 
 const Ctx = createContext<TabChrome | null>(null);
@@ -31,7 +33,11 @@ const Ctx = createContext<TabChrome | null>(null);
 export function TabChromeProvider({ children }: { children: ReactNode }) {
   const [height, setHeight] = useState(0);
   const targets = useRef(new Map<string, RefObject<View | null>>()).current;
-  const value = useMemo(() => ({ height, setHeight, targets }), [height, targets]);
+  // Tab screens mount on first visit, after the bar has already drawn for them: without this the
+  // bar kept "no target" for that screen (no blur on Android) until something else re-rendered it.
+  const [version, setVersion] = useState(0);
+  const targetsChanged = useCallback(() => setVersion((v) => v + 1), []);
+  const value = useMemo(() => ({ height, setHeight, targets, targetsChanged }), [height, targets, targetsChanged, version]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
@@ -55,11 +61,16 @@ export function TabScreenLayout({ routeKey, children }: { routeKey: string; chil
   const ref = useRef<View>(null);
   useEffect(() => {
     if (!ctx) return;
-    ctx.targets.set(routeKey, ref);
+    const { targets, targetsChanged } = ctx;
+    targets.set(routeKey, ref);
+    targetsChanged();
     return () => {
-      ctx.targets.delete(routeKey);
+      targets.delete(routeKey);
+      targetsChanged();
     };
-  }, [ctx, routeKey]);
+    // ctx changes on every version bump: depending on it would re-register forever
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx?.targets, ctx?.targetsChanged, routeKey]);
   if (!blur || Platform.OS !== 'android') return <>{children}</>;
   const Target = blur.BlurTargetView;
   return (

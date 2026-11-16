@@ -11,7 +11,7 @@ import {
   BottomSheetTextInput,
 } from '@gorhom/bottom-sheet';
 import { forwardRef, ReactNode, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { Calendar, type DateData } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCSSVariable, withUniwind } from 'uniwind';
@@ -19,6 +19,7 @@ import { dateOnly, isoDay, type Period, PERIOD_KEYS, presets, todayIso } from '.
 import { useT } from '../lib/i18n';
 import { InSheet } from './sheet-context';
 import { fontStyleFor, Text } from './text';
+import { toast } from './toast';
 import { Button, Chip, cn, Icon, Muted } from './ui';
 
 export const SheetInput = withUniwind(BottomSheetTextInput);
@@ -57,6 +58,9 @@ export const Sheet = forwardRef<SheetHandle, { title?: string; children: ReactNo
     return (
       <BottomSheetModal
         ref={modal}
+        // a picker opened from inside this sheet (supplier, client, date…) stacks on top and this
+        // sheet stays open underneath; the default "switch" closed the form when a picker opened
+        stackBehavior="push"
         enableDynamicSizing
         backdropComponent={backdrop}
         onDismiss={onDismiss}
@@ -160,6 +164,7 @@ export function SelectField<V extends string>({
   disabled,
   allowClear,
   emptyText,
+  onCreate,
 }: {
   label: string;
   required?: boolean;
@@ -173,9 +178,13 @@ export function SelectField<V extends string>({
   disabled?: boolean;
   allowClear?: boolean;
   emptyText?: string;
+  /** Lets the person add what they typed when it isn't in the list: creates it and resolves to its value. */
+  onCreate?: (name: string) => Promise<V>;
 }) {
   const sheet = useSheet();
-  const selected = options.find((o) => o.value === value);
+  // the one just added, named here until the refreshed list arrives with it
+  const [made, setMade] = useState<Option<V> | null>(null);
+  const selected = options.find((o) => o.value === value) ?? (made && made.value === value ? made : undefined);
   return (
     <>
       <PickerTrigger
@@ -194,9 +203,18 @@ export function SelectField<V extends string>({
         title={label}
         options={options}
         value={value}
-        searchable={searchable ?? options.length > 8}
+        searchable={!!onCreate || (searchable ?? options.length > 8)}
         allowClear={allowClear}
         emptyText={emptyText}
+        onCreate={
+          onCreate &&
+          (async (name) => {
+            const v = await onCreate(name);
+            setMade({ value: v, label: name });
+            onChange(v);
+            sheet.close();
+          })
+        }
         onPick={(v) => {
           onChange(v);
           sheet.close();
@@ -208,8 +226,18 @@ export function SelectField<V extends string>({
 
 export const SelectSheet = forwardRef<
   SheetHandle,
-  { title: string; options: Option[]; value: string | null; searchable?: boolean; allowClear?: boolean; emptyText?: string; onPick: (v: any) => void }
->(function SelectSheet({ title, options, value, searchable, allowClear, emptyText, onPick }, ref) {
+  {
+    title: string;
+    options: Option[];
+    value: string | null;
+    searchable?: boolean;
+    allowClear?: boolean;
+    emptyText?: string;
+    onPick: (v: any) => void;
+    /** adds the typed name (see SelectField) */
+    onCreate?: (name: string) => Promise<void>;
+  }
+>(function SelectSheet({ title, options, value, searchable, allowClear, emptyText, onPick, onCreate }, ref) {
   const t = useT();
   const modal = useRef<BottomSheetModal>(null);
   const insets = useSafeAreaInsets();
@@ -220,15 +248,33 @@ export const SelectSheet = forwardRef<
     (p: BottomSheetBackdropProps) => <BottomSheetBackdrop {...p} pressBehavior="close" appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.45} />,
     [],
   );
+  const [adding, setAdding] = useState(false);
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase().replace(/\s+/g, '');
     if (!needle) return options;
     return options.filter((o) => `${o.label} ${o.hint ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(needle));
   }, [q, options]);
+  const typed = q.trim().replace(/\s+/g, ' ');
+  const squash = (s: string) => s.toLowerCase().replace(/\s+/g, '');
+  // offered unless that exact name (ignoring case and spaces) is already in the list
+  const canAdd = !!onCreate && typed.length >= 2 && !options.some((o) => squash(o.label) === squash(typed));
+  const add = async () => {
+    if (!onCreate || adding) return;
+    setAdding(true);
+    try {
+      await onCreate(typed);
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setAdding(false);
+    }
+  };
 
   return (
     <BottomSheetModal
       ref={modal}
+      // stacks on top of the form sheet it was opened from, which stays open (see Sheet)
+      stackBehavior="push"
       snapPoints={searchable ? ['85%'] : undefined}
       enableDynamicSizing={!searchable}
       backdropComponent={backdrop}
@@ -254,7 +300,10 @@ export const SelectSheet = forwardRef<
                 <SheetInput
                   value={q}
                   onChangeText={setQ}
-                  placeholder={t('search')}
+                  placeholder={onCreate ? t('searchOrAddName') : t('search')}
+                  maxLength={onCreate ? 120 : undefined}
+                  returnKeyType={canAdd ? 'done' : undefined}
+                  onSubmitEditing={canAdd && !shown.length ? () => void add() : undefined}
                   placeholderTextColorClassName="accent-muted-foreground"
                   autoCorrect={false}
                   accessibilityLabel={t('search')}
@@ -263,6 +312,29 @@ export const SelectSheet = forwardRef<
                 />
               </View>
             )}
+            {canAdd && (
+              <Pressable
+                onPress={() => void add()}
+                disabled={adding}
+                accessibilityRole="button"
+                accessibilityLabel={t('addNamed', { name: typed })}
+                accessibilityState={{ busy: adding }}
+                className={cn('min-h-16 flex-row items-center gap-3 rounded-2xl border border-saffron/35 bg-saffron-soft px-3.5 py-3 active:opacity-75', adding && 'opacity-75')}
+              >
+                <View className="size-10 items-center justify-center rounded-full bg-saffron">
+                  {adding ? <ActivityIndicator size="small" colorClassName="accent-saffron-foreground" /> : <Icon name="plus" size={20} colorClassName="accent-saffron-foreground" />}
+                </View>
+                <View className="flex-1 gap-0.5">
+                  <Text className="text-[15px] font-bold text-foreground" numberOfLines={1}>
+                    {t('addNamed', { name: typed })}
+                  </Text>
+                  <Text className="text-[13px] text-saffron-strong" numberOfLines={1}>
+                    {t('notInListTapToAdd')}
+                  </Text>
+                </View>
+                <Icon name="chevron-right" size={18} colorClassName="accent-saffron-strong" />
+              </Pressable>
+            )}
             {allowClear && value && (
               <Pressable onPress={() => onPick('')} accessibilityRole="button" className="min-h-11 justify-center">
                 <Text className="text-[15px] font-semibold text-destructive">{t('clear')}</Text>
@@ -270,7 +342,7 @@ export const SelectSheet = forwardRef<
             )}
           </View>
         }
-        ListEmptyComponent={<Muted className="px-5 py-6">{options.length ? t('noResults') : (emptyText ?? t('noData'))}</Muted>}
+        ListEmptyComponent={canAdd ? null : <Muted className="px-5 py-6">{options.length ? t('noResults') : (emptyText ?? t('noData'))}</Muted>}
         renderItem={({ item }: { item: Option }) => {
           const on = item.value === value;
           return (

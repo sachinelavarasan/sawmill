@@ -519,8 +519,9 @@ export function Tile({
       accessibilityRole="button"
       accessibilityLabel={badge ? `${title}, ${badge}` : title}
       className={cn(
-        'flex-1 rounded-2xl bg-background active:bg-secondary',
-        compact ? 'min-h-[104px] items-center justify-center gap-2.5 px-2 py-4' : 'min-h-[148px] justify-between gap-4 p-4',
+        // a raised card with a visible edge and soft shadow, so each tile reads as its own button
+        'flex-1 rounded-[22px] border border-foreground/10 bg-card shadow-sm shadow-black/10 active:bg-secondary',
+        compact ? 'min-h-[112px] items-center justify-center gap-3 px-2 py-4' : 'min-h-[148px] justify-between gap-4 p-4',
       )}
     >
       <View className={cn('flex-row', !compact && 'w-full items-start justify-between')}>
@@ -529,7 +530,7 @@ export function Tile({
         {!compact && !badge && <Icon name="arrow-up-right" size={16} colorClassName="accent-muted-foreground" />}
       </View>
       <View className={cn('gap-1', compact && 'items-center')}>
-        <Text className={cn('font-semibold text-foreground', compact ? 'text-center text-[13px] leading-[17px]' : 'text-[15px] leading-5')} numberOfLines={2}>
+        <Text className={cn('font-semibold tracking-tight text-foreground', compact ? 'text-center text-[13px] leading-[17px]' : 'text-[15px] leading-5')} numberOfLines={2}>
           {title}
         </Text>
         {!!subtitle && !compact && (

@@ -104,7 +104,7 @@ function HomeHero({ pending, children }: { pending?: number; children?: ReactNod
         </Pressable>
       </View>
       <View className="-mt-2 flex-row items-center gap-2 self-start rounded-full bg-hero-chip py-1.5 pl-2.5 pr-3.5">
-        <Icon name="building" size={14} colorClassName="accent-saffron" />
+        <Icon name="building" size={15} colorClassName="accent-hero-foreground" />
         <Text className="text-[13px] font-medium text-hero-foreground" numberOfLines={1}>
           {user.mill.name}
         </Text>

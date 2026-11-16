@@ -9,6 +9,7 @@ import { api } from '../lib/api';
 import { inr, num3, parseNum } from '../lib/format';
 import { useSubmit } from '../lib/hooks';
 import { useT } from '../lib/i18n';
+import { useCreateParty } from '../lib/parties';
 import { invalidate, useApi } from '../lib/query';
 import type { Party, SaleFinancials } from '../lib/types';
 import { Field, NumberField } from './form';
@@ -22,6 +23,7 @@ export function SaleDetails({ exportId, totalCft }: { exportId: string; totalCft
   const path = `/exports/${exportId}/financials`;
   const fin = useApi<SaleFinancials>(path);
   const clients = useApi<Party[]>('/clients');
+  const addClient = useCreateParty('clients');
   const sheet = useSheet();
   const [f, setF] = useState({ clientId: '', rate: '', amount: '', notes: '' });
 
@@ -81,6 +83,7 @@ export function SaleDetails({ exportId, totalCft }: { exportId: string; totalCft
             options={(clients.data ?? []).map((c) => ({ value: c.id, label: c.name, hint: c.phone ?? undefined }))}
             onChange={(v) => setF((x) => ({ ...x, clientId: v }))}
             emptyText={t('noClients')}
+            onCreate={addClient}
           />
           <NumberField label={t('sellingRate')} unit="₹/CFT" value={f.rate} onChangeText={(r) => setF((x) => ({ ...x, rate: r }))} />
           <NumberField

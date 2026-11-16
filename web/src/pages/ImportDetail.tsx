@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { api } from '../api';
@@ -16,6 +15,7 @@ import { useConfirmDelete } from '../components/confirm';
 import { useEditGuard } from '../components/leave-guard';
 import { Field, FigureStrip, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, TableCard, useClientPaging, wide } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
+import { PartyPicker, type PartyOption } from '../components/party-picker';
 import { PaymentsPanel } from '../components/payments';
 import { WorkflowBar } from '../components/workflow';
 import { useToast } from '../components/toast';
@@ -419,8 +419,6 @@ type PurchaseForm = Record<'supplierId' | 'rate' | 'amount' | 'transport' | 'not
 
 const str = (n: number | null) => (n == null ? '' : String(n));
 const numOrNull = (v: string) => (v.trim() === '' ? null : Number(v));
-/** Radix Select can't hold '', so "no supplier" is this sentinel in the picker. */
-const NO_SUPPLIER = 'none';
 const purchaseForm = (d: Financials): PurchaseForm => ({
   supplierId: d.supplierId ?? '',
   rate: str(d.purchaseRatePerCft),
@@ -432,7 +430,7 @@ const purchaseForm = (d: Financials): PurchaseForm => ({
 function PurchaseSection({ load, canPickSupplier }: { load: ImportDetail; canPickSupplier: boolean }) {
   const { t } = useI18n();
   const { data, loading, error, reload } = useLoad(() => api<Financials>(`/imports/${load.id}/financials`), [load.id]);
-  const suppliers = useLoad(() => (canPickSupplier ? api<{ id: string; name: string }[]>('/suppliers') : Promise.resolve([])), [canPickSupplier]);
+  const suppliers = useLoad(() => (canPickSupplier ? api<PartyOption[]>('/suppliers') : Promise.resolve([])), [canPickSupplier]);
   const [form, setForm] = useState<PurchaseForm | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const toast = useToast();
@@ -488,19 +486,14 @@ function PurchaseSection({ load, canPickSupplier }: { load: ImportDetail; canPic
         <FormCard onSubmit={submit}>
           <FormGrid>
             <Field label={t('supplier')}>
-              <Select value={form.supplierId || NO_SUPPLIER} onValueChange={(v) => setForm({ ...form, supplierId: v === NO_SUPPLIER ? '' : v })}>
-                <SelectTrigger className="w-full" aria-label={t('supplier')}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_SUPPLIER}>{t('noSupplier')}</SelectItem>
-                  {suppliers.data?.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <PartyPicker
+                path="/suppliers"
+                items={suppliers.data}
+                value={form.supplierId}
+                onChange={(supplierId) => setForm((f) => (f ? { ...f, supplierId } : f))}
+                onCreated={suppliers.reload}
+                noneLabel={t('noSupplier')}
+              />
             </Field>
             <Field id="pur-rate" label={t('purchaseRate')}>
               <Input id="pur-rate" type="number" value={form.rate} onChange={set('rate')} min={0} step="0.01" inputMode="decimal" />

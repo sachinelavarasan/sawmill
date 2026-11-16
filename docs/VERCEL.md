@@ -82,8 +82,8 @@ POST /api/imports/3f…/submit 201 84ms · owner · 203.0.113.7 · rid=fra1::abc
 
 5xx responses are logged as errors, 4xx and slow (>1.5 s) requests as warnings, so the level
 filter in Vercel → Logs shows problems first. Each response has an `X-Request-Id` header; on
-Vercel it is the Vercel request id, so a request a user reports can be found directly. Set
-`LOG_FORMAT=text` for plain lines instead of JSON.
+Vercel it is the Vercel request id, so a request a user reports can be found directly. Lines are
+coloured by level (Vercel renders the colours); set `LOG_FORMAT=json` for JSON lines instead.
 
 ## Differences from the server setup
 

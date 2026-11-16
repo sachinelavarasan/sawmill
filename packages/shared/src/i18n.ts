@@ -266,6 +266,10 @@ const en = {
   noImports: 'No loads in yet.',
   noUnloading: 'No unloading vehicles recorded yet.',
   noSuppliers: 'No suppliers yet.',
+  searchOrAddName: 'Search, or type a new name to add',
+  addNamed: 'Add “{name}”',
+  notInListTapToAdd: 'Not in the list · tap to add it',
+  partyAdded: '{name} added',
 
   girth: 'Girth (in)',
   lengthFt: 'Length (ft)',
@@ -870,6 +874,8 @@ const en = {
   noWoodTypes: 'No wood types yet — any name can be typed until you add some.',
   pickWoodType: 'Choose a wood type',
   woodTypeMissing: 'Not in the list? The owner can add it in Settings → Wood types.',
+  woodTypeAddHint: 'Not in the list? Type the name and pick “Add” — it joins the list in Settings too.',
+  woodTypeAdded: '{name} added to the wood types',
   woodTypeRemoveNote: 'Removing a name only stops it being offered for new loads; existing loads and stock keep it.',
   // app lock
   appLock: 'App lock',
@@ -1179,6 +1185,10 @@ const ta: Dict = {
   noImports: 'வரும் லோடு இன்னும் இல்லை.',
   noUnloading: 'இறக்கும் வாகனங்கள் இன்னும் பதிவு செய்யப்படவில்லை.',
   noSuppliers: 'விநியோகஸ்தர்கள் இன்னும் இல்லை.',
+  searchOrAddName: 'தேடவும், அல்லது புதிய பெயரை உள்ளிட்டுச் சேர்க்கவும்',
+  addNamed: '“{name}” சேர்',
+  notInListTapToAdd: 'பட்டியலில் இல்லை · சேர்க்கத் தட்டவும்',
+  partyAdded: '{name} சேர்க்கப்பட்டது',
 
   girth: 'சுற்றளவு (அங்குலம்)',
   lengthFt: 'நீளம் (அடி)',
@@ -1783,6 +1793,8 @@ const ta: Dict = {
   noWoodTypes: 'மர வகைகள் இன்னும் இல்லை — சேர்க்கும் வரை எந்தப் பெயரையும் தட்டச்சு செய்யலாம்.',
   pickWoodType: 'மர வகையைத் தேர்ந்தெடு',
   woodTypeMissing: 'பட்டியலில் இல்லையா? உரிமையாளர் அமைப்புகள் → மர வகைகள் இல் சேர்க்கலாம்.',
+  woodTypeAddHint: 'பட்டியலில் இல்லையா? பெயரை உள்ளிட்டு “சேர்” என்பதைத் தேர்ந்தெடுக்கவும் — அது அமைப்புகளில் உள்ள பட்டியலிலும் சேரும்.',
+  woodTypeAdded: '{name} மர வகைகளில் சேர்க்கப்பட்டது',
   woodTypeRemoveNote: 'பெயரை நீக்கினால் புதிய லோடுகளுக்கு மட்டும் காட்டப்படாது; பழைய லோடுகளும் இருப்பும் அதையே வைத்திருக்கும்.',
   // app lock
   appLock: 'செயலி பூட்டு',

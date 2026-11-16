@@ -44,6 +44,19 @@ describe('wood types', () => {
     expect((await newLoad('BURMA TEAK')).body.woodType).toBe('Burma Teak');
   });
 
+  it('the owner adds one name from a load form; a name already listed is not added twice', async () => {
+    const added = await owner('POST', '/settings/wood-types', { name: '  rose   wood ' });
+    expect(added.status).toBe(201);
+    expect(added.body).toEqual({ name: 'rose wood', items: ['pine', 'rose wood', 'Savukku', 'Thekku'] });
+    expect((await newLoad('Rose Wood')).body.woodType).toBe('rose wood');
+    const again = await owner('POST', '/settings/wood-types', { name: 'SAVUKKU' });
+    expect(again.body).toEqual({ name: 'Savukku', items: ['pine', 'rose wood', 'Savukku', 'Thekku'] });
+    expect((await owner('POST', '/settings/wood-types', { name: 'x' })).status).toBe(400);
+    expect((await accA('POST', '/settings/wood-types', { name: 'Teek' })).status).toBe(403);
+    // back to the list the later tests expect
+    await setList(['pine', 'Savukku', 'Thekku']);
+  });
+
   it('exports and edits go through the same rule', async () => {
     const { body: load } = await newLoad('Thekku');
     expect((await accA('PATCH', `/imports/${load.id}`, { woodType: 'thekku ' })).body.woodType).toBe('Thekku');

@@ -9,13 +9,6 @@ import { FormEvent, ReactNode, useId, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "../api";
 import { useAuth } from "../auth";
@@ -33,6 +26,11 @@ import {
 import { StatusBadge } from "../components/status-badge";
 import { useToast } from "../components/toast";
 import { useChangedGuard } from "../components/leave-guard";
+import {
+  PartyPicker,
+  type PartyOption,
+  SearchAddPicker,
+} from "../components/party-picker";
 import {
   Field,
   FormActions,
@@ -360,9 +358,12 @@ function WoodTypeField({
   onChange: (v: string) => void;
 }) {
   const { t } = useI18n();
-  const choices = useApi<{ items: string[]; fixed: boolean }>(
-    "/wood-types",
-  ).data;
+  const { can } = useAuth();
+  const toast = useToast();
+  const woodTypes = useApi<{ items: string[]; fixed: boolean }>("/wood-types");
+  const choices = woodTypes.data;
+  // the owner can add a missing wood to the list right here, without a trip to Settings
+  const canAdd = can(Permission.SETTINGS_MANAGE);
   if (choices?.fixed) {
     // an older load may carry a name since removed from the list: keep it selectable
     const items =
@@ -370,19 +371,42 @@ function WoodTypeField({
         ? [value, ...choices.items]
         : choices.items;
     return (
-      <Field id={id} label={t("woodType")} required hint={t("woodTypeMissing")}>
-        <Select value={value} onValueChange={onChange} required>
-          <SelectTrigger id={id} className="w-full">
-            <SelectValue placeholder={t("pickWoodType")} />
-          </SelectTrigger>
-          <SelectContent>
-            {items.map((w) => (
-              <SelectItem key={w} value={w}>
-                {w}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <Field
+        id={id}
+        label={t("woodType")}
+        required
+        hint={t(canAdd ? "woodTypeAddHint" : "woodTypeMissing")}
+      >
+        <SearchAddPicker
+          id={id}
+          options={items.map((w) => ({ value: w, label: w }))}
+          value={value}
+          onChange={onChange}
+          placeholder={t("pickWoodType")}
+          maxLength={60}
+          onCreate={
+            canAdd
+              ? async (name) => {
+                  const r = await api<{ name: string }>(
+                    "/settings/wood-types",
+                    { method: "POST", body: JSON.stringify({ name }) },
+                  );
+                  toast(t("woodTypeAdded", { name: r.name }));
+                  woodTypes.reload();
+                  return { value: r.name, label: r.name };
+                }
+              : undefined
+          }
+        />
+        {/* keeps the browser's "please fill in" check that the old select had */}
+        <input
+          tabIndex={-1}
+          aria-hidden
+          required
+          value={value}
+          onChange={() => undefined}
+          className="sr-only"
+        />
       </Field>
     );
   }
@@ -575,8 +599,6 @@ export function ImportFields({
 /** The same rule the server applies to mobile numbers (empty is allowed: the fields are optional). */
 const MOBILE = "[0-9+ ]{7,15}";
 
-/** Radix Select can't hold '', so "no supplier" is this sentinel in the picker. */
-const NO_SUPPLIER = "none";
 const emptyUnloading = () => ({
   vehicleNumber: "",
   startAt: "",
@@ -605,7 +627,7 @@ export function NewImportPage() {
   const suppliers = useLoad(
     () =>
       canSupplier
-        ? api<{ id: string; name: string }[]>("/suppliers")
+        ? api<PartyOption[]>("/suppliers")
         : Promise.resolve([]),
     [canSupplier],
   );
@@ -692,26 +714,15 @@ export function NewImportPage() {
                 label={t("supplier")}
                 hint={t("supplierHint")}
               >
-                <Select
-                  value={supplierId || NO_SUPPLIER}
-                  onValueChange={(v) =>
-                    setSupplierId(v === NO_SUPPLIER ? "" : v)
-                  }
-                >
-                  <SelectTrigger id="imp-supplier" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NO_SUPPLIER}>
-                      {t("noSupplier")}
-                    </SelectItem>
-                    {(suppliers.data ?? []).map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <PartyPicker
+                  id="imp-supplier"
+                  path="/suppliers"
+                  items={suppliers.data}
+                  value={supplierId}
+                  onChange={setSupplierId}
+                  onCreated={suppliers.reload}
+                  noneLabel={t("noSupplier")}
+                />
               </Field>
             )
           }
