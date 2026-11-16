@@ -4,6 +4,7 @@
   "installCommand": "cd .. && npm ci",
   "buildCommand": "cd .. && npx turbo run build --filter=web",
   "outputDirectory": "dist",
+  "ignoreCommand": "npx -y turbo-ignore --fallback=HEAD^1",
   "rewrites": [
     { "source": "/api/:path*", "destination": "https://api-timbertrail.vercel.app/api/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }

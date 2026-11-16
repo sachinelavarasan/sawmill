@@ -40,7 +40,9 @@ declare module 'axios' {
 }
 
 export const http = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? '/api',
+  // Production always calls /api on its own domain (Vercel rewrite / nginx proxy): the CSP only
+  // allows 'self' and the session cookies are SameSite=Strict. VITE_API_URL is a dev-only override.
+  baseURL: (import.meta.env.DEV && import.meta.env.VITE_API_URL) || '/api',
   // send the session cookies (also when VITE_API_URL points at another origin in development)
   withCredentials: true,
   timeout: 30_000,
