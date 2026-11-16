@@ -10,7 +10,7 @@ import { resolveOptionalWoodType, resolveWoodType } from '../common/wood-types';
 import type { AuthUser } from '../common/types';
 import { Database, DbOrTx, InjectDb } from '../db/db.module';
 import { clients, exportFinancials, exportLoads, exportMeasurements, importLoads, users } from '../db/schema';
-import { assertStockNotNegative, finishedBalance, lockImportLoads, postedLoads, syncMovements } from '../stock/ledger';
+import { assertStockNotNegative, finishedBalances, finishedKey, lockImportLoads, postedLoads, syncMovements } from '../stock/ledger';
 import { CreateExportDto, ExportFinancialsDto, ExportLineDto, ListExportsQuery, UpdateExportDto } from './exports.dto';
 
 type ExportRow = typeof exportLoads.$inferSelect;
@@ -48,7 +48,7 @@ const SUMMARY = {
 
 /** A line's stock position: same wood type, load and size add up. */
 const positionKey = (l: { importLoadId: string | null; thicknessIn: string; widthIn: string; lengthFt: string }) =>
-  [l.importLoadId, Number(l.thicknessIn), Number(l.widthIn), Number(l.lengthFt)].join('|');
+  finishedKey(l.importLoadId ?? '', l.thicknessIn, l.widthIn, l.lengthFt);
 
 /**
  * Export loads (lorries of sawn wood going out) and their measured lines.
@@ -125,27 +125,15 @@ export class ExportsService {
       this.db.select().from(exportMeasurements).where(eq(exportMeasurements.exportLoadId, id)).orderBy(asc(exportMeasurements.lineNumber)),
     ]);
     const loadIds = [...new Set([exp.importLoadId, ...lines.map((l) => l.importLoadId)].filter((v): v is string => !!v))];
-    const codes = new Map(
-      loadIds.length
-        ? (await this.db.select({ id: importLoads.id, code: importLoads.code }).from(importLoads).where(inArray(importLoads.id, loadIds))).map((r) => [r.id, r.code])
-        : [],
-    );
 
     // Finished stock still available per line position (after this export, if it's already approved).
-    const available = new Map<string, number>();
-    for (const l of lines) {
-      const k = positionKey(l);
-      if (available.has(k) || !l.importLoadId) continue;
-      const b = await finishedBalance(this.db, {
-        millId: exp.millId,
-        woodType: exp.woodType,
-        importLoadId: l.importLoadId,
-        thicknessIn: Number(l.thicknessIn),
-        widthIn: Number(l.widthIn),
-        lengthFt: Number(l.lengthFt),
-      });
-      available.set(k, b.pieces);
-    }
+    const lineLoadIds = lines.map((l) => l.importLoadId).filter((v): v is string => !!v);
+    const [codeRows, balances] = await Promise.all([
+      loadIds.length ? this.db.select({ id: importLoads.id, code: importLoads.code }).from(importLoads).where(inArray(importLoads.id, loadIds)) : [],
+      finishedBalances(this.db, { millId: exp.millId, woodType: exp.woodType, importLoadIds: lineLoadIds }),
+    ]);
+    const codes = new Map(codeRows.map((r) => [r.id, r.code]));
+    const availableOf = (l: LineRow) => (l.importLoadId ? (balances.get(positionKey(l))?.pieces ?? 0) : 0);
 
     const editable = canEdit(actor, exp);
     return {
@@ -186,7 +174,7 @@ export class ExportsService {
         pieces: l.pieces,
         cft: Number(l.cft),
         /** finished pieces of this size left in that load (approved stock) */
-        availablePieces: available.get(positionKey(l)) ?? 0,
+        availablePieces: availableOf(l),
       })),
     };
   }
@@ -417,15 +405,13 @@ export class ExportsService {
       w.pieces += l.pieces;
       wanted.set(k, w);
     }
-    for (const { line, pieces } of wanted.values()) {
-      const have = await finishedBalance(tx, {
-        millId: exp.millId,
-        woodType: exp.woodType,
-        importLoadId: line.importLoadId!,
-        thicknessIn: Number(line.thicknessIn),
-        widthIn: Number(line.widthIn),
-        lengthFt: Number(line.lengthFt),
-      });
+    const balances = await finishedBalances(tx, {
+      millId: exp.millId,
+      woodType: exp.woodType,
+      importLoadIds: [...wanted.values()].map((w) => w.line.importLoadId!),
+    });
+    for (const [k, { line, pieces }] of wanted) {
+      const have = balances.get(k) ?? { pieces: 0 };
       if (pieces > have.pieces) {
         const [load] = await tx.select({ code: importLoads.code }).from(importLoads).where(eq(importLoads.id, line.importLoadId!));
         const size = sizeLabel(Number(line.thicknessIn), Number(line.widthIn), Number(line.lengthFt));

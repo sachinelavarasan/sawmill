@@ -72,7 +72,8 @@ export class DashboardService {
 
   async owner(user: AuthUser) {
     const millId = user.millId;
-    const today = await this.today(millId);
+    // the activity monitor does not depend on the KPIs: run it alongside them, not after
+    const [today, activity] = await Promise.all([this.today(millId), this.accountantActivity(millId)]);
     const db = this.db;
     const approvedImport = and(eq(importLoads.millId, millId), eq(importLoads.status, 'APPROVED'));
     const approvedExport = and(eq(exportLoads.millId, millId), eq(exportLoads.status, 'APPROVED'));
@@ -140,7 +141,7 @@ export class DashboardService {
         pendingPayables: round(num(purchases?.purchase) - num(purchases?.paid), 2),
         profitLoss: round(totalSales - totalExpenses, 2),
       },
-      accountantActivity: await this.accountantActivity(millId),
+      accountantActivity: activity,
     };
   }
 

@@ -50,6 +50,13 @@
       "when": 1794759127995,
       "tag": "0006_wood_types",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794838159258,
+      "tag": "0007_perf_indexes",
+      "breakpoints": true
     }
   ]
 }

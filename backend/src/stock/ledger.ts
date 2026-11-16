@@ -173,26 +173,48 @@ export async function assertStockNotNegative(tx: DbOrTx, importLoadIds: string[]
   }
 }
 
-/** Finished pieces and CFT in stock for one wood type and size from one import load. */
-export async function finishedBalance(
+/** Key of one finished-stock size within a load: numbers, so "4.00" and 4 are the same size. */
+export const finishedKey = (importLoadId: string, thicknessIn: number | string, widthIn: number | string, lengthFt: number | string) =>
+  [importLoadId, Number(thicknessIn), Number(widthIn), Number(lengthFt)].join('|');
+
+/**
+ * Finished pieces and CFT in stock for one wood type, per size, across these import loads —
+ * one query for every size instead of one per size. Look up with `finishedKey`; a size
+ * missing from the map has nothing in stock.
+ */
+export async function finishedBalances(
   tx: DbOrTx,
-  key: { millId: string; woodType: string; importLoadId: string; thicknessIn: number; widthIn: number; lengthFt: number },
-) {
-  const [r] = await tx
-    .select({ pieces: sum(stockMovements.piecesDelta), cft: sum(stockMovements.cftDelta) })
+  opts: { millId: string; woodType: string; importLoadIds: string[] },
+): Promise<Map<string, { pieces: number; cft: number }>> {
+  const ids = [...new Set(opts.importLoadIds)];
+  const out = new Map<string, { pieces: number; cft: number }>();
+  if (!ids.length) return out;
+  const rows = await tx
+    .select({
+      importLoadId: stockMovements.importLoadId,
+      thicknessIn: stockMovements.thicknessIn,
+      widthIn: stockMovements.widthIn,
+      lengthFt: stockMovements.lengthFt,
+      pieces: sum(stockMovements.piecesDelta),
+      cft: sum(stockMovements.cftDelta),
+    })
     .from(stockMovements)
     .where(
       and(
-        eq(stockMovements.millId, key.millId),
+        eq(stockMovements.millId, opts.millId),
         eq(stockMovements.kind, 'FINISHED'),
-        eq(stockMovements.woodType, key.woodType),
-        eq(stockMovements.importLoadId, key.importLoadId),
-        eq(stockMovements.thicknessIn, String(key.thicknessIn)),
-        eq(stockMovements.widthIn, String(key.widthIn)),
-        eq(stockMovements.lengthFt, String(key.lengthFt)),
+        eq(stockMovements.woodType, opts.woodType),
+        inArray(stockMovements.importLoadId, ids),
       ),
-    );
-  return { pieces: Number(r?.pieces ?? 0), cft: roundTo(Number(r?.cft ?? 0)) };
+    )
+    .groupBy(stockMovements.importLoadId, stockMovements.thicknessIn, stockMovements.widthIn, stockMovements.lengthFt);
+  for (const r of rows) {
+    if (r.thicknessIn == null || r.widthIn == null || r.lengthFt == null) continue;
+    const k = finishedKey(r.importLoadId, r.thicknessIn, r.widthIn, r.lengthFt);
+    const prev = out.get(k) ?? { pieces: 0, cft: 0 };
+    out.set(k, { pieces: prev.pieces + Number(r.pieces ?? 0), cft: roundTo(prev.cft + Number(r.cft ?? 0)) });
+  }
+  return out;
 }
 
 /** Import loads a source record has already posted stock against (to lock them before re-posting). */

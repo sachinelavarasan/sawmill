@@ -323,6 +323,8 @@ export const logMeasurements = pgTable(
   (t) => [
     uniqueIndex('log_measurements_load_number_uq').on(t.importLoadId, t.logNumber),
     uniqueIndex('log_measurements_load_client_ref_uq').on(t.importLoadId, t.clientRef),
+    // owner dashboard: logs measured per accountant
+    index('log_measurements_created_by_idx').on(t.createdById),
   ],
 );
 
@@ -372,21 +374,28 @@ export const productionRuns = pgTable(
     uniqueIndex('production_runs_mill_code_uq').on(t.millId, t.code),
     index('production_runs_mill_status_idx').on(t.millId, t.status),
     index('production_runs_import_idx').on(t.importLoadId),
+    // owner dashboard: an accountant's runs and their latest entry
+    index('production_runs_created_by_idx').on(t.createdById),
   ],
 );
 
 /** one row per finished size (4×2, 3×2, 2×3 …) */
-export const productionOutputs = pgTable('production_outputs', {
-  id: id(),
-  productionRunId: uuid('production_run_id')
-    .notNull()
-    .references(() => productionRuns.id, { onDelete: 'cascade' }),
-  thicknessIn: dimCol('thickness_in').notNull(),
-  widthIn: dimCol('width_in').notNull(),
-  lengthFt: dimCol('length_ft').notNull(),
-  pieces: integer('pieces').notNull(),
-  cft: numeric('cft', { precision: 12, scale: 3 }).notNull(),
-});
+export const productionOutputs = pgTable(
+  'production_outputs',
+  {
+    id: id(),
+    productionRunId: uuid('production_run_id')
+      .notNull()
+      .references(() => productionRuns.id, { onDelete: 'cascade' }),
+    thicknessIn: dimCol('thickness_in').notNull(),
+    widthIn: dimCol('width_in').notNull(),
+    lengthFt: dimCol('length_ft').notNull(),
+    pieces: integer('pieces').notNull(),
+    cft: numeric('cft', { precision: 12, scale: 3 }).notNull(),
+  },
+  // every run's detail, totals and stock posting read its outputs by run
+  (t) => [index('production_outputs_run_idx').on(t.productionRunId)],
+);
 
 // ───────────────────────── Stock (ledger) ─────────────────────────
 
