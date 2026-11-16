@@ -14,6 +14,7 @@
     "db:seed:demo": "tsx src/db/seed-demo.ts",
     "db:seed:demo:reset": "tsx src/db/seed-demo.ts --reset",
     "setup:owner": "tsx src/db/create-owner.ts",
+    "setup:mill": "tsx src/db/create-owner.ts",
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:e2e": "jest --config test/jest-e2e.json --runInBand"

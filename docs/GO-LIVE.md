@@ -66,16 +66,19 @@ cd sawmill/backend
 DATABASE_URL="<NEON_DIRECT_URL>" npm run db:migrate
 ```
 
-**Create the mill and its first owner** (asks for the password twice, not echoed; 10+ characters
-with a letter and a digit):
+**Create the mill, its owner and first accountant** in one step (asks for each password twice,
+not echoed; 10+ characters with a letter and a digit). The accountant and the settings flags are
+optional:
 
 ```bash
-DATABASE_URL="<NEON_DIRECT_URL>" npm run setup:owner -- \
-  --mill "Sri Murugan Saw Mill" --code SMSM --name "R. Murugan" --username murugan --lang ta --utc-offset 330
+DATABASE_URL="<NEON_DIRECT_URL>" npm run setup:mill -- \
+  --mill "Sri Murugan Saw Mill" --code SMSM --name "R. Murugan" --username murugan \
+  --accountant-name "K. Selvi" --accountant-username selvi \
+  --lang ta --utc-offset 330 --unloading-rate 500 --wood-types "Teak,Sal,Neem"
 ```
 
 > Never run `npm run db:seed` or `db:seed:demo` against Neon — they create demo logins.
-> Accountants are added later from the web app (Users page).
+> More accountants are added later from the web app (Users page).
 
 **Every later release that adds a file in `backend/drizzle/`:** run the `db:migrate` command
 above **before** deploying the API.

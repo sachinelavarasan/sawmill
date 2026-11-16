@@ -29,6 +29,8 @@ export const InjectDb = () => Inject(DB);
           DB_NAME: config.get('DB_NAME'),
           DB_USER: config.get('DB_USER'),
           DB_PASSWORD: config.get('DB_PASSWORD'),
+          DB_SSL: config.get('DB_SSL'),
+          NODE_ENV: config.get('NODE_ENV'),
         });
         const pool = new Pool({ connectionString, max: Number(config.get('DB_POOL_MAX') ?? 10) });
         pool.on('error', (err) => new Logger('Postgres').error(err.message));
