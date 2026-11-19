@@ -1,75 +1,95 @@
 /**
- * Owner's approval queue: everything submitted, oldest first. Tap a card to open the full
- * record, where Approve / Reject live (with the stock effect spelled out before approving).
+ * Owner's approval workspace: compact summary, operation filters, oldest-first queue by default,
+ * and dedicated review navigation (no accidental approval on list tap).
  */
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, View } from 'react-native';
-import { APPROVAL_KIND, approvalSummary } from '../../../../components/cards';
-import { Text } from '../../../../components/text';
-import { ScreenHeader, SheetList } from '../../../../components/header';
-import { ActionPill, Chip, EmptyState, ErrorBox, Icon, IconTile, Muted, PressableCard, refresher, SkeletonList } from '../../../../components/ui';
-import { dateTime, int } from '../../../../lib/format';
+import { useMemo, useState } from 'react';
+import { View } from 'react-native';
+import { ApprovalFilterBar, type ApprovalSort } from '../../../../components/approvals/ApprovalFilterBar';
+import { ApprovalQueueCard } from '../../../../components/approvals/ApprovalQueueCard';
+import { ApprovalSummary } from '../../../../components/approvals/ApprovalSummary';
+import { APPROVAL_KIND } from '../../../../components/cards';
+import { HeaderButton, ScreenHeader, SheetList } from '../../../../components/header';
+import { EmptyState, ErrorBox, Muted, refresher, SkeletonList } from '../../../../components/ui';
+import { int, isoDay, type Period } from '../../../../lib/format';
 import { useT } from '../../../../lib/i18n';
 import { useApi } from '../../../../lib/query';
-import type { ApprovalItem, ApprovalKind, ApprovalQueue } from '../../../../lib/types';
-
-const KIND = APPROVAL_KIND;
+import type { ApprovalKind, ApprovalQueue } from '../../../../lib/types';
 
 export default function ApprovalsScreen() {
   const t = useT();
   const router = useRouter();
   const [kind, setKind] = useState<ApprovalKind | ''>('');
+  const [sort, setSort] = useState<ApprovalSort>('oldest');
+  const [period, setPeriod] = useState<Period | null>(null);
   const q = useApi<ApprovalQueue>('/approvals');
-  const items = (q.data?.items ?? []).filter((i) => !kind || i.type === kind);
-  const summary = (i: ApprovalItem) => approvalSummary(i, t);
+
+  const items = useMemo(() => {
+    const base = (q.data?.items ?? []).filter((i) => {
+      if (kind && i.type !== kind) return false;
+      if (period && i.submittedAt) {
+        const day = isoDay(new Date(i.submittedAt));
+        if (day < period.from || day > period.to) return false;
+      }
+      return true;
+    });
+    if (sort === 'newest') {
+      return [...base].sort((a, b) => Date.parse(b.submittedAt || '0') - Date.parse(a.submittedAt || '0'));
+    }
+    return base;
+  }, [q.data?.items, kind, period, sort]);
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader compact title={t('approvals')} subtitle={q.data ? `${int(q.data.counts.total)} · ${t('pending')}` : undefined} back />
-      <SheetList compact
+      <ScreenHeader
+        compact
+        back
+        title={t('approvals')}
+        subtitle={q.data ? `${int(q.data.counts.total)} · ${t('pending')}` : undefined}
+        right={
+          <HeaderButton
+            icon={q.isRefetching ? 'loader' : 'refresh-cw'}
+            label={t('refresh')}
+            onPress={() => void q.refetch()}
+          />
+        }
+      />
+      <SheetList
+        compact
         data={items}
         keyExtractor={(i) => `${i.type.toLowerCase()}:${i.id}`}
         refreshControl={refresher(q.isRefetching, () => void q.refetch())}
         ListHeaderComponent={
-          <View className="gap-3 pb-1">
+          <View className="gap-3 pb-2">
+            <ApprovalSummary counts={q.data?.counts} loading={q.isPending} />
+            <ApprovalFilterBar
+              kind={kind}
+              onKind={setKind}
+              counts={q.data?.counts}
+              sort={sort}
+              onSort={setSort}
+              period={period}
+              onPeriod={setPeriod}
+            />
             <Muted>{t('approvalsSubtitle')}</Muted>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-1.5">
-              <Chip text={t('allPending')} on={!kind} count={q.data?.counts.total} onPress={() => setKind('')} />
-              {(Object.keys(KIND) as ApprovalKind[]).map((k) => (
-                <Chip key={k} text={t(KIND[k].labelKey)} on={kind === k} count={q.data?.counts[k]} onPress={() => setKind(k)} />
-              ))}
-            </ScrollView>
             {q.error && <ErrorBox message={(q.error as Error).message} onRetry={() => void q.refetch()} />}
             {q.isPending && <SkeletonList />}
           </View>
         }
-        ListEmptyComponent={q.isPending || q.error ? null : <EmptyState icon="check-circle" title={t('noPendingApprovals')} body={t('nothingToApprove')} />}
+        ListEmptyComponent={
+          q.isPending || q.error ? null : (
+            <EmptyState
+              icon="check-circle"
+              title={t('noPendingApprovals')}
+              body={kind || period ? t('noneWithStatus') : t('nothingToApprove')}
+            />
+          )
+        }
         renderItem={({ item }) => (
-          <PressableCard label={`${t('review')} ${item.code}`} onPress={() => router.push(KIND[item.type].href(item.id) as never)}>
-            <View className="flex-row items-center gap-3">
-              <IconTile icon={KIND[item.type].icon} />
-              <View className="flex-1 gap-0.5">
-                <Text className="text-[15px] font-semibold text-foreground" numberOfLines={1}>
-                  {item.code}
-                </Text>
-                <Muted lines={1}>
-                  {t(KIND[item.type].labelKey)} · {item.woodType}
-                </Muted>
-              </View>
-              <ActionPill label={t('review')} />
-            </View>
-            <View className="rounded-2xl bg-background px-3.5 py-3">
-              <Text className="text-sm font-semibold tabular-nums text-foreground">{summary(item)}</Text>
-              {item.type === 'ADJUSTMENT' && <Muted lines={2}>{item.reason}</Muted>}
-            </View>
-            <View className="flex-row items-center gap-1.5">
-              <Icon name="clock" size={13} colorClassName="accent-muted-foreground" />
-              <Muted lines={1} className="flex-1">
-                {t('submittedBy')} {item.createdByName} · {dateTime(item.submittedAt)}
-              </Muted>
-            </View>
-          </PressableCard>
+          <ApprovalQueueCard
+            item={item}
+            onPress={() => router.push(APPROVAL_KIND[item.type].href(item.id) as never)}
+          />
         )}
       />
     </View>

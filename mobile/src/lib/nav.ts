@@ -3,7 +3,7 @@
  * The API checks every request again; hiding an item is only presentation.
  *
  * Bottom bar: Home · Loads in · Production · Loads out · More (the daily work).
- * Everything else (approvals, stock, reports, parties, money, admin) lives under More.
+ * Everything else (parties, money, admin, preferences, security) lives under More.
  */
 import { Permission, type TKey } from '@timbertrail/shared';
 import type { IconName } from '../components/icon';
@@ -25,38 +25,36 @@ export interface MenuItem {
 export const visible = (m: MenuItem, can: (p: Permission) => boolean) => (!m.permission || can(m.permission)) && !(m.unless && can(m.unless));
 
 /**
- * More tab, in groups (Personalisation and the account rows are drawn by the More screen itself).
- * Each item shows only with its permission; a group with nothing left is not shown.
+ * More tab, in four clean sections:
+ *  - BUSINESS (Clients, Suppliers, Accounts, Other Expenses)
+ *  - ADMINISTRATION (User Management, Audit Log, Mill Settings)
+ *  - PREFERENCES & SECURITY (drawn in more/index.tsx)
+ *  - ACCOUNT (drawn in more/index.tsx)
  */
 export const MORE_GROUPS: { labelKey: TKey; items: MenuItem[] }[] = [
   {
     labelKey: 'operations',
     items: [
-      { key: 'approvals', href: '/more/approvals', labelKey: 'pendingApprovals', subKey: 'approvalsSubtitle', icon: 'check-circle', tone: 'saffron', permission: Permission.OPERATIONS_APPROVE },
-      { key: 'inventory', href: '/inventory', labelKey: 'stock', icon: 'boxes', tone: 'info' },
-      { key: 'reports', href: '/reports', labelKey: 'reports', icon: 'bar-chart-2', tone: 'good' },
+      { key: 'approvals', href: '/more/approvals', labelKey: 'pendingApprovals', icon: 'check-circle', permission: Permission.OPERATIONS_APPROVE },
+      { key: 'inventory', href: '/inventory', labelKey: 'stock', icon: 'boxes' },
+      { key: 'reports', href: '/reports', labelKey: 'reports', icon: 'bar-chart-2' },
     ],
   },
   {
-    labelKey: 'businessManagement',
+    labelKey: 'secBusinessMenu',
     items: [
-      { key: 'clients', href: '/more/clients', labelKey: 'clients', subKey: 'clientsSub', icon: 'users', tone: 'navy', permission: Permission.CLIENTS_MANAGE },
-      { key: 'suppliers', href: '/more/suppliers', labelKey: 'suppliers', subKey: 'suppliersSub', icon: 'truck', tone: 'warn', permission: Permission.SUPPLIERS_MANAGE },
-    ],
-  },
-  {
-    labelKey: 'accounts',
-    items: [
-      { key: 'accounts', href: '/more/accounts', labelKey: 'accounts', subKey: 'accountsSub', icon: 'wallet', tone: 'good', permission: Permission.FINANCE_VIEW },
-      { key: 'expenses', href: '/more/expenses', labelKey: 'otherExpenses', icon: 'receipt', tone: 'warn', permission: Permission.FINANCE_VIEW },
+      { key: 'clients', href: '/more/clients', labelKey: 'clients', icon: 'users', permission: Permission.CLIENTS_MANAGE },
+      { key: 'suppliers', href: '/more/suppliers', labelKey: 'suppliers', icon: 'truck', permission: Permission.SUPPLIERS_MANAGE },
+      { key: 'accounts', href: '/more/accounts', labelKey: 'accounts', icon: 'wallet', permission: Permission.FINANCE_VIEW },
+      { key: 'expenses', href: '/more/expenses', labelKey: 'otherExpenses', icon: 'receipt', permission: Permission.FINANCE_VIEW },
     ],
   },
   {
     labelKey: 'navAdmin',
     items: [
-      { key: 'users', href: '/more/users', labelKey: 'users', subKey: 'usersSub', icon: 'user-check', tone: 'info', permission: Permission.USERS_MANAGE },
-      { key: 'audit', href: '/more/audit', labelKey: 'auditLog', subKey: 'auditSub', icon: 'shield', tone: 'navy', permission: Permission.AUDIT_VIEW },
-      { key: 'millSettings', href: '/mill-settings', labelKey: 'millSettings', subKey: 'millSettingsSub', icon: 'building', tone: 'neutral', permission: Permission.SETTINGS_MANAGE },
+      { key: 'users', href: '/more/users', labelKey: 'userManagement', icon: 'user-check', permission: Permission.USERS_MANAGE },
+      { key: 'audit', href: '/more/audit', labelKey: 'auditLog', icon: 'shield', permission: Permission.AUDIT_VIEW },
+      { key: 'millSettings', href: '/mill-settings', labelKey: 'millSettings', icon: 'building', permission: Permission.SETTINGS_MANAGE },
     ],
   },
 ];

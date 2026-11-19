@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
+import { useCSSVariable } from 'uniwind';
 import { toast } from '../../components/toast';
 import { useT } from '../../lib/i18n';
 import { flushPending, usePendingLogs } from '../../lib/offline-logs';
@@ -9,10 +10,11 @@ import { useSession } from '../../lib/session';
 
 /** Everything after login: the tabs, plus records and forms opened full screen on top of them. */
 export default function AppLayout() {
+  const [contentBg] = useCSSVariable(['--color-card']).map(String);
   return (
     <>
       <PendingLogsSync />
-      <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }} />
+      <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right', contentStyle: { backgroundColor: contentBg } }} />
     </>
   );
 }

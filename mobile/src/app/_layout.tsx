@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useCSSVariable } from 'uniwind';
 import { DialogProvider, useConfirm } from '../components/confirm';
 import { LockScreen } from '../components/LockScreen';
 import { FONT_FILES } from '../components/text';
@@ -80,13 +81,14 @@ function Routes() {
     SplashScreen.hideAsync().catch(() => undefined);
   }, [ready, started]);
 
+  const [contentBg] = useCSSVariable(['--color-card']).map(String);
   if (!ready && !started) return null;
   const inApp = !!user && prefsReady;
   return (
     <>
       {/* the starting style; each screen then sets its own on focus (components/header.tsx useStatusBar) */}
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
+      <Stack screenOptions={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: contentBg } }}>
         <Stack.Protected guard={inApp}>
           <Stack.Screen name="(app)" />
         </Stack.Protected>

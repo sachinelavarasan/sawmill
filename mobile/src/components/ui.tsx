@@ -397,12 +397,20 @@ export function Avatar({ name, size = 'md', tone = 'navy' }: { name: string; siz
   );
 }
 
-/** Orange count bubble (pending approvals on the bell / tab). */
-export function CountBadge({ n, className, onDark }: { n: number; className?: string; /** sits on the navy app bar */ onDark?: boolean }) {
+/** Orange count bubble (pending approvals on the bell / tab / menu row). */
+export function CountBadge({ n, className, onDark, inline }: { n: number; className?: string; /** sits on the navy app bar */ onDark?: boolean; /** inline inside a list row */ inline?: boolean }) {
   if (!n) return null;
   return (
-    <View className={cn('h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 bg-saffron px-1', onDark ? 'border-hero-foreground' : 'border-card', className)}>
-      <Text className="text-[10px] font-bold text-white">{n > 99 ? '99+' : n}</Text>
+    <View
+      className={cn(
+        'items-center justify-center rounded-full bg-saffron',
+        inline ? 'h-[22px] min-w-[22px] px-1.5' : cn('h-5 min-w-5 border-2 px-1', onDark ? 'border-hero-foreground' : 'border-card'),
+        className,
+      )}
+    >
+      <Text className={cn('font-bold tabular-nums text-white', inline ? 'text-[11px] leading-[13px]' : 'text-[10px] leading-[12px]')} style={{ includeFontPadding: false }}>
+        {n > 99 ? '99+' : n}
+      </Text>
     </View>
   );
 }
@@ -580,7 +588,7 @@ export function MenuRow({
         {!!subtitle && <Muted lines={2}>{subtitle}</Muted>}
       </View>
       {!!value && <Text className="text-sm font-medium text-muted-foreground">{value}</Text>}
-      {!!badge && <CountBadge n={badge} />}
+      {!!badge && <CountBadge n={badge} inline />}
       {right ?? (onPress && <Icon name="chevron-right" size={18} colorClassName="accent-muted-foreground" />)}
     </Pressable>
   );
