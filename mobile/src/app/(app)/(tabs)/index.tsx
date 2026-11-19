@@ -128,7 +128,6 @@ function HomeHero({ bell, children }: { bell?: { count: number; label: string; o
   const t = useT();
   const user = useUser();
   const profile = useSheet();
-  const first = user.name.trim().split(/\s+/)[0] || user.name;
   return (
     <View className="gap-5 px-5 pb-7 pt-2">
       <Rings />
@@ -137,8 +136,14 @@ function HomeHero({ bell, children }: { bell?: { count: number; label: string; o
           <Text className="text-[13px] text-hero-muted" numberOfLines={1}>
             {t(greetingKey())},
           </Text>
-          <Text className="text-[22px] font-bold tracking-tight text-hero-foreground font-display" numberOfLines={1} accessibilityRole="header">
-            {first}
+          <Text
+            className="text-[22px] font-bold tracking-tight text-hero-foreground font-display"
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+            accessibilityRole="header"
+          >
+            {user.name}
           </Text>
           <View className="flex-row items-center gap-1.5">
             <Icon name="building" size={12} colorClassName="accent-hero-muted" />
@@ -149,7 +154,7 @@ function HomeHero({ bell, children }: { bell?: { count: number; label: string; o
         </View>
         {bell && <HeaderButton icon="bell" label={bell.label} onPress={bell.onPress} badge={bell.count ? <CountBadge n={bell.count} onDark /> : undefined} />}
         <Pressable onPress={profile.open} accessibilityRole="button" accessibilityLabel={t('profile')} className="h-11 w-11 items-center justify-center rounded-full active:opacity-80">
-          <Avatar name={user.name} size="sm" tone="saffron" />
+          <Avatar name={user.name} size="sm" tone="hero" />
         </Pressable>
       </View>
       {children}

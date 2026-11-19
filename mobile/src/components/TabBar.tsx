@@ -95,9 +95,12 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
       ) : null}
       {/* the glass's own faint colour, so the bar looks the same over coloured cards (Home) and plain
           sheet (More); nearly solid where there is no blur (old builds) */}
-      <View pointerEvents="none" style={StyleSheet.absoluteFill} className={BlurView ? (dark ? 'bg-card/15' : 'bg-card/20') : 'bg-card/90'} />
+      <View pointerEvents="none" style={StyleSheet.absoluteFill} className={BlurView ? (dark ? 'bg-card/5' : 'bg-card/10') : 'bg-card/85'} />
       <View
-        className="flex-row self-stretch rounded-[28px] bg-sidebar"
+        className={cn(
+          'flex-row self-stretch rounded-[28px] border border-hero-border',
+          BlurView ? 'bg-sidebar/70' : 'bg-sidebar/92',
+        )}
         style={{ padding: PAD, gap: GAP, marginHorizontal: 12 }}
         accessibilityRole="tablist"
         onLayout={(e) => {

@@ -384,15 +384,17 @@ export function Divider() {
   return <View className="h-px bg-border" />;
 }
 
-/** Initials (up to two letters) on a soft navy circle. */
-export function Avatar({ name, size = 'md', tone = 'navy' }: { name: string; size?: 'sm' | 'md' | 'lg'; tone?: 'navy' | 'saffron' }) {
-  const box = { sm: 'h-8 w-8', md: 'h-11 w-11', lg: 'h-14 w-14' }[size];
+/** Initials (up to two letters) on a soft navy, saffron, or dark hero circle. */
+export function Avatar({ name, size = 'md', tone = 'navy' }: { name: string; size?: 'sm' | 'md' | 'lg'; tone?: 'navy' | 'saffron' | 'hero' }) {
+  const box = { sm: 'h-9 w-9', md: 'h-11 w-11', lg: 'h-14 w-14' }[size];
   const text = { sm: 'text-xs', md: 'text-sm', lg: 'text-lg' }[size];
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const initials = ((parts[0]?.[0] ?? '?') + (parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : '')).toUpperCase();
+  const bg = tone === 'saffron' ? 'bg-saffron' : tone === 'hero' ? 'border border-hero-border bg-hero/85' : 'bg-primary-soft';
+  const fg = tone === 'saffron' ? 'text-saffron-foreground' : tone === 'hero' ? 'text-hero-foreground' : 'text-primary';
   return (
-    <View className={cn('items-center justify-center rounded-full', box, tone === 'saffron' ? 'bg-saffron' : 'bg-primary-soft')} accessible={false}>
-      <Text className={cn('font-bold', text, tone === 'saffron' ? 'text-saffron-foreground' : 'text-primary')}>{initials}</Text>
+    <View className={cn('items-center justify-center rounded-full', box, bg)} accessible={false}>
+      <Text className={cn('font-bold', text, fg)}>{initials}</Text>
     </View>
   );
 }
