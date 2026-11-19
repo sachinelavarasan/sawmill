@@ -100,8 +100,8 @@ export const ProfileSheet = forwardRef<SheetHandle>(function ProfileSheet(_, ref
           <Overline className="px-1">{t('account')}</Overline>
           <MenuGroup inset>
             <MenuRow
-              icon="settings-2"
-              title={t('settings')}
+              icon="lock"
+              title={t('securitySignIn')}
               onPress={() => {
                 close();
                 router.push('/more/settings');
