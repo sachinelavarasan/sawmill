@@ -8,6 +8,11 @@ import * as SecureStore from 'expo-secure-store';
 
 export const KEYS = {
   refresh: 'timbertrail_refresh',
+  /**
+   * theme / lang: no longer written. Before per-user preferences (services/preferences, in
+   * AsyncStorage) the phone kept one theme and language for everyone here; the first sign-in
+   * after the update moves them into that user's preferences and deletes them.
+   */
   theme: 'timbertrail_theme',
   lang: 'timbertrail_lang',
   welcomed: 'timbertrail_welcomed',

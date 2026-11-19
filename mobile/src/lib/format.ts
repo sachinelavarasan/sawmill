@@ -8,13 +8,36 @@ export const int = (n: number) => n.toLocaleString('en-IN');
 export const signed3 = (n: number) => `${n > 0 ? '+' : ''}${num3(n)}`;
 export const signedInt = (n: number) => `${n > 0 ? '+' : ''}${int(n)}`;
 
-export const dateTime = (s: string | null | undefined) =>
-  s ? new Date(s).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '—';
-/** A timestamp or a YYYY-MM-DD day. */
-export const dateOnly = (s: string | null | undefined) =>
-  s ? new Date(s.length === 10 ? `${s}T00:00:00` : s).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+/**
+ * How dates are written — a display preference (services/preferences sets it):
+ *   medium 19 Nov 2026 · numeric 19/11/2026 · iso 2026-11-19
+ */
+type DateStyle = 'medium' | 'numeric' | 'iso';
+let dateStyle: DateStyle = 'medium';
+export function setDateFormat(s: DateStyle) {
+  dateStyle = s;
+}
+
+const asDate = (s: string) => new Date(s.length === 10 ? `${s}T00:00:00` : s);
+const pad = (n: number) => String(n).padStart(2, '0');
+
 export const timeOnly = (s: string | null | undefined) =>
   s ? new Date(s).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }) : '—';
+
+/** A timestamp or a YYYY-MM-DD day. */
+export const dateOnly = (s: string | null | undefined) => {
+  if (!s) return '—';
+  const d = asDate(s);
+  if (dateStyle === 'iso') return isoDay(d);
+  if (dateStyle === 'numeric') return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+export const dateTime = (s: string | null | undefined) => {
+  if (!s) return '—';
+  if (dateStyle !== 'medium') return `${dateOnly(s)}, ${timeOnly(s)}`;
+  return new Date(s).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+};
 
 /** Local calendar day as YYYY-MM-DD. */
 export const isoDay = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);

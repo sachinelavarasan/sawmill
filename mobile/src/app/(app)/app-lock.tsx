@@ -37,8 +37,8 @@ export default function AppLockScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader back title={t('appLock')} subtitle={t('appLockSub')} />
-      <Page>
+      <ScreenHeader compact back title={t('appLock')} subtitle={t('appLockSub')} />
+      <Page compact>
         {step === 'verify' && (
           <PinPad
             title={title}

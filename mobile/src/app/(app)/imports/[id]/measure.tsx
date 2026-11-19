@@ -280,7 +280,7 @@ export default function MeasureScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader back title={load ? `${load.code} · ${t('measurement')}` : t('measurement')} subtitle={load ? `${load.lorryNumber} · ${load.woodType}` : undefined} />
+      <ScreenHeader compact back title={load ? `${load.code} · ${t('measurement')}` : t('measurement')} subtitle={load ? `${load.lorryNumber} · ${load.woodType}` : undefined} />
       {!load && !error && (
         <View className="p-4">
           <SkeletonList rows={2} />
@@ -293,16 +293,16 @@ export default function MeasureScreen() {
       )}
 
       {load && (
-        <Page
+        <Page compact
           hero={
             <View className="flex-row gap-6">
               {[
                 { label: t('totalCft'), value: num3(shownTotalCft), big: true },
                 { label: t('logsMeasured'), value: int(shownTotalLogs), big: false },
               ].map((x) => (
-                <View key={x.label} className={x.big ? 'flex-1 gap-1' : 'gap-1'}>
+                <View key={x.label} className={x.big ? 'flex-1 gap-0.5' : 'items-end gap-0.5'}>
                   <Text className="text-[13px] text-hero-muted">{x.label}</Text>
-                  <Text className={x.big ? 'text-[34px] font-bold tracking-tight tabular-nums text-hero-foreground font-display' : 'text-[34px] font-bold tracking-tight tabular-nums text-saffron font-display'}>{x.value}</Text>
+                  <Text className={x.big ? 'text-[30px] font-bold tracking-tight tabular-nums text-hero-foreground font-display' : 'text-[30px] font-bold tracking-tight tabular-nums text-hero-foreground font-display'}>{x.value}</Text>
                 </View>
               ))}
             </View>
@@ -320,13 +320,16 @@ export default function MeasureScreen() {
           )}
 
           {load.editable && (
-            <View className="gap-3 rounded-2xl bg-background p-4">
-              <View className="flex-row items-baseline justify-between">
-                <Text className="text-lg font-bold text-foreground font-display">
-                  {editingAny ? t('edit') : t('thisLog')} · {t('logNo')}
-                  {currentNo}
-                </Text>
-                <Text className="text-[22px] font-bold tabular-nums text-warning font-display" accessibilityLiveRegion="polite" accessibilityLabel={`CFT ${num3(liveCft ?? 0)}`}>
+            <View className="gap-3 rounded-3xl bg-background p-3.5">
+              <View className="flex-row items-center justify-between gap-2 px-1">
+                <View className={cn('flex-row items-center gap-2 rounded-full px-3 py-1', editingAny ? 'bg-saffron-soft' : 'bg-card')}>
+                  <Icon name={editingAny ? 'edit-2' : 'ruler'} size={13} colorClassName={editingAny ? 'accent-saffron-strong' : 'accent-muted-foreground'} />
+                  <Text className={cn('text-[13px] font-semibold', editingAny ? 'text-saffron-strong' : 'text-foreground')}>
+                    {editingAny ? t('edit') : t('thisLog')} · {t('logNo')}
+                    {currentNo}
+                  </Text>
+                </View>
+                <Text className="text-[26px] font-bold tabular-nums text-saffron-strong font-display" accessibilityLiveRegion="polite" accessibilityLabel={`CFT ${num3(liveCft ?? 0)}`}>
                   {num3(liveCft ?? 0)}
                   <Text className="text-sm text-muted-foreground"> CFT</Text>
                 </Text>
@@ -344,7 +347,7 @@ export default function MeasureScreen() {
                       accessibilityRole="button"
                       accessibilityState={{ selected: on }}
                       accessibilityLabel={`${label} ${value || '0'}`}
-                      className={cn('min-h-[88px] flex-1 justify-between rounded-xl border-2 px-3.5 py-2.5', on ? 'border-saffron bg-saffron-soft' : 'border-border bg-background')}
+                      className={cn('min-h-[92px] flex-1 justify-between rounded-2xl border-2 bg-card px-3.5 py-2.5', on ? 'border-saffron' : 'border-transparent')}
                     >
                       {/* label may wrap (Tamil runs long); the "same as last" note gets its own line */}
                       <View>
@@ -364,7 +367,7 @@ export default function MeasureScreen() {
                 })}
               </View>
               {totalAfter != null && (
-                <Muted>
+                <Muted className="px-1">
                   {t('totalAfterLog')}: {num3(totalAfter)} CFT
                 </Muted>
               )}
@@ -378,9 +381,9 @@ export default function MeasureScreen() {
                     onPress={() => onKey(k)}
                     accessibilityRole="button"
                     accessibilityLabel={k === 'del' ? t('delete') : k}
-                    className="h-[60px] w-[32%] items-center justify-center rounded-xl border border-border bg-background active:bg-secondary"
+                    className={cn('h-16 w-[32.4%] items-center justify-center rounded-2xl active:opacity-70', k === 'del' ? 'bg-primary-soft' : 'bg-card')}
                   >
-                    {k === 'del' ? <Icon name="delete" size={24} colorClassName="accent-foreground" /> : <Text className="text-[26px] font-semibold text-foreground">{k}</Text>}
+                    {k === 'del' ? <Icon name="delete" size={24} colorClassName="accent-foreground" /> : <Text className="text-[28px] font-semibold tabular-nums text-foreground">{k}</Text>}
                   </Tap>
                 ))}
               </View>

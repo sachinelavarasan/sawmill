@@ -8,7 +8,7 @@ import { useConfirm } from '../../../../components/confirm';
 import { NumberField, Field } from '../../../../components/form';
 import { HeaderButton, Page, ScreenHeader } from '../../../../components/header';
 import { PurchaseDetails } from '../../../../components/PurchaseDetails';
-import { Sheet, useSheet } from '../../../../components/sheet';
+import { AppBottomSheet, SheetActions, useSheet } from '../../../../components/bottom-sheet';
 import {
   Button,
   Card,
@@ -60,13 +60,13 @@ export default function ImportDetailScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader
+      <ScreenHeader compact
         back
         title={load ? load.code : t('importDetails')}
         subtitle={load ? `${load.lorryNumber} · ${load.woodType}` : undefined}
         right={load?.editable ? <HeaderButton icon="edit-2" label={t('edit')} onPress={() => router.push(`/imports/${id}/edit`)} /> : null}
       />
-      <Page refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
+      <Page compact refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
         {q.error && <ErrorBox message={(q.error as Error).message} onRetry={() => void q.refetch()} />}
         {!load && !q.error && <SkeletonList rows={3} />}
 
@@ -198,18 +198,21 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
       {rowError && <ErrorBox message={rowError} />}
       {load.editable && <Button kind="secondary" icon="truck" title={t('startUnloading')} onPress={sheet.open} />}
 
-      <Sheet
+      <AppBottomSheet
         ref={sheet.ref}
+        variant="medium"
         title={t('startUnloading')}
-        footer={<Button icon="play" title={t('startUnloading')} busy={starting} disabled={vehicle.trim().length < 2} onPress={() => void start()} />}
+        // once something is typed, only back or × closes it
+        protect={!!(vehicle.trim() || driver.trim())}
+        footer={<SheetActions primary={{ icon: 'play', title: t('startUnloading'), busy: starting, disabled: vehicle.trim().length < 2, onPress: () => void start() }} />}
       >
-        <View className="gap-3.5 px-5">
+        <View className="gap-3.5">
           <Field label={t('vehicleNumber')} required value={vehicle} onChangeText={setVehicle} autoCapitalize="characters" hint={t('unloadingVehicleHint')} />
           <Field label={t('driverName')} value={driver} onChangeText={setDriver} autoCapitalize="words" />
           <NumberField label={t('ratePerHour')} unit="₹/h" value={rate} onChangeText={setRate} hint={t('calcFromRate')} />
           {startError && <ErrorBox message={startError} />}
         </View>
-      </Sheet>
+      </AppBottomSheet>
     </View>
   );
 }

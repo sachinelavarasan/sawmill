@@ -3,24 +3,28 @@
  *
  * Rules every component here follows:
  *  - colours come from the tokens in src/global.css — never hex values;
- *  - surfaces are separated by hairline borders, not shadows;
- *  - corners: controls 12px (rounded-xl), cards 16px (rounded-2xl);
- *  - saffron marks the one primary action on a screen; navy carries structure;
+ *  - surfaces are separated by hairline borders and soft grey panels, not shadows;
+ *  - corners: controls 12px (rounded-xl), panels 16–18px (rounded-2xl), headline cards 24px;
+ *  - near-black (primary) carries the main action and the selected choice; orange (saffron) is
+ *    kept for the open tab, highlights and the one thing that needs attention;
+ *  - headline figures sit on the dark hero surface in both themes;
  *  - every touch target is at least 44×44.
  */
 import type { TKey } from '@timbertrail/shared';
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, RefreshControl, ScrollView, View } from 'react-native';
-import Reanimated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Reanimated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView as RNSafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { useCSSVariable, withUniwind } from 'uniwind';
 import { useLang, useT } from '../lib/i18n';
 import { useThemeToggle } from '../lib/theme';
+import { useListDensity } from '../services/preferences';
 import type { Status } from '../lib/types';
 import { Icon, type IconName } from './icon';
 import { Appear, AnimatedView, SLIDE, Tap, tick, useGrowIn } from './motion';
 import { Glow } from './glow';
+import { useInSheet } from './sheet-context';
 import { Text, TextInput } from './text';
 
 export { Icon, type IconName };
@@ -76,13 +80,14 @@ export function Card({ children, className }: { children: ReactNode; className?:
 }
 
 export function PressableCard({ children, onPress, label, className }: { children: ReactNode; onPress: () => void; label?: string; className?: string }) {
+  const compact = useListDensity() === 'compact';
   return (
     <Tap
       scale={0.985}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      className={cn('-mx-4 gap-2.5 border-b border-border px-4 py-4 active:bg-secondary', className)}
+      className={cn('-mx-4 border-b border-border px-4 active:bg-secondary', compact ? 'gap-2 py-3' : 'gap-2.5 py-4', className)}
     >
       {children}
     </Tap>
@@ -99,12 +104,23 @@ export const TONE_TEXT: Record<Tone, string> = { warn: 'text-warning', good: 'te
 export const TONE_BG: Record<Tone, string> = { warn: 'bg-warning-soft', good: 'bg-success-soft', bad: 'bg-destructive-soft', info: 'bg-info-soft' };
 export const TONE_ACCENT: Record<Tone, string> = { warn: 'accent-warning', good: 'accent-success', bad: 'accent-destructive', info: 'accent-info' };
 
-/** Rounded square holding an icon — list rows, KPI tiles, quick actions. */
-export function IconTile({ icon, tone = 'saffron', size = 'md' }: { icon: IconName; tone?: 'saffron' | 'navy' | 'neutral' | Tone; size?: 'sm' | 'md' | 'lg' }) {
+/**
+ * Rounded square holding an icon — list rows, KPI tiles, quick actions.
+ * `raised` puts the neutral tones on white, for tiles that sit inside a grey panel.
+ */
+export function IconTile({ icon, tone = 'saffron', size = 'md', raised }: { icon: IconName; tone?: 'saffron' | 'navy' | 'neutral' | Tone; size?: 'sm' | 'md' | 'lg'; raised?: boolean }) {
   const box = { sm: 'h-8 w-8 rounded-lg', md: 'h-10 w-10 rounded-xl', lg: 'h-12 w-12 rounded-2xl' }[size];
   const px = { sm: 16, md: 19, lg: 22 }[size];
   const bg =
-    tone === 'saffron' ? 'bg-saffron-soft' : tone === 'navy' ? 'bg-primary-soft' : tone === 'neutral' ? 'bg-secondary' : TONE_BG[tone];
+    tone === 'saffron'
+      ? 'bg-saffron-soft'
+      : tone === 'navy' || tone === 'neutral'
+        ? raised
+          ? 'bg-card'
+          : tone === 'navy'
+            ? 'bg-primary-soft'
+            : 'bg-secondary'
+        : TONE_BG[tone];
   const fg =
     tone === 'saffron' ? 'accent-saffron-strong' : tone === 'navy' ? 'accent-primary' : tone === 'neutral' ? 'accent-muted-foreground' : TONE_ACCENT[tone];
   return (
@@ -114,7 +130,33 @@ export function IconTile({ icon, tone = 'saffron', size = 'md' }: { icon: IconNa
   );
 }
 
-/** A figure on a dashboard: icon, label, big value. Tapping opens the screen behind it. */
+/**
+ * Change against an earlier window, e.g. "▲ 12% vs previous 7 days". Only shown when the data
+ * has both windows; a rise is green and a fall red (pass `invert` where less is better).
+ */
+export function TrendTag({ pct, label, invert }: { pct: number; label: string; invert?: boolean }) {
+  const flat = pct === 0;
+  const good = invert ? pct < 0 : pct > 0;
+  const tone = flat ? 'text-muted-foreground' : good ? 'text-success' : 'text-destructive';
+  const accent = flat ? 'accent-muted-foreground' : good ? 'accent-success' : 'accent-destructive';
+  return (
+    <View className="flex-row items-center gap-1" accessible accessibilityLabel={`${pct > 0 ? '+' : ''}${pct}% ${label}`}>
+      <Icon name={pct >= 0 ? 'trending-up' : 'trending-down'} size={13} colorClassName={accent} />
+      <Text className={cn('text-xs font-semibold tabular-nums', tone)}>
+        {pct > 0 ? '+' : ''}
+        {pct}%
+      </Text>
+      <Text className="shrink text-[11px] text-muted-foreground" numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * A figure on a dashboard: small icon and label, then the number large. Under it either a real
+ * trend or a short hint. Tapping opens the screen behind it. No border, no shadow: a soft panel.
+ */
 export function Kpi({
   label,
   value,
@@ -122,6 +164,7 @@ export function Kpi({
   tone,
   icon,
   hint,
+  trend,
   onPress,
 }: {
   label: string;
@@ -131,41 +174,69 @@ export function Kpi({
   icon?: IconName;
   /** a short line under the value */
   hint?: string;
+  /** change against an earlier window — pass only when both windows come from the API */
+  trend?: { pct: number; label: string; invert?: boolean } | null;
   onPress?: () => void;
 }) {
   const body = (
     <>
-      <View className="flex-row items-start justify-between">
-        {icon ? <IconTile icon={icon} tone={tone ?? 'saffron'} size="sm" /> : <View />}
-        {onPress && (
-          <View className="h-7 w-7 items-center justify-center rounded-full bg-card">
-            <Icon name="arrow-up-right" size={14} colorClassName="accent-foreground" />
+      <View className="flex-row items-center gap-2">
+        {icon && (
+          <View className={cn('h-7 w-7 items-center justify-center rounded-lg', tone ? TONE_BG[tone] : 'bg-card')}>
+            <Icon name={icon} size={14} colorClassName={tone ? TONE_ACCENT[tone] : 'accent-foreground'} />
           </View>
         )}
-      </View>
-      <View className="gap-0.5">
-        <Text className="text-xs font-medium text-muted-foreground" numberOfLines={2}>
+        <Text className="flex-1 text-xs font-medium leading-4 text-muted-foreground" numberOfLines={2}>
           {label}
         </Text>
-        <Text className={cn('text-[22px] font-bold tracking-tight tabular-nums font-display', tone ? TONE_TEXT[tone] : 'text-foreground')} numberOfLines={1} adjustsFontSizeToFit>
-          {value}
-          {unit ? <Text className="text-xs font-semibold text-muted-foreground"> {unit}</Text> : null}
-        </Text>
-        {!!hint && (
-          <Text className="text-xs text-muted-foreground" numberOfLines={1}>
-            {hint}
-          </Text>
-        )}
       </View>
+      <Text className={cn('text-[24px] font-bold tracking-tight tabular-nums font-display', tone ? TONE_TEXT[tone] : 'text-foreground')} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+        {unit ? <Text className="text-xs font-semibold text-muted-foreground"> {unit}</Text> : null}
+      </Text>
+      {trend ? (
+        <TrendTag {...trend} />
+      ) : hint ? (
+        <Text className="text-xs text-muted-foreground" numberOfLines={1}>
+          {hint}
+        </Text>
+      ) : null}
     </>
   );
-  const box = 'grow basis-[46%] gap-3 rounded-3xl bg-background p-4';
+  const box = 'grow basis-[46%] gap-2 rounded-2xl bg-background p-3.5';
+  const a11y = `${label}: ${value}${unit ? ` ${unit}` : ''}${trend ? `, ${trend.pct > 0 ? '+' : ''}${trend.pct}% ${trend.label}` : hint ? `, ${hint}` : ''}`;
   return onPress ? (
-    <Tap scale={0.96} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label}: ${value}${unit ? ` ${unit}` : ''}`} className={cn(box, 'active:bg-secondary')}>
+    <Tap scale={0.97} onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y} className={cn(box, 'min-h-[112px] active:bg-secondary')}>
       {body}
     </Tap>
   ) : (
-    <View className={box}>{body}</View>
+    <View className={cn(box, 'min-h-[112px]')} accessible accessibilityLabel={a11y}>
+      {body}
+    </View>
+  );
+}
+
+/**
+ * The row of secondary figures under a headline number on the dark surface (a hero, a HeroCard):
+ * small muted label over a white figure, split by a hairline. `accent` sets one figure in bold
+ * (never orange: the gradient behind it is orange in places);
+ * `wrap` lets many figures flow onto more lines instead of sharing one.
+ */
+export function HeroStats({ items, wrap }: { items: { label: string; value: string; accent?: boolean }[]; wrap?: boolean }) {
+  return (
+    <View className={cn('flex-row border-t border-hero-border pt-4', wrap ? 'flex-wrap gap-x-6 gap-y-3' : 'gap-3')}>
+      {items.map((x) => (
+        <View key={x.label} className={cn('gap-0.5', !wrap && 'flex-1')}>
+          <Text className="text-[11px] text-hero-muted" numberOfLines={1}>
+            {x.label}
+          </Text>
+          {/* emphasis is weight, not colour: the band and the cards' lit edge are orange, so orange text vanishes on them */}
+          <Text className={cn('text-[15px] tabular-nums text-hero-foreground', x.accent ? 'font-bold' : 'font-semibold')} numberOfLines={1} adjustsFontSizeToFit={!wrap}>
+            {x.value}
+          </Text>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -250,27 +321,51 @@ export function Pill({ tone, text, icon }: { tone?: Tone; text: string; icon?: I
   );
 }
 
-const STATUS: Record<Status, { key: TKey; tone?: Tone }> = {
-  DRAFT: { key: 'draft' },
-  SUBMITTED: { key: 'pending', tone: 'warn' },
-  APPROVED: { key: 'approved', tone: 'good' },
-  REJECTED: { key: 'rejected', tone: 'bad' },
+const STATUS: Record<Status, { key: TKey; tone?: Tone; icon: IconName }> = {
+  DRAFT: { key: 'draft', icon: 'edit-3' },
+  SUBMITTED: { key: 'pending', tone: 'warn', icon: 'clock' },
+  APPROVED: { key: 'approved', tone: 'good', icon: 'check-circle' },
+  REJECTED: { key: 'rejected', tone: 'bad', icon: 'x-circle' },
 };
 
-/** Status as an outlined pill on a soft fill of its colour — Draft, Pending, Approved, Rejected. */
-export function StatusPill({ status }: { status: string }) {
+/**
+ * Approval status — Draft, Pending, Approved, Rejected — the same badge everywhere: an icon and the
+ * word (never colour alone) on a soft fill of its colour with a faint outline.
+ */
+export function RecordStatusBadge({ status }: { status: string }) {
   const t = useT();
   const m = STATUS[status as Status];
   const tone = m?.tone;
   return (
     <View
       className={cn(
-        'flex-row items-center self-start rounded-full border px-2.5 py-[3px]',
+        'flex-row items-center gap-1 self-start rounded-full border py-[3px] pl-2 pr-2.5',
         tone ? TONE_BG[tone] : 'bg-secondary',
         tone === 'good' ? 'border-success/30' : tone === 'warn' ? 'border-warning/30' : tone === 'bad' ? 'border-destructive/30' : 'border-input',
       )}
+      accessible
+      accessibilityLabel={m ? t(m.key) : status}
     >
-      <Text className={cn('text-xs font-semibold', tone ? TONE_TEXT[tone] : 'text-muted-foreground')}>{m ? t(m.key) : status}</Text>
+      {m && <Icon name={m.icon} size={12} colorClassName={tone ? TONE_ACCENT[tone] : 'accent-muted-foreground'} />}
+      <Text className={cn('text-xs font-semibold', tone ? TONE_TEXT[tone] : 'text-muted-foreground')} numberOfLines={1}>
+        {m ? t(m.key) : status}
+      </Text>
+    </View>
+  );
+}
+
+/** The status badge under its older name (detail screens, adjustments). */
+export const StatusPill = RecordStatusBadge;
+
+/** The figure being worked out as you type (this log's CFT, this line's CFT): soft orange strip. */
+export function LiveFigure({ label, value, unit = 'CFT' }: { label: string; value: string; unit?: string }) {
+  return (
+    <View className="flex-row items-center justify-between rounded-2xl bg-saffron-soft px-4 py-3" accessibilityLiveRegion="polite">
+      <Text className="text-sm font-semibold text-saffron-strong">{label}</Text>
+      <Text className="text-xl font-bold tabular-nums text-saffron-strong font-display">
+        {value}
+        {unit ? <Text className="text-sm font-semibold"> {unit}</Text> : null}
+      </Text>
     </View>
   );
 }
@@ -312,8 +407,8 @@ export function CountBadge({ n, className, onDark }: { n: number; className?: st
   );
 }
 
-/** Thin bar showing a share (0–100). */
-export function ProgressBar({ pct, tone = 'saffron' }: { pct: number; tone?: 'saffron' | 'navy' | 'good' }) {
+/** Thin bar showing a share (0–100). `onDark` for the hero surface. */
+export function ProgressBar({ pct, tone = 'saffron', onDark }: { pct: number; tone?: 'saffron' | 'navy' | 'good'; onDark?: boolean }) {
   const fill = tone === 'navy' ? 'bg-primary' : tone === 'good' ? 'bg-success' : 'bg-saffron';
   const target = Math.max(0, Math.min(100, pct));
   const w = useSharedValue(0);
@@ -322,7 +417,7 @@ export function ProgressBar({ pct, tone = 'saffron' }: { pct: number; tone?: 'sa
   }, [target, w]);
   const bar = useAnimatedStyle(() => ({ width: `${w.value}%` }));
   return (
-    <View className="h-1.5 overflow-hidden rounded-full bg-secondary" accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(pct) }}>
+    <View className={cn('h-1.5 overflow-hidden rounded-full', onDark ? 'bg-hero-chip' : 'bg-secondary')} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(pct) }}>
       <AnimatedView className={cn('h-full rounded-full', fill)} style={bar} />
     </View>
   );
@@ -466,14 +561,20 @@ export function MenuRow({
   /** replaces the chevron (a switch, a pill) */
   right?: ReactNode;
 }) {
+  const inset = useContext(InsetGroup);
+  const compact = useListDensity() === 'compact';
   return (
     <Pressable
       onPress={onPress}
       disabled={!onPress}
       accessibilityRole={onPress ? 'button' : undefined}
-      className={cn('min-h-[60px] flex-row items-center gap-3.5 px-4 py-3 active:bg-secondary', !last && 'border-b border-border')}
+      className={cn(
+        'flex-row items-center gap-3.5 px-4', compact ? 'min-h-[52px] py-2' : 'min-h-[60px] py-3',
+        inset ? 'active:bg-input/40' : 'active:bg-secondary',
+        !last && (inset ? 'border-b border-card' : 'border-b border-border'),
+      )}
     >
-      {icon && <IconTile icon={icon} tone={tone === 'bad' ? 'bad' : 'navy'} size="sm" />}
+      {icon && <IconTile icon={icon} tone={tone === 'bad' ? 'bad' : 'navy'} size="sm" raised={inset} />}
       <View className="flex-1 gap-0.5">
         <Text className={cn('text-[15px] font-semibold', tone === 'bad' ? 'text-destructive' : 'text-foreground')}>{title}</Text>
         {!!subtitle && <Muted lines={2}>{subtitle}</Muted>}
@@ -490,9 +591,10 @@ export function MenuRow({
 export type TileTone = 'saffron' | 'navy' | 'neutral' | Tone;
 
 /**
- * A square-ish tappable tile on the sheet.
- *  - `compact`: icon over a centred label (module launcher, 3 across)
+ * A tappable tile on the sheet.
+ *  - `compact`: icon over a centred label (3 across)
  *  - `stack`:   icon, title and a two-line description, left aligned (2 across)
+ *  - `row`:     icon beside a title that wraps to two lines, chevron or count (module launcher, 2 across)
  */
 export function Tile({
   icon,
@@ -509,8 +611,25 @@ export function Tile({
   subtitle?: string;
   badge?: number;
   onPress: () => void;
-  variant?: 'compact' | 'stack';
+  variant?: 'compact' | 'stack' | 'row';
 }) {
+  if (variant === 'row')
+    return (
+      <Tap
+        scale={0.97}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={badge ? `${title}, ${badge}` : title}
+        className="min-h-[64px] flex-1 flex-row items-center gap-3 rounded-2xl bg-background py-3 pl-3 pr-2.5 active:bg-secondary"
+      >
+        <IconTile icon={icon} tone={tone} raised />
+        {/* two lines, so long Tamil names wrap instead of being cut */}
+        <Text className="flex-1 text-sm font-semibold leading-[18px] text-foreground" numberOfLines={2}>
+          {title}
+        </Text>
+        {badge ? <CountBadge n={badge} /> : <Icon name="chevron-right" size={16} colorClassName="accent-muted-foreground" />}
+      </Tap>
+    );
   const compact = variant === 'compact';
   return (
     <Tap
@@ -562,15 +681,51 @@ export function TileGrid({ columns = 3, children }: { columns?: 2 | 3; children:
   );
 }
 
-/** Rounded group holding MenuRows. */
-/** Rows on the sheet, edge to edge, divided by hairlines. */
-export function MenuGroup({ children }: { children: ReactNode }) {
-  return <View className="-mx-4">{children}</View>;
+/** set inside an inset MenuGroup: rows draw their dividers and icon tiles for a grey panel */
+const InsetGroup = createContext(false);
+
+/**
+ * Rows holding MenuRows (or any rows).
+ *  - default: on the sheet, edge to edge, divided by hairlines (lists, history);
+ *  - `inset`: one soft grey rounded panel per group (settings, preferences, menus).
+ */
+export function MenuGroup({ children, inset }: { children: ReactNode; inset?: boolean }) {
+  const raised = useRaisedPanel();
+  if (!inset) return <View className="-mx-4">{children}</View>;
+  return (
+    <InsetGroup.Provider value>
+      <View className={cn('overflow-hidden rounded-2xl', raised)}>{children}</View>
+    </InsetGroup.Provider>
+  );
+}
+
+/**
+ * A grey panel's fill. On a page it is --color-background; inside a dark bottom sheet (whose own
+ * surface is that same raised charcoal) it steps up to --color-primary-soft so it still shows.
+ */
+function useRaisedPanel(base = 'bg-background') {
+  const inSheet = useInSheet();
+  const { dark } = useThemeToggle();
+  return inSheet && dark ? 'bg-primary-soft' : base;
+}
+
+/**
+ * The small call to action on the right of a list card ("Measure", "Review"): near-black pill,
+ * or orange when it is the one thing waiting on this person.
+ */
+export function ActionPill({ label, accent, icon = 'chevron-right' }: { label: string; accent?: boolean; icon?: IconName }) {
+  return (
+    <View className={cn('min-h-9 flex-row items-center gap-1 rounded-full px-3.5', accent ? 'bg-saffron' : 'bg-primary')}>
+      <Text className={cn('text-[13px] font-semibold', accent ? 'text-saffron-foreground' : 'text-primary-foreground')}>{label}</Text>
+      <Icon name={icon} size={14} colorClassName={accent ? 'accent-saffron-foreground' : 'accent-primary-foreground'} />
+    </View>
+  );
 }
 
 // ───────── buttons ─────────
 
-type ButtonKind = 'primary' | 'secondary' | 'danger' | 'success' | 'ghost' | 'navy';
+/** `danger` is outlined red (a secondary destructive action); `destructive` is solid red (the confirming one). */
+type ButtonKind = 'primary' | 'secondary' | 'danger' | 'destructive' | 'success' | 'ghost' | 'navy';
 
 export function Button({
   title,
@@ -596,6 +751,7 @@ export function Button({
     navy: 'bg-primary active:opacity-85',
     secondary: 'border border-input bg-card active:bg-secondary',
     danger: 'border border-destructive bg-card active:bg-destructive-soft',
+    destructive: 'bg-destructive active:opacity-85',
     success: 'bg-success active:opacity-85',
     ghost: 'active:bg-secondary',
   };
@@ -604,6 +760,7 @@ export function Button({
     navy: 'text-primary-foreground',
     secondary: 'text-foreground',
     danger: 'text-destructive',
+    destructive: 'text-white',
     success: 'text-white',
     ghost: 'text-saffron-strong',
   };
@@ -612,6 +769,7 @@ export function Button({
     navy: 'accent-primary-foreground',
     secondary: 'accent-foreground',
     danger: 'accent-destructive',
+    destructive: 'accent-white',
     success: 'accent-white',
     ghost: 'accent-saffron-strong',
   };
@@ -666,6 +824,8 @@ export function IconButton({ icon, label, onPress, tone }: { icon: IconName; lab
 
 /** Filter / choice chip. Selected = solid black (white in dark). */
 export function Chip({ text, on, onPress, count }: { text: string; on?: boolean; onPress: () => void; count?: number }) {
+  // inside a grey panel, an unselected chip sits on white so it stays visible
+  const inset = useContext(InsetGroup);
   return (
     <Tap
       scale={0.94}
@@ -673,7 +833,7 @@ export function Chip({ text, on, onPress, count }: { text: string; on?: boolean;
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: !!on }}
-      className={cn('min-h-9 flex-row items-center gap-1.5 rounded-full border px-4', on ? 'border-primary bg-primary' : 'border-transparent bg-background active:bg-secondary')}
+      className={cn('min-h-9 flex-row items-center gap-1.5 rounded-full border px-4', on ? 'border-primary bg-primary' : cn('border-transparent active:bg-secondary', inset ? 'bg-card' : 'bg-background'))}
     >
       <Text className={cn('text-[13px] font-semibold', on ? 'text-primary-foreground' : 'text-muted-foreground')}>{text}</Text>
       {count != null && count > 0 && (
@@ -701,6 +861,7 @@ export function Segmented<V extends string>({
   onDark?: boolean;
 }) {
   const index = Math.max(0, options.findIndex((o) => o.value === value));
+  const track = useRaisedPanel('bg-secondary');
   const [w, setW] = useState(0);
   const x = useSharedValue(0);
   useEffect(() => {
@@ -709,7 +870,7 @@ export function Segmented<V extends string>({
   const thumb = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
   return (
     <View
-      className={cn('flex-row rounded-2xl p-1', onDark ? 'bg-hero-chip' : 'bg-secondary')}
+      className={cn('flex-row rounded-2xl p-1', onDark ? 'bg-hero-chip' : track)}
       accessibilityRole="tablist"
       onLayout={(e) => {
         const each = (e.nativeEvent.layout.width - 8) / options.length;
@@ -845,33 +1006,64 @@ export function SearchBar({ value, onChange, placeholder, right }: { value: stri
   );
 }
 
-/** On / off switch with a 44px touch area; the thumb springs across and the track fades to saffron. */
-export function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) {
+/**
+ * The squared switch geometry (dp). Both shapes are rounded rectangles, never pills or circles:
+ * a 60 × 34 track (radius 7) holding a 24 × 24 thumb (radius 4), inset 5 on every side, so the
+ * thumb travels 26 and can never leave the track.
+ */
+const SWITCH = { w: 60, h: 34, r: 7, thumb: 24, thumbR: 4 } as const;
+const SWITCH_INSET = (SWITCH.h - SWITCH.thumb) / 2;
+const SWITCH_TRAVEL = SWITCH.w - SWITCH.thumb - SWITCH_INSET * 2;
+const SWITCH_TIMING = { duration: 200, easing: Easing.bezier(0.2, 0, 0, 1) };
+
+/**
+ * On / off switch, TimberTrail's square-on-square design: off is the neutral input grey with the
+ * thumb on the left; on is saffron with the thumb on the right. The thumb slides across in 200 ms
+ * and dips slightly while pressed. Colours are theme tokens (--color-input, --color-saffron), so
+ * it follows light and dark; the thumb is white in both.
+ *
+ * Touch area is 48dp tall (and 60dp wide); screen readers hear a switch with its label and state.
+ */
+export function CustomSwitch({ value, onChange, label, disabled }: { value: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {
   const [on, off] = useCSSVariable(['--color-saffron', '--color-input']).map(String);
   const p = useSharedValue(value ? 1 : 0);
+  const pressed = useSharedValue(0);
   useEffect(() => {
-    p.value = withTiming(value ? 1 : 0, SLIDE);
+    p.value = withTiming(value ? 1 : 0, SWITCH_TIMING);
   }, [value, p]);
   const track = useAnimatedStyle(() => ({ backgroundColor: interpolateColor(p.value, [0, 1], [off, on]) }));
-  const thumb = useAnimatedStyle(() => ({ transform: [{ translateX: p.value * 20 }, { scale: 1 + Math.sin(p.value * Math.PI) * 0.08 }] }));
+  const thumb = useAnimatedStyle(() => ({ transform: [{ translateX: p.value * SWITCH_TRAVEL }, { scale: 1 - pressed.value * 0.08 }] }));
   return (
     <Pressable
       onPress={() => {
         tick();
         onChange(!value);
       }}
+      onPressIn={() => {
+        pressed.value = withTiming(1, { duration: 90 });
+      }}
+      onPressOut={() => {
+        pressed.value = withTiming(0, { duration: 160 });
+      }}
+      disabled={disabled}
       accessibilityRole="switch"
       accessibilityLabel={label}
-      accessibilityState={{ checked: value }}
-      hitSlop={8}
-      className="h-11 justify-center"
+      accessibilityState={{ checked: value, disabled: !!disabled }}
+      hitSlop={{ top: 0, bottom: 0, left: 6, right: 6 }}
+      className={cn('h-12 justify-center', disabled && 'opacity-40')}
     >
-      <Reanimated.View style={[{ height: 28, width: 48, borderRadius: 14, padding: 2, justifyContent: 'center' }, track]}>
-        <AnimatedView className="h-6 w-6 rounded-full bg-white shadow-sm" style={thumb} />
+      <Reanimated.View style={[{ width: SWITCH.w, height: SWITCH.h, borderRadius: SWITCH.r, padding: SWITCH_INSET, justifyContent: 'center' }, track]}>
+        <AnimatedView
+          className="bg-white shadow-sm shadow-black/20"
+          style={[{ width: SWITCH.thumb, height: SWITCH.thumb, borderRadius: SWITCH.thumbR, elevation: 2 }, thumb]}
+        />
       </Reanimated.View>
     </Pressable>
   );
 }
+
+/** The app's switch everywhere (same props as before): see CustomSwitch. */
+export const Toggle = CustomSwitch;
 
 // ───────── toggles ─────────
 
@@ -983,10 +1175,13 @@ export function SkeletonGrid({ tiles = 4 }: { tiles?: number }) {
   return (
     <Grid>
       {Array.from({ length: tiles }, (_, i) => (
-        <View key={i} className="grow basis-[46%] gap-3 rounded-2xl bg-background p-3.5">
-          <Skeleton className="h-8 w-8 rounded-lg" />
-          <Skeleton className="h-3 w-20" />
-          <Skeleton className="h-6 w-24" />
+        <View key={i} className="min-h-[112px] grow basis-[46%] gap-3 rounded-2xl bg-background p-3.5">
+          <View className="flex-row items-center gap-2">
+            <Skeleton className="h-7 w-7 rounded-lg" />
+            <Skeleton className="h-3 w-20" />
+          </View>
+          <Skeleton className="h-7 w-24" />
+          <Skeleton className="h-3 w-28" />
         </View>
       ))}
     </Grid>

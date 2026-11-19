@@ -40,13 +40,22 @@ const Device = loadNative('expo-device', () => require('expo-device') as typeof 
 /** false on a build without the native modules */
 export const notificationsAvailable = !!Notifications && !!Device;
 
-/** Show notifications that arrive while the app is open, too. Call once, at start-up. */
+/**
+ * How a notification that arrives while the app is open is shown — a display preference on this
+ * phone (services/preferences sets it). It doesn't change what the server sends.
+ */
+let inApp = { inAppBanner: true, inAppSound: true };
+export function setInAppDisplay(d: { inAppBanner: boolean; inAppSound: boolean }) {
+  inApp = d;
+}
+
+/** Show notifications that arrive while the app is open, too (as the preference says). Call once, at start-up. */
 export function configureNotifications() {
   Notifications?.setNotificationHandler({
     handleNotification: async () => ({
-      shouldPlaySound: true,
+      shouldPlaySound: inApp.inAppSound,
       shouldSetBadge: true,
-      shouldShowBanner: true,
+      shouldShowBanner: inApp.inAppBanner,
       shouldShowList: true,
     }),
   });

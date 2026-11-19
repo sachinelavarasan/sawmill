@@ -14,7 +14,7 @@ import { invalidate, useApi } from '../lib/query';
 import type { Party, SaleFinancials } from '../lib/types';
 import { Field, NumberField } from './form';
 import { Payments } from './Payments';
-import { SelectField, Sheet, useSheet } from './sheet';
+import { AppBottomSheet, SelectField, SheetActions, useSheet } from './sheet';
 import { toast } from './toast';
 import { Button, Card, ErrorBox, KV, Pill, SectionTitle, Skeleton } from './ui';
 
@@ -73,8 +73,9 @@ export function SaleDetails({ exportId, totalCft }: { exportId: string; totalCft
         </Card>
       )}
       <Payments kind="exports" loadId={exportId} />
-      <Sheet ref={sheet.ref} title={t('saleDetails')} footer={<Button title={t('save')} busy={busy} onPress={() => void save()} />}>
-        <View className="gap-3.5 px-5">
+      {/* a detailed money form: tall, and only back or × closes it */}
+      <AppBottomSheet ref={sheet.ref} variant="expanded" protect title={t('saleDetails')} footer={<SheetActions primary={{ icon: 'check', title: t('save'), busy, onPress: () => void save() }} />}>
+        <View className="gap-3.5">
           <SelectField
             label={t('client')}
             value={f.clientId}
@@ -99,7 +100,7 @@ export function SaleDetails({ exportId, totalCft }: { exportId: string; totalCft
           <Field label={t('notes')} value={f.notes} onChangeText={(notes) => setF((x) => ({ ...x, notes }))} multiline />
           {error && <ErrorBox message={error} />}
         </View>
-      </Sheet>
+      </AppBottomSheet>
     </>
   );
 }

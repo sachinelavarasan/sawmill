@@ -35,8 +35,8 @@ export default function ExpensesScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader title={t('otherExpenses')} back right={<HeaderButton icon="plus" label={t('addExpense')} onPress={add} />} />
-      <SheetList
+      <ScreenHeader compact title={t('otherExpenses')} back right={<HeaderButton icon="plus" label={t('addExpense')} onPress={add} />} />
+      <SheetList compact
         data={items}
         keyExtractor={rowKey('expense')}
         refreshControl={refresher(q.isRefetching && !q.isFetchingNextPage, () => void q.refetch())}

@@ -5,8 +5,27 @@ import { Pressable, View } from 'react-native';
 import { Page, ScreenHeader } from '../../../../components/header';
 import { PeriodPicker } from '../../../../components/sheet';
 import { Text } from '../../../../components/text';
-import { Avatar, Button, Card, cn, Divider, EmptyState, ErrorBox, HeroCard, Icon, KV, MenuGroup, Muted, Segmented, SectionTitle, Skeleton, SkeletonList } from '../../../../components/ui';
-import { inr, int, periodQuery, presets } from '../../../../lib/format';
+import {
+  Avatar,
+  Button,
+  Card,
+  cn,
+  Divider,
+  EmptyState,
+  ErrorBox,
+  HeroCard,
+  HeroStats,
+  Icon,
+  KV,
+  MenuGroup,
+  Muted,
+  ProgressBar,
+  Segmented,
+  SectionTitle,
+  Skeleton,
+  SkeletonList,
+} from '../../../../components/ui';
+import { inr, inrShort, int, periodQuery, presets } from '../../../../lib/format';
 import { useT } from '../../../../lib/i18n';
 import { useApi } from '../../../../lib/query';
 import type { AccountsSummary, PartyBalance } from '../../../../lib/types';
@@ -31,19 +50,13 @@ export default function AccountsScreen() {
         hero={
           p ? (
             <HeroCard bare label={loss ? t('netLoss') : t('netProfit')} value={inr(p.profit)} icon={loss ? 'trending-down' : 'trending-up'}>
-              <View className="flex-row gap-3 border-t border-hero-border pt-4">
-                {[
-                  { label: t('sales'), value: inr(p.sales) },
-                  { label: t('totalExpenses'), value: inr(p.totalExpenses) },
-                ].map((x) => (
-                  <View key={x.label} className="flex-1 gap-0.5">
-                    <Text className="text-[11px] text-hero-muted">{x.label}</Text>
-                    <Text className="text-[15px] font-semibold tabular-nums text-hero-foreground" numberOfLines={1} adjustsFontSizeToFit>
-                      {x.value}
-                    </Text>
-                  </View>
-                ))}
-              </View>
+              <HeroStats
+                items={[
+                  { label: t('sales'), value: inrShort(p.sales) },
+                  { label: t('totalExpenses'), value: inrShort(p.totalExpenses) },
+                  { label: t('margin'), value: p.sales > 0 ? `${Math.round((p.profit / p.sales) * 1000) / 10}%` : '—', accent: true },
+                ]}
+              />
             </HeroCard>
           ) : (
             <Skeleton className="h-28 rounded-2xl opacity-20" />
@@ -66,13 +79,21 @@ export default function AccountsScreen() {
             </Card>
 
             <SectionTitle>{t('expensesHead')}</SectionTitle>
-            <Card>
-              <KV label={t('purchases')} value={inr(p.purchases)} />
-              <KV label={t('transport')} value={inr(p.transport)} />
-              <KV label={t('unloadingCharges')} value={inr(p.unloading)} />
-              {p.otherExpenses.map((e) => (
-                <KV key={e.category} label={e.category} value={inr(e.amount)} />
-              ))}
+            {/* each head with its share of the total, largest first */}
+            <Card className="gap-3.5">
+              {[
+                { label: t('purchases'), amount: p.purchases },
+                { label: t('transport'), amount: p.transport },
+                { label: t('unloadingCharges'), amount: p.unloading },
+                ...p.otherExpenses.map((e) => ({ label: e.category, amount: e.amount })),
+              ]
+                .sort((a, b) => b.amount - a.amount)
+                .map((e, i) => (
+                  <View key={`${i}:${e.label}`} className="gap-1.5">
+                    <KV label={e.label} value={inr(e.amount)} />
+                    <ProgressBar tone={i === 0 ? 'saffron' : 'navy'} pct={p.totalExpenses > 0 ? (e.amount / p.totalExpenses) * 100 : 0} />
+                  </View>
+                ))}
               <Divider />
               <KV label={t('totalExpenses')} value={inr(p.totalExpenses)} strong />
             </Card>

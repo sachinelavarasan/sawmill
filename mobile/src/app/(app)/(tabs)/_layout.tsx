@@ -1,6 +1,9 @@
 import { Tabs } from 'expo-router';
+import { useState } from 'react';
 import { TabBar } from '../../../components/TabBar';
+import { useSession } from '../../../lib/session';
 import { TabChromeProvider, TabScreenLayout } from '../../../lib/tab-chrome';
+import { availableLandingScreens, usePreferences } from '../../../services/preferences';
 
 /**
  * The bar shows the daily work: Home · Loads in · Production · Loads out · More.
@@ -8,11 +11,22 @@ import { TabChromeProvider, TabScreenLayout } from '../../../lib/tab-chrome';
  * from More rather than shown in the bar — fewer buttons to choose from.
  * The bar floats over the screens as frosted glass (lib/tab-chrome); each screen is its blur target.
  * Records and forms open full screen on top.
+ *
+ * The app opens on the person's preferred landing screen (Preferences → Navigation), checked
+ * against what they may open; preferences are loaded before this renders (app/_layout.tsx).
  */
 export default function TabsLayout() {
+  const { prefs } = usePreferences();
+  const { can } = useSession();
+  // read once: changing the preference applies on the next start, not by jumping away now
+  const [landing] = useState(() => {
+    const allowed = availableLandingScreens(can).map((l) => l.id);
+    return allowed.includes(prefs.defaultLandingScreen) ? prefs.defaultLandingScreen : 'index';
+  });
   return (
     <TabChromeProvider>
       <Tabs
+        initialRouteName={landing}
         screenOptions={{ headerShown: false, animation: 'fade' }}
         screenLayout={({ route, children }) => <TabScreenLayout routeKey={route.key}>{children}</TabScreenLayout>}
         tabBar={(props) => <TabBar {...props} />}

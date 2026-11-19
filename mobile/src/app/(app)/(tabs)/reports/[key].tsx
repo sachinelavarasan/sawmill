@@ -11,7 +11,7 @@ import { HeaderButton, ScreenHeader, SheetList, StickyFooter } from '../../../..
 import { PeriodPicker } from '../../../../components/sheet';
 import { Text } from '../../../../components/text';
 import { toast } from '../../../../components/toast';
-import { Button, EmptyState, ErrorBox, KV, Muted, refresher, Segmented, SkeletonList } from '../../../../components/ui';
+import { Button, EmptyState, ErrorBox, HeroStats, KV, Muted, refresher, Segmented, SkeletonList } from '../../../../components/ui';
 import { downloadToCache } from '../../../../lib/api';
 import { dateOnly, dateTime, inr, int, num3, periodQuery, presets } from '../../../../lib/format';
 import { useLang, useT } from '../../../../lib/i18n';
@@ -71,13 +71,13 @@ export default function ReportScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader
+      <ScreenHeader compact
         back
         title={r?.title ?? title ?? t('reports')}
         subtitle={r ? `${r.millName}${r.period ? ` · ${dateOnly(r.period.from)} – ${dateOnly(r.period.to)}` : ''}` : undefined}
         right={<HeaderButton icon={sharing ? 'loader' : 'share-2'} label={t('shareExcel')} onPress={() => void share()} />}
       />
-      <SheetList
+      <SheetList compact
         data={r?.rows ?? []}
         keyExtractor={(_, i) => String(i)}
         refreshControl={refresher(q.isRefetching, () => void q.refetch())}
@@ -90,16 +90,7 @@ export default function ReportScreen() {
                 {fmt(r.totals[totals[0].key], totals[0].type)}
               </Text>
               <Text className="-mt-2 text-[13px] text-hero-muted">{totals[0].label}</Text>
-              {totals.length > 1 && (
-                <View className="flex-row flex-wrap gap-x-6 gap-y-3 border-t border-hero-border pt-4">
-                  {totals.slice(1).map((c) => (
-                    <View key={c.key} className="gap-0.5">
-                      <Text className="text-[11px] text-hero-muted">{c.label}</Text>
-                      <Text className="text-[15px] font-semibold tabular-nums text-hero-foreground">{fmt(r.totals[c.key], c.type)}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
+              {totals.length > 1 && <HeroStats wrap items={totals.slice(1).map((c) => ({ label: c.label, value: fmt(r.totals[c.key], c.type) }))} />}
             </View>
           ) : undefined
         }
@@ -127,7 +118,7 @@ export default function ReportScreen() {
         }
         ListEmptyComponent={r ? <EmptyState icon="file-text" title={t('noRows')} /> : null}
         renderItem={({ item }) => (
-          <View className="-mx-4 gap-1.5 border-b border-border px-4 py-4">
+          <View className="mb-2.5 gap-1.5 rounded-2xl bg-background p-4">
             {titleCol && <Text className="pb-0.5 text-[15px] font-semibold text-foreground">{fmt(item[titleCol.key], titleCol.type)}</Text>}
             {rest.map((c) => (
               <KV key={c.key} label={c.label} value={fmt(item[c.key], c.type)} />
@@ -137,7 +128,7 @@ export default function ReportScreen() {
       />
       {!!r && (
         <StickyFooter tabBar>
-          <Button kind="navy" icon="file-spreadsheet" title={t('shareExcel')} busy={sharing} onPress={() => void share()} />
+          <Button icon="file-spreadsheet" title={t('shareExcel')} busy={sharing} onPress={() => void share()} />
         </StickyFooter>
       )}
     </View>

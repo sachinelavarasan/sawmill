@@ -8,6 +8,9 @@ export interface ImportSummary {
   code: string;
   arrivalAt: string;
   lorryNumber: string;
+  /** also returned by the list (shown on the card when present) */
+  driverName?: string | null;
+  originLocation?: string | null;
   woodType: string;
   totalLogs: number;
   totalCft: number;

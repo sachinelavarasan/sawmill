@@ -15,8 +15,8 @@ export default function MeasurementScreen() {
   const router = useRouter();
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader title={t('measurement')} back />
-      <RecordList<ImportSummary>
+      <ScreenHeader compact title={t('measurement')} back />
+      <RecordList<ImportSummary> compact
         path="/imports"
         params={OPEN}
         search={t('searchImports')}

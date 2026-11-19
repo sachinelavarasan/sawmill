@@ -18,13 +18,13 @@ export default function AdjustmentDetailScreen() {
   const change = a ? `${signed3(a.cftDelta)} CFT${a.piecesDelta ? ` (${signedInt(a.piecesDelta)} ${t('pieces')})` : ''}` : '';
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader
+      <ScreenHeader compact
         back
         title={a?.code ?? t('adjustments')}
         subtitle={a ? `${a.importCode} · ${t(a.kind === 'RAW' ? 'raw' : 'finished')}` : undefined}
         right={a?.editable ? <HeaderButton icon="edit-2" label={t('edit')} onPress={() => router.push({ pathname: '/stock/adjustments/new', params: { id } })} /> : null}
       />
-      <Page refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
+      <Page compact refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
         {q.error && <ErrorBox message={(q.error as Error).message} onRetry={() => void q.refetch()} />}
         {!a && !q.error && <SkeletonList rows={2} />}
         {a && (

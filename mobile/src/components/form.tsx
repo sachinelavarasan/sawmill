@@ -4,7 +4,7 @@ import { Children, ReactNode, useState } from 'react';
 import { Pressable, ScrollView, type TextInputProps, View } from 'react-native';
 import { cleanDecimal, cleanInt } from '../lib/format';
 import { useT } from '../lib/i18n';
-import { SHEET_TOP, ScreenHeader, StickyFooter } from './header';
+import { ScreenHeader, StickyFooter } from './header';
 import { SheetInput } from './sheet';
 import { useInSheet } from './sheet-context';
 import { fontStyleFor, Text, TextInput } from './text';
@@ -136,8 +136,8 @@ export function FormSection({
 }
 
 /**
- * A full-screen form: header with back, fields that scroll above the keyboard,
- * and the primary action pinned to the bottom so it is never hidden.
+ * A full-screen form: the compact light header with back, fields that scroll above the keyboard
+ * on a flat white body, and the primary action pinned to the bottom so it is never hidden.
  */
 export function FormScreen({
   title,
@@ -156,14 +156,11 @@ export function FormScreen({
 }) {
   return (
     <View className="flex-1 bg-card">
-      <ScreenHeader title={title} subtitle={subtitle} back onBack={onBack} />
+      <ScreenHeader compact title={title} subtitle={subtitle} back onBack={onBack} />
       <KeyboardView>
-        <ScrollView className="flex-1 bg-hero" contentContainerClassName="grow" keyboardShouldPersistTaps="handled">
-          <View className="h-2" />
-          <View className={cn('grow gap-4 px-4 pb-10 pt-6', SHEET_TOP)}>
-            {children}
-            {error && <ErrorBox message={error} />}
-          </View>
+        <ScrollView className="flex-1 bg-card" contentContainerClassName="grow gap-4 px-4 pb-10 pt-4" keyboardShouldPersistTaps="handled">
+          {children}
+          {error && <ErrorBox message={error} />}
         </ScrollView>
         {footer && <StickyFooter>{footer}</StickyFooter>}
       </KeyboardView>

@@ -26,8 +26,8 @@ export default function UsersScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader title={t('users')} back right={<HeaderButton icon="user-plus" label={t('addAccountant')} onPress={add} />} />
-      <SheetList
+      <ScreenHeader compact title={t('users')} back right={<HeaderButton icon="user-plus" label={t('addAccountant')} onPress={add} />} />
+      <SheetList compact
         data={items}
         keyExtractor={rowKey('user')}
         refreshControl={refresher(q.isRefetching, () => void q.refetch())}

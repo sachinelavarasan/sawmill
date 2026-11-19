@@ -2,14 +2,15 @@
  * The bottom bar: Home · Loads in · Production · Loads out · More — the daily work, nothing else.
  * Inventory and Reports open from More (they are tabs without a button here; More stays lit on them).
  *
- * A floating near-black pill of round icon buttons, centred over the foot of the screen. The open tab
- * is an orange circle that springs across to the new tab; its icon pops slightly and a selection
- * haptic ticks. Labels are spoken (accessibility), not printed, so five tabs fit at any text size
- * and in Tamil. More carries the count of records waiting for the owner's approval.
+ * A floating near-black bar across the foot of the screen: five equal tabs, each an icon with its
+ * name under it. The open tab sits on an orange block that slides across to the new tab; its icon
+ * pops slightly and a selection haptic ticks. Names shrink to fit their tab (Tamil runs long) and
+ * stop growing past 1.2× with the phone's text size, so five tabs always fit; the full name is
+ * still spoken. More carries the count of records waiting for the owner's approval.
  */
 import { Permission, type TKey } from '@timbertrail/shared';
 import type { BottomTabBarProps } from 'expo-router/tabs';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +20,7 @@ import { useSession } from '../lib/session';
 import { blur, useTabChrome } from '../lib/tab-chrome';
 import { useThemeToggle } from '../lib/theme';
 import { AnimatedView, EASE_SMOOTH, SLIDE, tick } from './motion';
+import { Text } from './text';
 import { cn, CountBadge, Icon, type IconName } from './ui';
 
 const TABS: { name: string; labelKey: TKey; icon: IconName }[] = [
@@ -29,9 +31,9 @@ const TABS: { name: string; labelKey: TKey; icon: IconName }[] = [
   { name: 'more', labelKey: 'more', icon: 'grid' },
 ];
 
-/** one round tab, the gap between tabs, and the pill's own padding */
-const SIZE = 52;
-const GAP = 6;
+/** a tab's height, the gap between tabs, and the bar's own padding (tab width follows the screen) */
+const HEIGHT = 58;
+const GAP = 4;
 const PAD = 6;
 
 export function TabBar({ state, navigation }: BottomTabBarProps) {
@@ -47,11 +49,13 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
   const found = TABS.findIndex((tb) => tb.name === current);
   const activeIndex = found >= 0 ? found : TABS.length - 1;
 
-  // the sliding orange circle
-  const x = useSharedValue(activeIndex * (SIZE + GAP));
+  // each tab's width, from the bar's measured width
+  const [tabW, setTabW] = useState(0);
+  // the sliding orange block
+  const x = useSharedValue(0);
   useEffect(() => {
-    x.value = withTiming(activeIndex * (SIZE + GAP), SLIDE);
-  }, [activeIndex, x]);
+    if (tabW) x.value = withTiming(activeIndex * (tabW + GAP), SLIDE);
+  }, [activeIndex, tabW, x]);
   const dot = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
 
   const go = (name: string) => {
@@ -92,8 +96,18 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
       {/* the glass's own faint colour, so the bar looks the same over coloured cards (Home) and plain
           sheet (More); nearly solid where there is no blur (old builds) */}
       <View pointerEvents="none" style={StyleSheet.absoluteFill} className={BlurView ? (dark ? 'bg-card/15' : 'bg-card/20') : 'bg-card/90'} />
-      <View className="flex-row rounded-full bg-sidebar" style={{ padding: PAD, gap: GAP }} accessibilityRole="tablist">
-        <AnimatedView pointerEvents="none" className="absolute rounded-full bg-saffron" style={[{ left: PAD, top: PAD, width: SIZE, height: SIZE }, dot]} />
+      <View
+        className="flex-row self-stretch rounded-[28px] bg-sidebar"
+        style={{ padding: PAD, gap: GAP, marginHorizontal: 12 }}
+        accessibilityRole="tablist"
+        onLayout={(e) => {
+          const w = (e.nativeEvent.layout.width - PAD * 2 - GAP * (TABS.length - 1)) / TABS.length;
+          // first measurement: put the block in place without sliding in from the left
+          if (!tabW) x.value = activeIndex * (w + GAP);
+          setTabW(w);
+        }}
+      >
+        {tabW > 0 && <AnimatedView pointerEvents="none" className="absolute rounded-[22px] bg-saffron" style={[{ left: PAD, top: PAD, width: tabW, height: HEIGHT }, dot]} />}
         {TABS.map((tb, i) => (
           <Tab
             key={tb.name}
@@ -123,13 +137,23 @@ function Tab({ icon, label, on, badge, onPress }: { icon: IconName; label: strin
       accessibilityRole="tab"
       accessibilityState={{ selected: on }}
       accessibilityLabel={badge ? `${label}, ${badge}` : label}
-      className={cn('items-center justify-center rounded-full', !on && 'bg-sidebar-active active:opacity-80')}
-      style={{ width: SIZE, height: SIZE }}
+      className={cn('flex-1 items-center justify-center gap-1 rounded-[22px] px-0.5', !on && 'active:bg-sidebar-active')}
+      style={{ height: HEIGHT }}
     >
       <Animated.View style={iconStyle}>
-        <Icon name={icon} size={21} strokeWidth={on ? 2.25 : 1.9} colorClassName={on ? 'accent-saffron-foreground' : 'accent-sidebar-foreground'} />
+        <Icon name={icon} size={20} strokeWidth={on ? 2.25 : 1.9} colorClassName={on ? 'accent-saffron-foreground' : 'accent-sidebar-foreground'} />
         {badge > 0 && <CountBadge n={badge} onDark className="absolute -right-3 -top-2" />}
       </Animated.View>
+      <Text
+        className={cn('text-center text-[11px] leading-[14px]', on ? 'font-semibold text-saffron-foreground' : 'font-medium text-sidebar-muted')}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+        maxFontSizeMultiplier={1.2}
+        importantForAccessibility="no"
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }

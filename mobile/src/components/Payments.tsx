@@ -14,7 +14,7 @@ import { invalidate, queryClient, useApi } from '../lib/query';
 import type { PaymentSummary } from '../lib/types';
 import { useConfirm } from './confirm';
 import { Field, NumberField } from './form';
-import { DateField, Sheet, useSheet } from './sheet';
+import { AppBottomSheet, DateField, SheetActions, useSheet } from './sheet';
 import { Text } from './text';
 import { toast } from './toast';
 import { Button, Card, Chip, cn, ErrorBox, IconButton, KV, Muted, Pill, SectionTitle, Skeleton } from './ui';
@@ -95,8 +95,15 @@ export function Payments({ kind, loadId }: { kind: 'imports' | 'exports'; loadId
           <Button size="md" kind="secondary" icon="plus" title={t('addPayment')} onPress={open} />
         </Card>
       )}
-      <Sheet ref={sheet.ref} title={t('addPayment')} footer={<Button title={t('save')} busy={busy} disabled={!(parseNum(f.amount)! > 0)} onPress={() => void add()} />}>
-        <View className="gap-3.5 px-5">
+      <AppBottomSheet
+        ref={sheet.ref}
+        variant="medium"
+        title={t('addPayment')}
+        // once an amount is typed, only back or × closes it
+        protect={f.amount !== '' || f.reference !== '' || f.notes !== ''}
+        footer={<SheetActions primary={{ icon: 'check', title: t('save'), busy, disabled: !(parseNum(f.amount)! > 0), onPress: () => void add() }} />}
+      >
+        <View className="gap-3.5">
           <NumberField label={t('amount')} unit="₹" value={f.amount} onChangeText={(amount) => setF((x) => ({ ...x, amount }))} required autoFocus />
           <DateField label={t('date')} value={f.date} max={todayIso()} onChange={(date) => setF((x) => ({ ...x, date }))} />
           <View className="gap-1.5">
@@ -113,7 +120,7 @@ export function Payments({ kind, loadId }: { kind: 'imports' | 'exports'; loadId
           <Field label={t('notes')} value={f.notes} onChangeText={(notes) => setF((x) => ({ ...x, notes }))} maxLength={500} />
           {error && <ErrorBox message={error} />}
         </View>
-      </Sheet>
+      </AppBottomSheet>
     </>
   );
 }

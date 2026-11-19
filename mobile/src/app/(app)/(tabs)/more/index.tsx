@@ -1,23 +1,37 @@
 /**
- * More: the menu for everything that isn't a bottom tab — loads in and out, measuring,
- * approvals, parties, money and administration — showing only what this person may open.
+ * More: everything that isn't a bottom tab, in sections — Operations, Business management,
+ * Accounts, Personalisation, Administration — showing only what this person may open (a section
+ * with nothing allowed is left out). Then Settings and Log out, and the version.
+ *
+ * Modules are two-across tiles (icon beside a name that wraps to two lines, for Tamil);
+ * personal choices are grouped rows that open Preferences at the right place.
  */
 import { Permission } from '@timbertrail/shared';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
+import { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import { BrandMark } from '../../../../components/Brand';
 import { useConfirm } from '../../../../components/confirm';
 import { Page, ScreenHeader } from '../../../../components/header';
-import { Text } from '../../../../components/text';
 import { Appear } from '../../../../components/motion';
-import { Avatar, Icon, MenuGroup, MenuRow, Overline, Tile, TileGrid, Toggle } from '../../../../components/ui';
+import { Text } from '../../../../components/text';
+import { Avatar, Icon, LangPills, MenuGroup, MenuRow, Overline, Tile, TileGrid } from '../../../../components/ui';
 import { APP_NAME } from '../../../../lib/brand';
 import { useT } from '../../../../lib/i18n';
-import { MORE_GROUPS, visible } from '../../../../lib/nav';
+import { type MenuItem, MORE_GROUPS, visible } from '../../../../lib/nav';
 import { useApi } from '../../../../lib/query';
 import { useSession, useUser } from '../../../../lib/session';
-import { useThemeToggle } from '../../../../lib/theme';
+import { usePreferences } from '../../../../services/preferences';
+
+function Group({ index, title, children }: { index: number; title: string; children: ReactNode }) {
+  return (
+    <Appear index={index} className="gap-2.5 pt-2">
+      <Overline className="px-1">{title}</Overline>
+      {children}
+    </Appear>
+  );
+}
 
 export default function MoreHome() {
   const t = useT();
@@ -25,9 +39,29 @@ export default function MoreHome() {
   const user = useUser();
   const { can, logout } = useSession();
   const confirm = useConfirm();
-  const { dark, toggle } = useThemeToggle();
+  const { theme } = usePreferences();
   const pending = useApi<{ total: number }>(can(Permission.OPERATIONS_APPROVE) ? '/approvals/count' : null);
   const groups = MORE_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => visible(i, can)) })).filter((g) => g.items.length);
+  // Administration goes after Personalisation; the rest before it
+  const admin = groups.filter((g) => g.labelKey === 'navAdmin');
+  const modules = groups.filter((g) => g.labelKey !== 'navAdmin');
+  const themeLabel = t(theme === 'dark' ? 'themeDark' : theme === 'system' ? 'themeSystem' : 'themeLight');
+
+  const tiles = (items: MenuItem[]) => (
+    <TileGrid columns={2}>
+      {items.map((i) => (
+        <Tile
+          key={i.key}
+          variant="row"
+          icon={i.icon}
+          tone={i.tone}
+          title={t(i.labelKey)}
+          badge={i.key === 'approvals' ? pending.data?.total : undefined}
+          onPress={() => router.push(i.href as never)}
+        />
+      ))}
+    </TileGrid>
+  );
 
   return (
     <View className="flex-1 bg-background">
@@ -50,43 +84,51 @@ export default function MoreHome() {
           <Icon name="chevron-right" size={18} colorClassName="accent-hero-muted" />
         </Pressable>
       </ScreenHeader>
+
       <Page bottomInset={false}>
-        {groups.map((g, gi) => (
-          <Appear key={g.labelKey} index={gi} className="gap-3">
-            <Overline className={gi ? 'mt-3 px-1' : 'px-1'}>{t(g.labelKey)}</Overline>
-            <TileGrid columns={3}>
-              {g.items.map((i) => (
-                <Tile
-                  key={i.key}
-                  icon={i.icon}
-                  tone={i.tone}
-                  title={t(i.labelKey)}
-                  badge={i.key === 'approvals' ? pending.data?.total : undefined}
-                  onPress={() => router.push(i.href as never)}
-                />
-              ))}
-            </TileGrid>
-          </Appear>
+        {modules.map((g, gi) => (
+          <Group key={g.labelKey} index={gi} title={t(g.labelKey)}>
+            {tiles(g.items)}
+          </Group>
         ))}
 
-        <Overline className="mt-3 px-1">{t('appearance')}</Overline>
-        <MenuGroup>
-          <MenuRow icon={dark ? 'moon' : 'sun'} title={t('darkMode')} last right={<Toggle value={dark} onChange={toggle} label={t('darkMode')} />} />
-        </MenuGroup>
+        <Group index={modules.length} title={t('personalisation')}>
+          <MenuGroup inset>
+            <MenuRow icon="sliders" title={t('preferences')} subtitle={t('preferencesSub')} onPress={() => router.push('/preferences')} />
+            <MenuRow icon="bell" title={t('notifications')} onPress={() => router.push({ pathname: '/preferences', params: { section: 'notifications' } })} />
+            <MenuRow icon="languages" title={t('language')} right={<LangPills />} />
+            <MenuRow
+              icon={theme === 'dark' ? 'moon' : 'sun'}
+              title={t('appearance')}
+              value={themeLabel}
+              last
+              onPress={() => router.push({ pathname: '/preferences', params: { section: 'appearance' } })}
+            />
+          </MenuGroup>
+        </Group>
 
-        <MenuGroup>
-          <MenuRow
-            icon="log-out"
-            tone="bad"
-            title={t('logout')}
-            last
-            onPress={async () => {
-              if (await confirm({ title: t('logout'), message: t('logoutConfirm'), confirmText: t('logout'), cancelText: t('cancel'), destructive: true })) await logout();
-            }}
-          />
-        </MenuGroup>
+        {admin.map((g) => (
+          <Group key={g.labelKey} index={modules.length + 1} title={t(g.labelKey)}>
+            {tiles(g.items)}
+          </Group>
+        ))}
 
-        <View className="items-center gap-1 pt-4">
+        <Appear index={modules.length + 2} className="pt-2">
+          <MenuGroup inset>
+            <MenuRow icon="settings-2" title={t('settings')} subtitle={t('appLockSub')} onPress={() => router.push('/more/settings')} />
+            <MenuRow
+              icon="log-out"
+              tone="bad"
+              title={t('logout')}
+              last
+              onPress={async () => {
+                if (await confirm({ title: t('logout'), message: t('logoutConfirm'), confirmText: t('logout'), cancelText: t('cancel'), destructive: true })) await logout();
+              }}
+            />
+          </MenuGroup>
+        </Appear>
+
+        <View className="items-center gap-1 pt-2">
           <View className="opacity-70">
             <BrandMark size="sm" onDark={false} />
           </View>

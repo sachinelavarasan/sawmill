@@ -78,14 +78,17 @@ export function WorkflowBar({
     <View className="gap-2.5">
       {error && <ErrorBox message={error} />}
       {canReview && (
-        <View className="gap-3 rounded-xl border border-border bg-card p-4">
-          <View className="flex-row items-center gap-2">
-            <Icon name="clock" size={16} colorClassName="accent-warning" />
-            <Text className="flex-1 text-sm font-semibold text-warning">{t('ownerReviewing')}</Text>
+        // the decision: what is waiting, then Reject (outlined) beside Approve (the main action)
+        <View className="gap-3.5 rounded-3xl border border-saffron/30 bg-saffron-soft p-4">
+          <View className="flex-row items-center gap-2.5">
+            <View className="h-8 w-8 items-center justify-center rounded-full bg-saffron">
+              <Icon name="clock" size={16} colorClassName="accent-saffron-foreground" />
+            </View>
+            <Text className="flex-1 text-[15px] font-semibold text-foreground">{t('ownerReviewing')}</Text>
           </View>
           <View className="flex-row gap-2.5">
             <Button className="flex-1" kind="danger" icon="x" title={t('reject')} busy={busy === 'reject'} disabled={!!busy} onPress={reject} />
-            <Button className="flex-1" kind="success" icon="check" title={t('approve')} busy={busy === 'approve'} disabled={!!busy} onPress={approve} />
+            <Button className="flex-[1.4]" kind="primary" icon="check" title={t('approve')} busy={busy === 'approve'} disabled={!!busy} onPress={approve} />
           </View>
         </View>
       )}

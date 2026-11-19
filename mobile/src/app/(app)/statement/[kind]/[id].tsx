@@ -46,13 +46,13 @@ export default function StatementScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader
+      <ScreenHeader compact
         back
         title={s?.party.name ?? t('statement')}
         subtitle={t('statement')}
         right={s && s.entries.length > 0 ? <HeaderButton icon="share-2" label={t('shareStatement')} onPress={share} /> : null}
       />
-      <Page refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
+      <Page compact refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
         {q.error && <ErrorBox message={(q.error as Error).message} onRetry={() => void q.refetch()} />}
         {!s && !q.error && <SkeletonList rows={4} />}
         {s && (

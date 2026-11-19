@@ -12,16 +12,18 @@ import { useConfirm } from '../../../../components/confirm';
 import { NumberField } from '../../../../components/form';
 import { HeaderButton, Page, ScreenHeader } from '../../../../components/header';
 import { SaleDetails } from '../../../../components/SaleDetails';
-import { SelectField, Sheet, useSheet } from '../../../../components/sheet';
+import { AppBottomSheet, SelectField, SheetActions, useSheet } from '../../../../components/sheet';
 import { toast } from '../../../../components/toast';
 import {
   Button,
   Card,
+  Chip,
   cn,
   EmptyState,
   ErrorBox,
   Icon,
   KV,
+  LiveFigure,
   MenuGroup,
   Muted,
   Reason,
@@ -70,6 +72,8 @@ export default function ExportDetailScreen() {
   const available = chosen ? ('availablePieces' in chosen ? chosen.availablePieces : chosen.pieces) : 0;
   const alreadyWanted = exp && chosen ? exp.lines.filter((l) => posKey(l) === posKey(chosen) && l.id !== editing?.id).reduce((s, l) => s + l.pieces, 0) : 0;
   const over = okPieces && chosen ? N! + alreadyWanted > available : false;
+  /** pieces of the chosen size still free after the other lines on this load */
+  const remaining = Math.max(0, available - alreadyWanted);
 
   const [saveLine, saving, lineError] = useSubmit(async () => {
     if (!exp || !chosen || !okPieces) return;
@@ -117,13 +121,13 @@ export default function ExportDetailScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader
+      <ScreenHeader compact
         back
         title={exp?.code ?? t('exportDetails')}
         subtitle={exp ? `${exp.lorryNumber} · ${exp.woodType}` : undefined}
         right={exp?.editable ? <HeaderButton icon="edit-2" label={t('edit')} onPress={() => router.push(`/exports/${id}/edit`)} /> : null}
       />
-      <Page refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
+      <Page compact refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
         {q.error && <ErrorBox message={(q.error as Error).message} onRetry={() => void q.refetch()} />}
         {!exp && !q.error && <SkeletonList rows={3} />}
         {exp && (
@@ -203,13 +207,17 @@ export default function ExportDetailScreen() {
         )}
       </Page>
 
-      <Sheet
+      <AppBottomSheet
         ref={sheet.ref}
+        variant="medium"
         title={editing ? `${t('edit')} · ${t('lineNo')}${editing.lineNumber}` : t('addLine')}
         onDismiss={() => setEditing(null)}
-        footer={<Button icon={editing ? 'check' : 'plus'} title={editing ? t('save') : t('addLine')} busy={saving} disabled={!chosen || !okPieces} onPress={() => void saveLine()} />}
+        protect={!!pick || pieces !== ''}
+        footer={
+          <SheetActions primary={{ icon: editing ? 'check' : 'plus', title: editing ? t('save') : t('addLine'), busy: saving, disabled: !chosen || !okPieces, onPress: () => void saveLine() }} />
+        }
       >
-        <View className="gap-3.5 px-5">
+        <View className="gap-3.5">
           <SelectField
             label={t('pickFromStock')}
             required
@@ -220,14 +228,17 @@ export default function ExportDetailScreen() {
             emptyText={exp ? t('noFinishedOfWood', { wood: exp.woodType }) : undefined}
             onChange={setPick}
           />
-          <NumberField label={t('pieces')} required decimals={0} value={pieces} onChangeText={setPieces} hint={chosen ? `${t('inStock')}: ${int(available)}` : undefined} error={over ? `${t('moreThanStock')}: ${int(available)}` : undefined} />
-          <View className="flex-row items-center justify-between rounded-xl bg-saffron-soft px-4 py-3">
-            <Text className="text-sm font-semibold text-warning">{t('lineCft')}</Text>
-            <Text className="text-xl font-bold tabular-nums text-warning font-display">{num3(live ?? 0)} CFT</Text>
-          </View>
+          <NumberField label={t('pieces')} required decimals={0} value={pieces} onChangeText={setPieces} hint={chosen ? `${t('inStock')}: ${int(available)}` : undefined} error={over ? `${t('moreThanStock')}: ${int(available)}` : undefined}>
+            {chosen && remaining > 0 && (
+              <View className="flex-row">
+                <Chip text={`${t('useAll')} · ${int(remaining)}`} on={N === remaining} onPress={() => setPieces(String(remaining))} />
+              </View>
+            )}
+          </NumberField>
+          <LiveFigure label={t('lineCft')} value={num3(live ?? 0)} />
           {lineError && <ErrorBox message={lineError} />}
         </View>
-      </Sheet>
+      </AppBottomSheet>
     </View>
   );
 }

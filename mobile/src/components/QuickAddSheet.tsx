@@ -5,7 +5,7 @@ import { Text } from './text';
 import { useT } from '../lib/i18n';
 import { QUICK_ADD, visible } from '../lib/nav';
 import { useSession } from '../lib/session';
-import { Sheet, type SheetHandle } from './sheet';
+import { AppBottomSheet, type SheetHandle } from './bottom-sheet';
 import { IconTile } from './ui';
 
 /** "What do you want to add?" — only the actions this person is allowed to take. */
@@ -15,8 +15,8 @@ export const QuickAddSheet = forwardRef<SheetHandle>(function QuickAddSheet(_, r
   const { can } = useSession();
   const items = QUICK_ADD.filter((i) => visible(i, can));
   return (
-    <Sheet ref={ref} title={t('quickAddTitle')}>
-      <View className="flex-row flex-wrap gap-3 px-5">
+    <AppBottomSheet ref={ref} variant="medium" title={t('quickAddTitle')}>
+      <View className="flex-row flex-wrap gap-3">
         {items.map((i) => (
           <Pressable
             key={i.key}
@@ -35,6 +35,6 @@ export const QuickAddSheet = forwardRef<SheetHandle>(function QuickAddSheet(_, r
           </Pressable>
         ))}
       </View>
-    </Sheet>
+    </AppBottomSheet>
   );
 });

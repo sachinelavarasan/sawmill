@@ -11,6 +11,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandMark } from '../components/Brand';
 import { Field } from '../components/form';
+import { useStatusBar } from '../components/header';
 import { Appear } from '../components/motion';
 import { Text } from '../components/text';
 import { Button, cn, ErrorBox, Icon, type IconName, LangPills, ThemeToggle } from '../components/ui';
@@ -22,6 +23,8 @@ import { useSession } from '../lib/session';
 export default function LoginScreen() {
   // null until we know whether this phone has seen the welcome
   const [step, setStep] = useState<'welcome' | 'signin' | null>(null);
+  // the band is dark in both themes (logging out from a light compact screen lands here)
+  useStatusBar(true);
   useEffect(() => {
     getStored(KEYS.welcomed)
       .then((v) => setStep(v ? 'signin' : 'welcome'))

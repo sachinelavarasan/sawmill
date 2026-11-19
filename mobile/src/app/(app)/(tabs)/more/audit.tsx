@@ -69,8 +69,8 @@ export default function AuditScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader title={t('auditLog')} back />
-      <SheetList
+      <ScreenHeader compact title={t('auditLog')} back />
+      <SheetList compact
         data={items}
         keyExtractor={rowKey('audit')}
         refreshControl={refresher(q.isRefetching && !q.isFetchingNextPage, () => void q.refetch())}

@@ -1,53 +1,26 @@
-/** English / Tamil. The words themselves live in packages/shared so web and Android agree. */
+/**
+ * English / Tamil. The words themselves live in packages/shared so web and Android agree.
+ * Which language is in use is a preference: services/preferences provides this context (the
+ * signed-in user's choice, else their account's language; signed out, the phone's last one).
+ */
 import { translate, type Lang, type TKey } from '@timbertrail/shared';
-import { KEYS, getStored, setStored } from './storage';
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext } from 'react';
 
-const isLang = (v: unknown): v is Lang => v === 'en' || v === 'ta';
+export const LangCtx = createContext<{
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  /** changes when other display preferences do (the date format), so text re-renders with them */
+  rev: string;
+}>({ lang: 'en', setLang: () => {}, rev: '' });
 
-const LangCtx = createContext<{ lang: Lang; setLang: (l: Lang) => void; adopt: (l: string) => void }>({
-  lang: 'en',
-  setLang: () => {},
-  adopt: () => {},
-});
-
-export function LangProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>('en');
-  /** true once the user has picked a language on this phone — it then wins over the account's default */
-  const [chosen, setChosen] = useState(false);
-
-  useEffect(() => {
-    getStored(KEYS.lang)
-      .then((v) => {
-        if (isLang(v)) {
-          setLangState(v);
-          setChosen(true);
-        }
-      })
-      .catch(() => undefined);
-  }, []);
-
-  const setLang = useCallback((l: Lang) => {
-    setLangState(l);
-    setChosen(true);
-    setStored(KEYS.lang, l).catch(() => undefined);
-  }, []);
-
-  /** Use the account's preferred language unless one was picked on this phone. */
-  const adopt = useCallback(
-    (l: string) => {
-      if (!chosen && isLang(l)) setLangState(l);
-    },
-    [chosen],
-  );
-
-  const value = useMemo(() => ({ lang, setLang, adopt }), [lang, setLang, adopt]);
-  return <LangCtx.Provider value={value}>{children}</LangCtx.Provider>;
+export function useLang() {
+  const { lang, setLang } = useContext(LangCtx);
+  return { lang, setLang };
 }
 
-export const useLang = () => useContext(LangCtx);
-
 export function useT() {
-  const { lang } = useContext(LangCtx);
-  return useCallback((k: TKey, v?: Record<string, string | number>) => translate(lang, k, v), [lang]);
+  const { lang, rev } = useContext(LangCtx);
+  // `rev` is a dependency on purpose: a new function re-renders whatever renders dates
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useCallback((k: TKey, v?: Record<string, string | number>) => translate(lang, k, v), [lang, rev]);
 }

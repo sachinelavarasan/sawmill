@@ -38,8 +38,8 @@ export function PartyList({ kind }: { kind: 'clients' | 'suppliers' }) {
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader title={t(L.title)} subtitle={t(L.sub)} back right={<HeaderButton icon="plus" label={t(L.add)} onPress={add} />} />
-      <SheetList
+      <ScreenHeader compact title={t(L.title)} subtitle={t(L.sub)} back right={<HeaderButton icon="plus" label={t(L.add)} onPress={add} />} />
+      <SheetList compact
         data={items}
         keyExtractor={rowKey('party')}
         refreshControl={refresher(list.isRefetching, () => void list.refetch())}

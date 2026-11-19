@@ -4,16 +4,17 @@
  */
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { ReactElement, ReactNode, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { Text } from './text';
 import { api } from '../lib/api';
 import { useDebounced } from '../lib/hooks';
 import { useT } from '../lib/i18n';
 import { mergePages, useRefetchOnFocus } from '../lib/query';
-import { type Paged, STATUSES } from '../lib/types';
+import type { Paged, Status } from '../lib/types';
 import { SheetList } from './header';
 import { Appear } from './motion';
-import { Chip, EmptyState, ErrorBox, type IconName, refresher, SearchBar, SkeletonList } from './ui';
+import { OperationFilterChips, SkeletonRecordCards } from './record-card';
+import { EmptyState, ErrorBox, type IconName, refresher, SearchBar } from './ui';
 
 const PAGE = 30;
 
@@ -27,6 +28,7 @@ export function RecordList<T extends { id: string }>({
   header,
   hero,
   bottomPad = 24,
+  compact,
 }: {
   /** e.g. '/imports' */
   path: string;
@@ -42,10 +44,12 @@ export function RecordList<T extends { id: string }>({
   hero?: ReactNode;
   /** room below the last card (for a floating button) */
   bottomPad?: number;
+  /** under a compact header (see SheetList) */
+  compact?: boolean;
 }) {
   const t = useT();
   const [q, setQ] = useState('');
-  const [status, setStatus] = useState<string>('');
+  const [status, setStatus] = useState<Status | ''>('');
   const dq = useDebounced(q.trim());
 
   const query = useMemo(() => {
@@ -72,6 +76,7 @@ export function RecordList<T extends { id: string }>({
   return (
     <SheetList
       hero={hero}
+      compact={compact}
       bottomPad={bottomPad}
       data={items}
       keyExtractor={(i) => `${path}:${i.id}`}
@@ -79,19 +84,12 @@ export function RecordList<T extends { id: string }>({
       onEndReachedThreshold={0.4}
       onEndReached={() => list.hasNextPage && !list.isFetchingNextPage && void list.fetchNextPage()}
       ListHeaderComponent={
-        <View className="gap-3 pb-1">
+        <View className="gap-3 pb-3">
           {header}
           {search && <SearchBar value={q} onChange={setQ} placeholder={search} />}
-          {statusFilter && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-1.5">
-              <Chip text={t('allStatuses')} on={!status} onPress={() => setStatus('')} />
-              {STATUSES.map((s) => (
-                <Chip key={s} text={t(s === 'SUBMITTED' ? 'pending' : (s.toLowerCase() as 'draft'))} on={status === s} onPress={() => setStatus(s)} />
-              ))}
-            </ScrollView>
-          )}
+          {statusFilter && <OperationFilterChips value={status} onChange={setStatus} />}
           {list.error && <ErrorBox message={(list.error as Error).message} onRetry={() => void list.refetch()} />}
-          {list.isPending && <SkeletonList />}
+          {list.isPending && <SkeletonRecordCards />}
         </View>
       }
       ListEmptyComponent={
@@ -103,7 +101,7 @@ export function RecordList<T extends { id: string }>({
       }
       ListFooterComponent={
         list.isFetchingNextPage ? (
-          <ActivityIndicator className="py-4" colorClassName="accent-primary" />
+          <ActivityIndicator className="py-4" colorClassName="accent-saffron" />
         ) : items.length > PAGE && !list.hasNextPage ? (
           <Text className="py-3 text-center text-xs text-muted-foreground">{t('endOfList')}</Text>
         ) : null

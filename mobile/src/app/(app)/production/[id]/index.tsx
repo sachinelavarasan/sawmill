@@ -11,7 +11,7 @@ import { Text } from '../../../../components/text';
 import { useConfirm } from '../../../../components/confirm';
 import { NumberField, Row } from '../../../../components/form';
 import { HeaderButton, Page, ScreenHeader } from '../../../../components/header';
-import { Sheet, useSheet } from '../../../../components/sheet';
+import { AppBottomSheet, SheetActions, useSheet } from '../../../../components/bottom-sheet';
 import { toast } from '../../../../components/toast';
 import {
   Button,
@@ -19,15 +19,18 @@ import {
   cn,
   EmptyState,
   ErrorBox,
+  HeroCard,
+  HeroStats,
   Icon,
   KV,
+  LiveFigure,
   MenuGroup,
   Muted,
   Notice,
+  ProgressBar,
   Reason,
   SectionTitle,
   SkeletonList,
-  StatPair,
   StatusPill,
 } from '../../../../components/ui';
 import { WorkflowBar } from '../../../../components/workflow';
@@ -37,6 +40,35 @@ import { useSubmit } from '../../../../lib/hooks';
 import { useT } from '../../../../lib/i18n';
 import { invalidateOperations, useApi } from '../../../../lib/query';
 import type { Output, ProductionDetail } from '../../../../lib/types';
+
+/**
+ * Where the run stands: raw input → output sizes → review. Done steps are near-black with a tick,
+ * the first open step is orange (what to do next), later ones grey.
+ */
+function Steps({ items }: { items: { label: string; done: boolean }[] }) {
+  const current = items.findIndex((s) => !s.done);
+  return (
+    <View className="flex-row items-start rounded-2xl bg-background px-2 py-3" accessibilityRole="progressbar">
+      {items.map((s, i) => {
+        const now = i === current;
+        return (
+          <View key={s.label} className="flex-1 items-center gap-1.5" accessible accessibilityLabel={`${i + 1}. ${s.label}`} accessibilityState={{ checked: s.done }}>
+            <View className={cn('h-8 w-8 items-center justify-center rounded-full', s.done ? 'bg-primary' : now ? 'bg-saffron' : 'bg-card')}>
+              {s.done ? (
+                <Icon name="check" size={16} colorClassName="accent-primary-foreground" />
+              ) : (
+                <Text className={cn('text-[13px] font-bold', now ? 'text-saffron-foreground' : 'text-muted-foreground')}>{i + 1}</Text>
+              )}
+            </View>
+            <Text className={cn('px-1 text-center text-[11px] leading-[14px]', s.done || now ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground')} numberOfLines={2}>
+              {s.label}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 
 type SizeForm = { thickness: string; width: string; length: string; pieces: string };
 const EMPTY: SizeForm = { thickness: '', width: '', length: '', pieces: '' };
@@ -112,13 +144,13 @@ export default function ProductionDetailScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader
+      <ScreenHeader compact
         back
         title={run?.code ?? t('productionDetails')}
         subtitle={run ? `${run.importCode} · ${run.woodType}` : undefined}
         right={run?.editable ? <HeaderButton icon="edit-2" label={t('edit')} onPress={() => router.push(`/production/${id}/edit`)} /> : null}
       />
-      <Page refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
+      <Page compact refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
         {q.error && <ErrorBox message={(q.error as Error).message} onRetry={() => void q.refetch()} />}
         {!run && !q.error && <SkeletonList rows={3} />}
         {run && (
@@ -129,16 +161,38 @@ export default function ProductionDetailScreen() {
             </View>
             {!!run.rejectionReason && <Reason>{run.rejectionReason}</Reason>}
 
-            <StatPair
-              a={{ label: t('inputCft'), value: run.inputCft != null ? num3(run.inputCft) : '—' }}
-              b={{ label: t('outputCft'), value: num3(run.outputCft) }}
+            <Steps
+              items={[
+                { label: t('secRawInput'), done: run.inputCft != null },
+                { label: t('outputSizes'), done: run.outputs.length > 0 },
+                { label: t('review'), done: run.status === 'APPROVED' },
+              ]}
             />
-            <Card>
-              <KV label={t('wasteCft')} value={run.wasteCft != null ? `${num3(run.wasteCft)} CFT` : '—'} />
-              <KV label={t('recovery')} value={run.recoveryPercent != null ? `${run.recoveryPercent}%` : '—'} />
-              {run.editable && <KV label={t('rawLeftInLoad')} value={`${num3(run.rawAvailableCft)} CFT`} />}
-              {run.recoveryPercent != null && <Muted>{t('recoveryLine', { n: run.recoveryPercent })}</Muted>}
-            </Card>
+
+            {/* the run's calculation: raw in, finished out, what was lost */}
+            <HeroCard label={t('outputCft')} value={num3(run.outputCft)} unit="CFT" icon="factory">
+              {run.inputCft != null && run.inputCft > 0 && (
+                <View className="gap-1.5">
+                  <ProgressBar onDark pct={(run.outputCft / run.inputCft) * 100} />
+                  <Text className="text-xs text-hero-muted">
+                    {num3(run.outputCft)} / {num3(run.inputCft)} CFT
+                  </Text>
+                </View>
+              )}
+              <HeroStats
+                items={[
+                  { label: t('inputCft'), value: run.inputCft != null ? num3(run.inputCft) : '—' },
+                  { label: t('wasteCft'), value: run.wasteCft != null ? num3(run.wasteCft) : '—' },
+                  { label: t('recovery'), value: run.recoveryPercent != null ? `${run.recoveryPercent}%` : '—', accent: true },
+                ]}
+              />
+            </HeroCard>
+            {(run.editable || run.recoveryPercent != null) && (
+              <Card>
+                {run.editable && <KV label={t('rawLeftInLoad')} value={`${num3(run.rawAvailableCft)} CFT`} />}
+                {run.recoveryPercent != null && <Muted>{t('recoveryLine', { n: run.recoveryPercent })}</Muted>}
+              </Card>
+            )}
             {blocked === t('outputExceedsInput') && <Notice tone="bad">{blocked}</Notice>}
 
             <SectionTitle action={run.editable ? { label: `+ ${t('addSize')}`, onPress: openAdd } : undefined}>
@@ -198,13 +252,16 @@ export default function ProductionDetailScreen() {
         )}
       </Page>
 
-      <Sheet
+      <AppBottomSheet
         ref={sheet.ref}
+        variant="medium"
         title={editing ? t('edit') : t('addSize')}
         onDismiss={() => setEditing(null)}
-        footer={<Button icon={editing ? 'check' : 'plus'} title={editing ? t('save') : t('addSize')} busy={saving} disabled={!valid} onPress={() => void saveSize()} />}
+        // thickness and width carry over between sizes; a typed length or count is worth guarding
+        protect={!!(size.length || size.pieces)}
+        footer={<SheetActions primary={{ icon: editing ? 'check' : 'plus', title: editing ? t('save') : t('addSize'), busy: saving, disabled: !valid, onPress: () => void saveSize() }} />}
       >
-        <View className="gap-3.5 px-5">
+        <View className="gap-3.5">
           <Row>
             <NumberField label={t('thickness')} unit="in" value={size.thickness} onChangeText={(thickness) => setSize((s) => ({ ...s, thickness }))} />
             <NumberField label={t('width')} unit="in" value={size.width} onChangeText={(width) => setSize((s) => ({ ...s, width }))} />
@@ -213,10 +270,7 @@ export default function ProductionDetailScreen() {
             <NumberField label={t('lengthFt')} unit="ft" value={size.length} onChangeText={(length) => setSize((s) => ({ ...s, length }))} />
             <NumberField label={t('pieces')} decimals={0} value={size.pieces} onChangeText={(pieces) => setSize((s) => ({ ...s, pieces }))} />
           </Row>
-          <View className="flex-row items-center justify-between rounded-xl bg-saffron-soft px-4 py-3">
-            <Text className="text-sm font-semibold text-warning">{t('thisSize')}</Text>
-            <Text className="text-xl font-bold tabular-nums text-warning font-display">{num3(live ?? 0)} CFT</Text>
-          </View>
+          <LiveFigure label={t('thisSize')} value={num3(live ?? 0)} />
           {outputAfter != null && run?.inputCft != null && (
             <Muted>
               {t('finishedAfterSize')}: {num3(outputAfter)} / {num3(run.inputCft)} CFT
@@ -225,7 +279,7 @@ export default function ProductionDetailScreen() {
           <Muted>{t('sizeHint')}</Muted>
           {sizeError && <ErrorBox message={sizeError} />}
         </View>
-      </Sheet>
+      </AppBottomSheet>
     </View>
   );
 }

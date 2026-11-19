@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ACCOUNTANT_EDITABLE_STATUSES, exportPieceCft, hasPermission, Permission, roundTo } from '@timbertrail/shared';
-import { and, asc, count, desc, eq, inArray, SQL, sql, sum } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, lt, SQL, sql, sum } from 'drizzle-orm';
+import { millOffsetMinutes, resolvePeriod } from '../common/period';
 import { AuditService } from '../audit/audit.service';
 import { resolveWoodType } from '../common/wood-types';
 import { NotificationsService } from '../notifications/notifications.module';
@@ -132,6 +133,15 @@ export class StockService {
     if (q.kind) conditions.push(eq(stockMovements.kind, q.kind));
     if (q.direction === 'in') conditions.push(sql`${stockMovements.cftDelta} > 0`);
     if (q.direction === 'out') conditions.push(sql`${stockMovements.cftDelta} < 0`);
+    if (q.source) conditions.push(eq(stockMovements.source, q.source));
+    if (q.woodType) conditions.push(eq(stockMovements.woodType, q.woodType));
+    if (q.from || q.to) {
+      if (q.from && q.to && q.from > q.to) throw new BadRequestException('"from" must be on or before "to"');
+      // each bound is the edge of a mill-local day (common/period.ts), so either can stand alone
+      const off = await millOffsetMinutes(this.db, actor.millId);
+      if (q.from) conditions.push(gte(stockMovements.createdAt, resolvePeriod({ from: q.from, to: q.from }, off).start));
+      if (q.to) conditions.push(lt(stockMovements.createdAt, resolvePeriod({ from: q.to, to: q.to }, off).end));
+    }
     const where = and(...conditions);
 
     const [rows, [{ total }]] = await Promise.all([

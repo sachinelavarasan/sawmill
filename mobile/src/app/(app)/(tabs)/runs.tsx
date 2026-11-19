@@ -9,7 +9,7 @@ import { ProductionCard } from '../../../components/cards';
 import { HeaderButton, ScreenHeader, StickyFooter } from '../../../components/header';
 import { RecordList } from '../../../components/RecordList';
 import { Text } from '../../../components/text';
-import { BarChart, Button, Card, Donut, ErrorBox, HeroCard, LegendDot, SectionTitle, Skeleton } from '../../../components/ui';
+import { BarChart, Button, Card, Donut, ErrorBox, HeroCard, HeroStats, LegendDot, SectionTitle, Skeleton } from '../../../components/ui';
 import { dayNum, int, isoDay, num3, todayIso } from '../../../lib/format';
 import { useLang, useT } from '../../../lib/i18n';
 import { useApi } from '../../../lib/query';
@@ -77,22 +77,13 @@ function TodayHero() {
   return (
     <HeroCard bare label={t('todayProduction')} value={num3(todayX?.out ?? 0)} unit="CFT" sub={t('runsCount', { n: todayX?.runs ?? 0 })} icon="factory">
       <BarChart onDark height={60} data={days.map((d) => ({ label: dayNum(d), values: [byDay.get(d)?.out ?? 0] }))} />
-      <View className="flex-row gap-3 border-t border-hero-border pt-4">
-        {[
+      <HeroStats
+        items={[
           { label: t('lastSevenDays'), value: `${num3(weekOut)} CFT` },
-          { label: t('recovery'), value: recovery != null ? `${recovery}%` : '—' },
+          { label: t('recovery'), value: recovery != null ? `${recovery}%` : '—', accent: true },
           { label: t('wasteCft'), value: `${num3(Number(totals.wasteCft ?? 0))}` },
-        ].map((x) => (
-          <View key={x.label} className="flex-1 gap-0.5">
-            <Text className="text-[11px] text-hero-muted" numberOfLines={1}>
-              {x.label}
-            </Text>
-            <Text className="text-[15px] font-semibold tabular-nums text-hero-foreground" numberOfLines={1} adjustsFontSizeToFit>
-              {x.value}
-            </Text>
-          </View>
-        ))}
-      </View>
+        ]}
+      />
     </HeroCard>
   );
 }

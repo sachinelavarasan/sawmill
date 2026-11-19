@@ -2,24 +2,19 @@
  * Owner's approval queue: everything submitted, oldest first. Tap a card to open the full
  * record, where Approve / Reject live (with the stock effect spelled out before approving).
  */
-import { type TKey } from '@timbertrail/shared';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
+import { APPROVAL_KIND, approvalSummary } from '../../../../components/cards';
 import { Text } from '../../../../components/text';
 import { ScreenHeader, SheetList } from '../../../../components/header';
-import { Chip, EmptyState, ErrorBox, Icon, type IconName, IconTile, Muted, PressableCard, refresher, SkeletonList } from '../../../../components/ui';
-import { dateTime, int, num3, signed3, signedInt } from '../../../../lib/format';
+import { ActionPill, Chip, EmptyState, ErrorBox, Icon, IconTile, Muted, PressableCard, refresher, SkeletonList } from '../../../../components/ui';
+import { dateTime, int } from '../../../../lib/format';
 import { useT } from '../../../../lib/i18n';
 import { useApi } from '../../../../lib/query';
 import type { ApprovalItem, ApprovalKind, ApprovalQueue } from '../../../../lib/types';
 
-const KIND: Record<ApprovalKind, { labelKey: TKey; icon: IconName; href: (id: string) => string }> = {
-  IMPORT: { labelKey: 'imports', icon: 'download', href: (id) => `/imports/${id}` },
-  PRODUCTION: { labelKey: 'production', icon: 'settings', href: (id) => `/production/${id}` },
-  EXPORT: { labelKey: 'exports', icon: 'upload', href: (id) => `/exports/${id}` },
-  ADJUSTMENT: { labelKey: 'adjustments', icon: 'sliders', href: (id) => `/stock/adjustments/${id}` },
-};
+const KIND = APPROVAL_KIND;
 
 export default function ApprovalsScreen() {
   const t = useT();
@@ -27,24 +22,12 @@ export default function ApprovalsScreen() {
   const [kind, setKind] = useState<ApprovalKind | ''>('');
   const q = useApi<ApprovalQueue>('/approvals');
   const items = (q.data?.items ?? []).filter((i) => !kind || i.type === kind);
-
-  const summary = (i: ApprovalItem) => {
-    switch (i.type) {
-      case 'IMPORT':
-        return `${i.lorryNumber} · ${int(i.totalLogs)} ${t('logs')} · ${num3(i.totalCft)} CFT`;
-      case 'PRODUCTION':
-        return `${i.importCode} · ${i.inputCft != null ? num3(i.inputCft) : '—'} → ${num3(i.outputCft)} CFT`;
-      case 'EXPORT':
-        return `${i.lorryNumber} · ${int(i.totalPieces)} ${t('pieces')} · ${num3(i.totalCft)} CFT`;
-      case 'ADJUSTMENT':
-        return `${i.importCode} · ${t(i.kind === 'RAW' ? 'raw' : 'finished')} ${signed3(i.cftDelta)} CFT${i.piecesDelta ? ` · ${signedInt(i.piecesDelta)} ${t('pieces')}` : ''}`;
-    }
-  };
+  const summary = (i: ApprovalItem) => approvalSummary(i, t);
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader title={t('approvals')} back />
-      <SheetList
+      <ScreenHeader compact title={t('approvals')} subtitle={q.data ? `${int(q.data.counts.total)} · ${t('pending')}` : undefined} back />
+      <SheetList compact
         data={items}
         keyExtractor={(i) => `${i.type.toLowerCase()}:${i.id}`}
         refreshControl={refresher(q.isRefetching, () => void q.refetch())}
@@ -63,24 +46,29 @@ export default function ApprovalsScreen() {
         }
         ListEmptyComponent={q.isPending || q.error ? null : <EmptyState icon="check-circle" title={t('noPendingApprovals')} body={t('nothingToApprove')} />}
         renderItem={({ item }) => (
-          <PressableCard onPress={() => router.push(KIND[item.type].href(item.id) as never)}>
-            <View className="flex-row items-center gap-2.5">
+          <PressableCard label={`${t('review')} ${item.code}`} onPress={() => router.push(KIND[item.type].href(item.id) as never)}>
+            <View className="flex-row items-center gap-3">
               <IconTile icon={KIND[item.type].icon} />
-              <View className="flex-1">
-                <Text className="text-[15px] font-semibold text-foreground">{item.code}</Text>
-                <Muted>
+              <View className="flex-1 gap-0.5">
+                <Text className="text-[15px] font-semibold text-foreground" numberOfLines={1}>
+                  {item.code}
+                </Text>
+                <Muted lines={1}>
                   {t(KIND[item.type].labelKey)} · {item.woodType}
                 </Muted>
               </View>
-              <Icon name="chevron-right" size={18} colorClassName="accent-muted-foreground" />
+              <ActionPill label={t('review')} />
             </View>
-            <View className="rounded-xl bg-secondary px-3.5 py-2.5">
-              <Text className="text-sm font-medium tabular-nums text-foreground">{summary(item)}</Text>
+            <View className="rounded-2xl bg-background px-3.5 py-3">
+              <Text className="text-sm font-semibold tabular-nums text-foreground">{summary(item)}</Text>
+              {item.type === 'ADJUSTMENT' && <Muted lines={2}>{item.reason}</Muted>}
             </View>
-            {item.type === 'ADJUSTMENT' && <Muted lines={2}>{item.reason}</Muted>}
-            <Muted>
-              {t('submittedBy')} {item.createdByName} · {dateTime(item.submittedAt)}
-            </Muted>
+            <View className="flex-row items-center gap-1.5">
+              <Icon name="clock" size={13} colorClassName="accent-muted-foreground" />
+              <Muted lines={1} className="flex-1">
+                {t('submittedBy')} {item.createdByName} · {dateTime(item.submittedAt)}
+              </Muted>
+            </View>
           </PressableCard>
         )}
       />

@@ -1,28 +1,26 @@
 /**
- * Settings: who you are (on the navy), then grouped rows — appearance and language on this
- * phone, app lock, the mill's settings (owner, opens its own form), help, about (with app
- * updates), and log out.
+ * Settings: who you are (dark headline card), then grouped rows — Preferences (language, look,
+ * dashboard, display, notifications: its own screen), app lock, the mill's settings (owner, opens
+ * its own form), help, about (with app updates), and log out.
  */
 import { Permission } from '@timbertrail/shared';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Linking, ScrollView, View } from 'react-native';
+import { useState } from 'react';
+import { View } from 'react-native';
 import { BrandMark } from '../../../../components/Brand';
 import { useConfirm } from '../../../../components/confirm';
 import { Page, ScreenHeader } from '../../../../components/header';
 import { Appear } from '../../../../components/motion';
-import { Sheet, useSheet } from '../../../../components/sheet';
+import { AppBottomSheet, useSheet } from '../../../../components/bottom-sheet';
 import { Text } from '../../../../components/text';
-import { Avatar, Button, Chip, Icon, KV, LangPills, MenuGroup, MenuRow, Muted, Overline, Pill, Toggle } from '../../../../components/ui';
+import { Avatar, Button, Icon, KV, MenuGroup, MenuRow, Muted, Overline } from '../../../../components/ui';
 import { toast } from '../../../../components/toast';
 import { useAppLock } from '../../../../lib/app-lock';
 import { checkForAppUpdate, restartIntoUpdate, runningUpdateLabel, updatesOn, useUpdateWaiting } from '../../../../lib/app-updates';
 import { APP_NAME } from '../../../../lib/brand';
 import { useT } from '../../../../lib/i18n';
 import { useSession, useUser } from '../../../../lib/session';
-import { useThemeToggle } from '../../../../lib/theme';
-import { applyReminder, DEFAULT_REMINDER, loadReminder, type ReminderSetting, useNotifications } from '../../../../lib/notifications';
 
 export default function SettingsScreen() {
   const t = useT();
@@ -30,7 +28,6 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { can, logout } = useSession();
   const confirm = useConfirm();
-  const { dark, toggle } = useThemeToggle();
   const help = useSheet();
   const about = useSheet();
   const version = Constants.expoConfig?.version ?? '';
@@ -49,9 +46,9 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View className="flex-1 bg-hero">
-      <ScreenHeader title={t('settings')} back />
-      <Page
+    <View className="flex-1 bg-card">
+      <ScreenHeader compact title={t('settings')} back />
+      <Page compact
         bottomInset={false}
         hero={
           <Appear className="items-center gap-3 pb-1">
@@ -69,35 +66,32 @@ export default function SettingsScreen() {
           </Appear>
         }
       >
-        <Overline className="px-1">{t('appearance')}</Overline>
-        <MenuGroup>
-          <MenuRow icon={dark ? 'moon' : 'sun'} title={t('darkMode')} right={<Toggle value={dark} onChange={toggle} label={t('darkMode')} />} />
-          <MenuRow icon="languages" title={t('language')} last right={<LangPills />} />
+        <Overline className="px-1">{t('personalisation')}</Overline>
+        <MenuGroup inset>
+          <MenuRow icon="sliders" title={t('preferences')} subtitle={t('preferencesSub')} last onPress={() => router.push('/preferences')} />
         </MenuGroup>
 
         <Overline className="mt-3 px-1">{t('appLock')}</Overline>
-        <MenuGroup>
+        <MenuGroup inset>
           <MenuRow icon="lock" title={t('appLock')} subtitle={t('appLockSub')} value={lock.enabled ? t('switchOn') : t('switchOff')} last onPress={() => router.push('/app-lock')} />
         </MenuGroup>
-
-        <NotificationSettings />
 
         {can(Permission.SETTINGS_MANAGE) && (
           <>
             <Overline className="mt-3 px-1">{t('navAdmin')}</Overline>
-            <MenuGroup>
+            <MenuGroup inset>
               <MenuRow icon="building" title={t('millSettings')} subtitle={t('millSettingsSub')} last onPress={() => router.push('/mill-settings')} />
             </MenuGroup>
           </>
         )}
 
         <Overline className="mt-3 px-1">{t('support')}</Overline>
-        <MenuGroup>
+        <MenuGroup inset>
           <MenuRow icon="help" title={t('helpSupport')} onPress={help.open} />
           <MenuRow icon="info" title={t('aboutApp')} value={updateWaiting ? t('updateReady') : `v${version}`} last onPress={about.open} />
         </MenuGroup>
 
-        <MenuGroup>
+        <MenuGroup inset>
           <MenuRow
             icon="log-out"
             tone="bad"
@@ -114,8 +108,8 @@ export default function SettingsScreen() {
         </Muted>
       </Page>
 
-      <Sheet ref={help.ref} title={t('helpSupport')}>
-        <View className="gap-4 px-5">
+      <AppBottomSheet ref={help.ref} variant="medium" title={t('helpSupport')}>
+        <View className="gap-4">
           {(['helpStep1', 'helpStep2', 'helpStep3'] as const).map((k, i) => (
             <View key={k} className="flex-row gap-3.5">
               <View className="h-8 w-8 items-center justify-center rounded-full bg-saffron">
@@ -129,10 +123,10 @@ export default function SettingsScreen() {
             <Text className="flex-1 text-[13px] leading-[19px] text-muted-foreground">{t('helpContact')}</Text>
           </View>
         </View>
-      </Sheet>
+      </AppBottomSheet>
 
-      <Sheet ref={about.ref}>
-        <View className="gap-5 px-5 pb-2">
+      <AppBottomSheet ref={about.ref} variant="medium" showClose>
+        <View className="gap-5 pb-2">
           <View className="items-center rounded-3xl bg-hero py-8">
             <BrandMark size="md" tagline={t('appTagline')} />
           </View>
@@ -150,56 +144,7 @@ export default function SettingsScreen() {
             ))}
           <Muted className="text-center">© {new Date().getFullYear()} {APP_NAME}</Muted>
         </View>
-      </Sheet>
+      </AppBottomSheet>
     </View>
-  );
-}
-
-const REMINDER_HOURS = [16, 17, 18, 19, 20, 21];
-const hourLabel = (h: number) => `${((h + 11) % 12) + 1} ${h < 12 ? 'AM' : 'PM'}`;
-
-/** Push permission for this phone, and the daily reminder (a local notification). */
-function NotificationSettings() {
-  const t = useT();
-  const { status, refresh } = useNotifications();
-  const [reminder, setReminder] = useState<ReminderSetting>(DEFAULT_REMINDER);
-  useEffect(() => {
-    void loadReminder().then(setReminder);
-  }, []);
-  const save = async (r: ReminderSetting) => {
-    setReminder(r); // feels instant; corrected below if permission is refused
-    setReminder(await applyReminder(r, { title: t('reminderTitle'), body: t('reminderBody') }));
-  };
-  const on = status === 'granted';
-
-  return (
-    <>
-      <Overline className="mt-3 px-1">{t('notifications')}</Overline>
-      <MenuGroup>
-        <MenuRow
-          icon="bell"
-          title={t('pushNotifications')}
-          subtitle={on ? t('pushOnSub') : status === 'unavailable' ? undefined : t('pushOffSub')}
-          right={<Pill tone={on ? 'good' : status === 'denied' ? 'bad' : undefined} text={on ? 'ON' : 'OFF'} />}
-          onPress={on ? undefined : () => (status === 'denied' ? void Linking.openSettings() : refresh())}
-        />
-        <MenuRow
-          icon="clock"
-          title={t('dailyReminder')}
-          subtitle={reminder.on ? `${t('remindAt')} ${hourLabel(reminder.hour)}` : t('dailyReminderSub')}
-          last={!reminder.on}
-          right={<Toggle value={reminder.on} onChange={(v) => void save({ ...reminder, on: v })} label={t('dailyReminder')} />}
-        />
-        {reminder.on && (
-          <View className="px-4 pb-4">
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2 pl-[52px]">
-              {REMINDER_HOURS.map((h) => (
-                <Chip key={h} text={hourLabel(h)} on={reminder.hour === h} onPress={() => void save({ ...reminder, hour: h })} />
-              ))}
-            </ScrollView>
-          </View>
-        )}
-      </MenuGroup>
-    </>
   );
 }

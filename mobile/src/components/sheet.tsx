@@ -1,94 +1,23 @@
 /**
- * Bottom sheets (@gorhom/bottom-sheet): pickers, filters and the Quick Add menu.
- * `Sheet` is the themed shell; SelectField / DateField / PeriodPicker are built on it.
+ * Pickers built on AppBottomSheet (components/bottom-sheet.tsx): SelectField (with search and
+ * add-new), DateField, DateTimeField and PeriodPicker. The sheet itself — look, height, gestures,
+ * back button, safe areas — lives in AppBottomSheet; nothing here styles a sheet.
  */
-import {
-  BottomSheetBackdrop,
-  type BottomSheetBackdropProps,
-  BottomSheetFlatList,
-  BottomSheetModal,
-  BottomSheetScrollView,
-  BottomSheetTextInput,
-} from '@gorhom/bottom-sheet';
-import { forwardRef, ReactNode, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
-import { Calendar, type DateData } from 'react-native-calendars';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useCSSVariable, withUniwind } from 'uniwind';
 import { dateOnly, isoDay, type Period, PERIOD_KEYS, presets, todayIso } from '../lib/format';
 import { useT } from '../lib/i18n';
-import { InSheet } from './sheet-context';
+import { CalendarPicker, TimePicker } from './calendar';
+import { AppBottomSheet, SheetActions, type SheetHandle, SheetInput, useSheet, useSheetColors } from './bottom-sheet';
+import { useThemeToggle } from '../lib/theme';
 import { fontStyleFor, Text } from './text';
 import { toast } from './toast';
-import { Button, Chip, cn, Icon, Muted } from './ui';
+import { Chip, cn, Icon, Muted } from './ui';
 
-export const SheetInput = withUniwind(BottomSheetTextInput);
-
-export interface SheetHandle {
-  open: () => void;
-  close: () => void;
-}
-
-export function useSheet() {
-  const ref = useRef<SheetHandle>(null);
-  return { ref, open: () => ref.current?.open(), close: () => ref.current?.close() };
-}
-
-function useSheetColors() {
-  const [card, border] = useCSSVariable(['--color-card', '--color-input']);
-  return { card: String(card ?? '#ffffff'), handle: String(border ?? '#cbd5e1') };
-}
-
-/** Themed bottom sheet. Children scroll; `footer` stays pinned at the bottom (Apply / Save). */
-export const Sheet = forwardRef<SheetHandle, { title?: string; children: ReactNode; footer?: ReactNode; onDismiss?: () => void; scroll?: boolean }>(
-  function Sheet({ title, children, footer, onDismiss, scroll = true }, ref) {
-    const modal = useRef<BottomSheetModal>(null);
-    const insets = useSafeAreaInsets();
-    const colors = useSheetColors();
-    useImperativeHandle(ref, () => ({ open: () => modal.current?.present(), close: () => modal.current?.dismiss() }), []);
-    const backdrop = useCallback(
-      (p: BottomSheetBackdropProps) => <BottomSheetBackdrop {...p} pressBehavior="close" appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.45} />,
-      [],
-    );
-    const head = title ? (
-      <Text className="px-5 pb-4 pt-1 text-lg font-bold tracking-tight text-foreground font-display" accessibilityRole="header">
-        {title}
-      </Text>
-    ) : null;
-    return (
-      <BottomSheetModal
-        ref={modal}
-        // a picker opened from inside this sheet (supplier, client, date…) stacks on top and this
-        // sheet stays open underneath; the default "switch" closed the form when a picker opened
-        stackBehavior="push"
-        enableDynamicSizing
-        backdropComponent={backdrop}
-        onDismiss={onDismiss}
-        keyboardBehavior="interactive"
-        keyboardBlurBehavior="restore"
-        android_keyboardInputMode="adjustResize"
-        backgroundStyle={{ backgroundColor: colors.card, borderRadius: 24 }}
-        handleIndicatorStyle={{ backgroundColor: colors.handle, width: 40 }}
-      >
-        <InSheet.Provider value>
-        {scroll ? (
-          <BottomSheetScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: footer ? 12 : 20 + insets.bottom }}>
-            {head}
-            {children}
-            {footer && <View style={{ paddingBottom: insets.bottom }} className="gap-2.5 px-5 pt-3">{footer}</View>}
-          </BottomSheetScrollView>
-        ) : (
-          <View style={{ paddingBottom: 12 + insets.bottom }}>
-            {head}
-            {children}
-            {footer && <View className="gap-2.5 px-5 pt-3">{footer}</View>}
-          </View>
-        )}
-        </InSheet.Provider>
-      </BottomSheetModal>
-    );
-  },
-);
+// the sheet plumbing lives in bottom-sheet.tsx; re-exported for the many screens that import it from here
+export { AppBottomSheet, SheetActions, SheetInput, useSheet };
+export type { SheetHandle };
 
 // ───────── form-field trigger ─────────
 
@@ -239,15 +168,11 @@ export const SelectSheet = forwardRef<
   }
 >(function SelectSheet({ title, options, value, searchable, allowClear, emptyText, onPick, onCreate }, ref) {
   const t = useT();
-  const modal = useRef<BottomSheetModal>(null);
-  const insets = useSafeAreaInsets();
-  const colors = useSheetColors();
+  const sheet = useRef<SheetHandle>(null);
+  const { surface } = useSheetColors();
+  const { dark } = useThemeToggle();
   const [q, setQ] = useState('');
-  useImperativeHandle(ref, () => ({ open: () => modal.current?.present(), close: () => modal.current?.dismiss() }), []);
-  const backdrop = useCallback(
-    (p: BottomSheetBackdropProps) => <BottomSheetBackdrop {...p} pressBehavior="close" appearsOnIndex={0} disappearsOnIndex={-1} opacity={0.45} />,
-    [],
-  );
+  useImperativeHandle(ref, () => ({ open: () => sheet.current?.open(), close: () => sheet.current?.close() }), []);
   const [adding, setAdding] = useState(false);
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase().replace(/\s+/g, '');
@@ -271,31 +196,22 @@ export const SelectSheet = forwardRef<
   };
 
   return (
-    <BottomSheetModal
-      ref={modal}
-      // stacks on top of the form sheet it was opened from, which stays open (see Sheet)
-      stackBehavior="push"
-      snapPoints={searchable ? ['85%'] : undefined}
-      enableDynamicSizing={!searchable}
-      backdropComponent={backdrop}
-      onDismiss={() => setQ('')}
-      keyboardBehavior="interactive"
-      android_keyboardInputMode="adjustResize"
-      backgroundStyle={{ backgroundColor: colors.card, borderRadius: 24 }}
-      handleIndicatorStyle={{ backgroundColor: colors.handle, width: 40 }}
-    >
+    // a long or searchable list gets the tall fixed sheet (it doesn't jump while you type); a short one fits its options
+    <AppBottomSheet ref={sheet} variant={searchable ? 'expanded' : 'medium'} content="list" title={title} onDismiss={() => setQ('')}>
+      {({ header, bottomPadding }) => (
       <BottomSheetFlatList
         data={shown}
         keyExtractor={(o: Option) => o.value}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingBottom: 20 + insets.bottom }}
+        contentContainerStyle={{ paddingBottom: bottomPadding }}
+        // title and search stay put while the options scroll
+        stickyHeaderIndices={[0]}
         ListHeaderComponent={
-          <View className="gap-3 px-5 pb-2">
-            <Text className="text-lg font-bold text-foreground font-display" accessibilityRole="header">
-              {title}
-            </Text>
+          <View style={{ backgroundColor: surface }}>
+            {header}
+            <View className="gap-3 px-5 pb-2">
             {searchable && (
-              <View className="min-h-12 flex-row items-center gap-2.5 rounded-xl border border-border bg-secondary px-3.5">
+              <View className={cn('min-h-12 flex-row items-center gap-2.5 rounded-xl border border-border px-3.5', dark ? 'bg-primary-soft' : 'bg-secondary')}>
                 <Icon name="search" size={18} colorClassName="accent-muted-foreground" />
                 <SheetInput
                   value={q}
@@ -340,6 +256,7 @@ export const SelectSheet = forwardRef<
                 <Text className="text-[15px] font-semibold text-destructive">{t('clear')}</Text>
               </Pressable>
             )}
+            </View>
           </View>
         }
         ListEmptyComponent={canAdd ? null : <Muted className="px-5 py-6">{options.length ? t('noResults') : (emptyText ?? t('noData'))}</Muted>}
@@ -361,64 +278,28 @@ export const SelectSheet = forwardRef<
           );
         }}
       />
-    </BottomSheetModal>
+      )}
+    </AppBottomSheet>
   );
 });
 
 // ───────── dates ─────────
 
-function useCalendarTheme() {
-  const [card, fg, muted, saffron, saffronFg, primary] = useCSSVariable([
-    '--color-card',
-    '--color-foreground',
-    '--color-muted-foreground',
-    '--color-saffron',
-    '--color-saffron-foreground',
-    '--color-primary',
-  ]).map(String);
-  return {
-    backgroundColor: card,
-    calendarBackground: card,
-    textSectionTitleColor: muted,
-    dayTextColor: fg,
-    textDisabledColor: muted,
-    todayTextColor: saffron,
-    selectedDayBackgroundColor: saffron,
-    selectedDayTextColor: saffronFg,
-    monthTextColor: fg,
-    arrowColor: primary,
-    textDayFontSize: 15,
-    textMonthFontSize: 16,
-    textDayHeaderFontSize: 12,
-    textDayFontFamily: 'Inter_500Medium',
-    textMonthFontFamily: 'PlusJakartaSans_700Bold',
-    textDayHeaderFontFamily: 'Inter_600SemiBold',
-  };
-}
-
-/** Calendar in a sheet; `value` / result are YYYY-MM-DD days. */
+/** CalendarPicker in a sheet; `value` / result are YYYY-MM-DD days. Picking a day closes it. */
 const CalendarSheet = forwardRef<SheetHandle, { title: string; value: string | null; min?: string; max?: string; onPick: (day: string) => void }>(
   function CalendarSheet({ title, value, min, max, onPick }, ref) {
-    const theme = useCalendarTheme();
     const t = useT();
     const today = todayIso();
+    const todayAllowed = (!min || today >= min) && (!max || today <= max);
     return (
-      <Sheet ref={ref} title={title} scroll={false}>
-        <Calendar
-          key={`${value}-${theme.calendarBackground}`}
-          current={value ?? today}
-          minDate={min}
-          maxDate={max}
-          firstDay={1}
-          enableSwipeMonths
-          onDayPress={(d: DateData) => onPick(d.dateString)}
-          markedDates={value ? { [value]: { selected: true } } : {}}
-          theme={theme}
-        />
-        <View className="flex-row gap-2.5 px-5 pt-2">
-          <Chip text={t('today')} on={value === today} onPress={() => onPick(today)} />
-        </View>
-      </Sheet>
+      <AppBottomSheet ref={ref} variant="medium" title={title} padded={false}>
+        <CalendarPicker value={value} min={min} max={max} onChange={onPick} />
+        {todayAllowed && (
+          <View className="flex-row gap-2.5 px-5 pt-3">
+            <Chip text={t('today')} on={value === today} onPress={() => onPick(today)} />
+          </View>
+        )}
+      </AppBottomSheet>
     );
   },
 );
@@ -468,7 +349,6 @@ export function DateField({
 export function DateTimeField({ label, value, onChange, hint }: { label: string; value: string; onChange: (iso: string) => void; hint?: string }) {
   const t = useT();
   const sheet = useSheet();
-  const theme = useCalendarTheme();
   const d = value ? new Date(value) : null;
   const [day, setDay] = useState(d ? isoDay(d) : todayIso());
   const [hour, setHour] = useState(d ? d.getHours() : new Date().getHours());
@@ -482,95 +362,92 @@ export function DateTimeField({ label, value, onChange, hint }: { label: string;
   return (
     <>
       <PickerTrigger label={label} value={shown} placeholder={t('notSet')} icon="clock" hint={hint} onPress={sheet.open} />
-      <Sheet
+      <AppBottomSheet
         ref={sheet.ref}
+        variant="expanded"
         title={label}
+        padded={false}
         footer={
-          <View className="flex-row gap-2.5">
-            {!!value && (
-              <Button
-                className="flex-1"
-                kind="secondary"
-                title={t('clear')}
-                onPress={() => {
-                  onChange('');
+          <SheetActions
+            primary={{ title: t('apply'), onPress: commit }}
+            secondary={[
+              ...(value
+                ? [
+                    {
+                      title: t('clear'),
+                      onPress: () => {
+                        onChange('');
+                        sheet.close();
+                      },
+                    },
+                  ]
+                : []),
+              {
+                title: t('now'),
+                onPress: () => {
+                  onChange(new Date().toISOString());
                   sheet.close();
-                }}
-              />
-            )}
-            <Button
-              className="flex-1"
-              kind="secondary"
-              title={t('now')}
-              onPress={() => {
-                onChange(new Date().toISOString());
-                sheet.close();
-              }}
-            />
-            <Button className="flex-1" title={t('apply')} onPress={commit} />
-          </View>
+                },
+              },
+            ]}
+          />
         }
       >
-        <Calendar key={theme.calendarBackground} current={day} firstDay={1} onDayPress={(x: DateData) => setDay(x.dateString)} markedDates={{ [day]: { selected: true } }} theme={theme} />
-        <View className="gap-2 px-5 pt-2">
-          <Muted>{t('time')}</Muted>
-          <View className="flex-row flex-wrap gap-1.5">
-            {Array.from({ length: 24 }, (_, h) => (
-              <Chip key={h} text={`${((h + 11) % 12) + 1}${h < 12 ? 'am' : 'pm'}`} on={hour === h} onPress={() => setHour(h)} />
-            ))}
-          </View>
-          <View className="flex-row flex-wrap gap-1.5">
-            {Array.from({ length: 12 }, (_, i) => i * 5).map((m) => (
-              <Chip key={m} text={`:${String(m).padStart(2, '0')}`} on={minute === m} onPress={() => setMinute(m)} />
-            ))}
-          </View>
+        <View className="gap-5">
+          <CalendarPicker value={day} onChange={setDay} />
+          <View className="h-px bg-border" />
+          <TimePicker hour={hour} minute={minute} onHour={setHour} onMinute={setMinute} />
         </View>
-      </Sheet>
+      </AppBottomSheet>
     </>
   );
 }
 
 /** Quick ranges as chips, plus a from–to pair for anything else. */
-export function PeriodPicker({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {
+/** `value` null = no period chosen (a filter left open): no chip is lit. */
+export function PeriodPicker({ value, onChange }: { value: Period | null; onChange: (p: Period) => void }) {
   const t = useT();
   const p = presets();
-  const custom = !PERIOD_KEYS.some((k) => p[k].from === value.from && p[k].to === value.to);
+  const custom = !!value && !PERIOD_KEYS.some((k) => p[k].from === value.from && p[k].to === value.to);
   const sheet = useSheet();
-  const [draft, setDraft] = useState(value);
+  const [draft, setDraft] = useState(value ?? p.thisMonth);
   return (
     <>
       <View className="flex-row flex-wrap gap-1.5">
         {PERIOD_KEYS.map((k) => (
-          <Chip key={k} text={t(k)} on={p[k].from === value.from && p[k].to === value.to} onPress={() => onChange(p[k])} />
+          <Chip key={k} text={t(k)} on={!!value && p[k].from === value.from && p[k].to === value.to} onPress={() => onChange(p[k])} />
         ))}
         <Chip
-          text={custom ? `${dateOnly(value.from)} – ${dateOnly(value.to)}` : t('customRange')}
+          text={custom && value ? `${dateOnly(value.from)} – ${dateOnly(value.to)}` : t('customRange')}
           on={custom}
           onPress={() => {
-            setDraft(value);
+            setDraft(value ?? p.thisMonth);
             sheet.open();
           }}
         />
       </View>
-      <Sheet
+      <AppBottomSheet
         ref={sheet.ref}
+        variant="medium"
         title={t('customRange')}
         footer={
-          <Button
-            title={t('apply')}
-            disabled={draft.from > draft.to}
-            onPress={() => {
-              onChange(draft);
-              sheet.close();
+          <SheetActions
+            primary={{
+              title: t('apply'),
+              disabled: draft.from > draft.to,
+              onPress: () => {
+                onChange(draft);
+                sheet.close();
+              },
             }}
           />
         }
       >
-        <View className="gap-3 px-5">
+        <View className="gap-3">
           <DateField label={t('from')} value={draft.from} max={draft.to} onChange={(from) => setDraft((d) => ({ ...d, from }))} />
           <DateField label={t('to')} value={draft.to} min={draft.from} onChange={(to) => setDraft((d) => ({ ...d, to }))} />
         </View>
-      </Sheet>
+      </AppBottomSheet>
     </>
   );
 }
