@@ -77,6 +77,10 @@
   --color-sidebar-foreground: var(--side-text);
   --color-sidebar-muted: var(--side-muted);
   --color-sidebar-active: var(--side-active);
+  /* a hovered item (neutral), and the open page (soft saffron) */
+  --color-sidebar-hover: var(--side-active);
+  --color-sidebar-selected: var(--side-selected);
+  --color-sidebar-selected-foreground: var(--side-selected-text);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-axis: var(--chart-axis);

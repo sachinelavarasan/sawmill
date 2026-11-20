@@ -1,13 +1,16 @@
 /**
  * The app's list table, on TanStack Table (v9): typed columns, click-to-sort headers,
  * columns that fold away on phones, rows that open a record, an empty state and paging.
+ * Below `sm` the rows are drawn as stacked cards (the record, its status, then label/value pairs),
+ * so nothing has to squeeze side by side on a phone.
  *
  * Sorting is done in the browser, so offer it (give a column `sort`) only when the
  * whole list is loaded — not on lists the server pages, where it would sort one page.
  */
 import { createSortedRowModel, rowSortingFeature, sortFn_alphanumeric, sortFn_basic, tableFeatures, useTable, type ColumnDef, type RowData } from '@tanstack/react-table';
 import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon } from 'lucide-react';
-import { ReactNode, useEffect, useMemo } from 'react';
+import { MouseEvent, ReactNode, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { LinkRow, type PagerProps, TableCard, useClientPaging } from './page';
@@ -108,12 +111,62 @@ export function DataTable<T extends RowData>({
 
   const byId = useMemo(() => new Map(columns.map((c) => [c.id, c])), [columns]);
   const headers = table.getHeaderGroups()[0]?.headers ?? [];
+  const navigate = useNavigate();
+
+  // the phone cards: the first column leads; a last, non-numeric column (the status) sits top-right;
+  // the other columns a phone shows (no `from`) follow as label/value pairs. Folded columns already
+  // appear under the record ID (IdCell's `sub`).
+  const [lead, ...restCols] = columns;
+  const last = restCols.length > 0 && !restCols[restCols.length - 1].numeric && !restCols[restCols.length - 1].from ? restCols[restCols.length - 1] : null;
+  const pairs = restCols.filter((c) => !c.from && c !== last);
+  /** A click on a card opens its record, as a row would; links, buttons and fields inside keep their own clicks. */
+  const openCard = (row: T) => (e: MouseEvent) => {
+    if ((e.target as HTMLElement).closest('a, button, input, select, textarea, label, [role="combobox"]')) return;
+    if (window.getSelection()?.toString()) return;
+    if (rowTo) {
+      const to = rowTo(row);
+      if (e.metaKey || e.ctrlKey) window.open(to, '_blank', 'noopener');
+      else navigate(to);
+    } else onRowClick?.(row);
+  };
 
   return (
     <TableCard empty={rowsIn.length === 0} emptyText={empty} emptyIcon={emptyIcon} pager={pager ?? local.pager} busy={busy} toolbar={toolbar} className={className}>
+      {/* phones: each row a small card */}
+      <ul className="divide-y divide-border/70 sm:hidden">
+        {rows.map((r) => {
+          const selected = r.id === selectedKey;
+          const clickable = !!(rowTo || onRowClick);
+          return (
+            <li
+              key={r.id}
+              onClick={clickable ? openCard(r.original) : undefined}
+              aria-current={selected || undefined}
+              className={cn('flex flex-col gap-2.5 px-4 py-3.5 transition-colors duration-200', clickable && 'cursor-pointer active:bg-secondary/70', selected && 'bg-primary-soft shadow-[inset_3px_0_0_var(--color-primary)]')}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1 [overflow-wrap:anywhere]">{lead?.cell(r.original)}</div>
+                {last && <div className="shrink-0">{last.cell(r.original)}</div>}
+              </div>
+              {pairs.length > 0 && (
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[0.8125rem]">
+                  {pairs.map((c) => (
+                    <div key={c.id} className={cn('min-w-0', !c.header && 'col-span-2')}>
+                      {c.header && <dt className="text-xs text-muted-foreground">{c.header}</dt>}
+                      <dd className={cn('[overflow-wrap:anywhere]', c.numeric && 'font-semibold tabular-nums')}>{c.cell(r.original)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* tablets and up: the table */}
       <Table
         className={cn(
-          '[&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]:pl-4 [&_th:last-child]:pr-4',
+          'max-sm:hidden [&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]:pl-4 [&_th:last-child]:pr-4',
           grid && gridTable,
         )}
       >

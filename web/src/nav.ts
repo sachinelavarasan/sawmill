@@ -27,6 +27,13 @@ export interface NavItem {
   /** not offered to whoever holds this permission ("My Entries" means nothing to someone who sees everyone's) */
   unless?: Permission;
   group: NavGroup;
+  /**
+   * Sections of the page, shown nested under the item when it is expanded: each opens the page on
+   * that tab (`?tab=`). The first is the page's default tab, so it links to the bare path.
+   */
+  children?: { tab: string; labelKey: TKey }[];
+  /** kept out of the groups: shown in the sidebar's footer, beside the profile and sign-out */
+  footer?: boolean;
 }
 
 /** Whether a menu item is offered to someone, given what they may do. */
@@ -49,7 +56,20 @@ export const NAV_GROUPS: { id: NavGroup; labelKey?: TKey }[] = [
 export const NAV_ITEMS: NavItem[] = [
   // the Android bottom bar
   { path: '/', labelKey: 'home', icon: HouseIcon, permission: Permission.DASHBOARD_ACCOUNTANT, group: 'main' },
-  { path: '/stock', labelKey: 'inventory', icon: BoxesIcon, permission: Permission.OPERATIONS_CREATE, group: 'main' },
+  {
+    path: '/stock',
+    labelKey: 'inventory',
+    icon: BoxesIcon,
+    permission: Permission.OPERATIONS_CREATE,
+    group: 'main',
+    // the Stock page's tabs (pages/Stock.tsx TABS), reachable straight from the menu
+    children: [
+      { tab: 'raw', labelKey: 'raw' },
+      { tab: 'finished', labelKey: 'finished' },
+      { tab: 'adjustments', labelKey: 'adjustments' },
+      { tab: 'movements', labelKey: 'movements' },
+    ],
+  },
   { path: '/production', labelKey: 'production', icon: FactoryIcon, permission: Permission.OPERATIONS_CREATE, group: 'main' },
   { path: '/reports', labelKey: 'reports', icon: ChartNoAxesColumnIcon, permission: Permission.REPORTS_OPERATIONAL, group: 'main' },
 
@@ -70,5 +90,5 @@ export const NAV_ITEMS: NavItem[] = [
   // More › Admin
   { path: '/users', labelKey: 'users', icon: UserCheckIcon, permission: Permission.USERS_MANAGE, group: 'admin' },
   { path: '/audit', labelKey: 'auditLog', icon: ShieldIcon, permission: Permission.AUDIT_VIEW, group: 'admin' },
-  { path: '/settings', labelKey: 'settings', icon: Settings2Icon, permission: Permission.SETTINGS_MANAGE, group: 'admin' },
+  { path: '/settings', labelKey: 'settings', icon: Settings2Icon, permission: Permission.SETTINGS_MANAGE, group: 'admin', footer: true },
 ];

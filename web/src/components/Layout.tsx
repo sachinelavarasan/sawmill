@@ -88,30 +88,42 @@ export function Layout({ children }: { children: ReactNode }) {
   const scrolled = useScrolled();
 
   return (
-    <div className="flex min-h-svh bg-background">
-      {/* the sidebar: a white panel floating on the grey canvas, inset from the window's edges */}
+    <div className="min-h-svh bg-background">
+      {/*
+       * The sidebar: a panel floating inside the window, --sidebar-inset from its edges, never a full-height bar.
+       * Its size, inset and corners are tokens (tokens.css); the page leaves room for it below.
+       */}
       <aside
         className={cn(
-          'sticky top-0 z-40 hidden h-svh shrink-0 py-3 pl-3 transition-[width] duration-300 ease-smooth md:block print:hidden',
-          rail ? 'w-[5.5rem]' : 'w-[17.25rem]',
+          'fixed inset-y-(--sidebar-inset) left-(--sidebar-inset) z-40 hidden overflow-hidden rounded-(--sidebar-radius) bg-sidebar text-sidebar-foreground shadow-card transition-[width] duration-300 ease-smooth md:block print:hidden',
+          rail ? 'w-(--sidebar-rail)' : 'w-(--sidebar-width)',
         )}
       >
-        <div className="h-full overflow-hidden rounded-3xl bg-sidebar text-sidebar-foreground shadow-card">
-          <SidebarNav collapsed={rail} />
-        </div>
+        <SidebarNav collapsed={rail} />
       </aside>
 
+      {/* on a phone the same sidebar slides in over the page, floating with the same inset */}
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="left" className="w-[17.5rem] overflow-hidden border-0 bg-sidebar p-0 text-sidebar-foreground">
+        <SheetContent
+          side="left"
+          // no close button: it would sit on the mill's name; tapping outside or any link closes the drawer
+          showCloseButton={false}
+          className="inset-y-(--sidebar-inset) left-(--sidebar-inset) h-auto w-(--sidebar-width) max-w-[calc(100vw-2*var(--sidebar-inset))] overflow-hidden rounded-(--sidebar-radius) border-0 bg-sidebar p-0 text-sidebar-foreground sm:inset-y-(--sidebar-inset) sm:left-(--sidebar-inset) sm:max-w-[calc(100vw-2*var(--sidebar-inset))] sm:rounded-(--sidebar-radius)"
+        >
           <SheetTitle className="sr-only">{t('menu')}</SheetTitle>
           <SheetDescription className="sr-only">{user?.mill.name ?? 'TimberTrail'}</SheetDescription>
           <SidebarNav onNavigate={() => setOpen(false)} touch />
         </SheetContent>
       </Sheet>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div
+        className={cn(
+          'flex min-h-svh min-w-0 flex-col transition-[padding] duration-300 ease-smooth print:pl-0',
+          rail ? 'md:pl-[calc(var(--sidebar-rail)+var(--sidebar-inset))]' : 'md:pl-[calc(var(--sidebar-width)+var(--sidebar-inset))]',
+        )}
+      >
         {/* the workspace toolbar: a white panel, sticky; it casts a soft shadow once the page slides under it */}
-        <div className="sticky top-0 z-30 bg-background px-3 pt-3 print:hidden">
+        <div className="sticky top-0 z-30 bg-background px-3 pt-3 md:px-(--sidebar-inset) md:pt-(--sidebar-inset) print:hidden">
         <header
           className={cn(
             'flex h-[4.25rem] items-center gap-2 rounded-3xl bg-card/95 px-3 backdrop-blur-xl transition-shadow duration-300 sm:px-4 lg:px-5',
@@ -238,15 +250,54 @@ function useClosedGroups() {
   return { closed, toggle };
 }
 
+/** Which nested lists (an item's sections) the person opened or closed by hand; otherwise one is open while its page is. */
+function useSubmenus() {
+  const [manual, setManual] = useState<Record<string, boolean>>({});
+  const isOpen = useCallback((path: string, active: boolean) => manual[path] ?? active, [manual]);
+  const toggle = useCallback((path: string, active: boolean) => setManual((m) => ({ ...m, [path]: !(m[path] ?? active) })), []);
+  return { isOpen, toggle };
+}
+
+/** The look of one sidebar row: neutral at rest, a quiet grey on hover, the orange gradient pill (white type) for the open page. */
+const rowClass = (active: boolean, collapsed: boolean, touch: boolean) =>
+  cn(
+    'group/nav relative flex shrink-0 items-center rounded-xl text-sm transition-[background-color,color] duration-200 ease-smooth outline-none focus-visible:ring-2 focus-visible:ring-sidebar-accent',
+    collapsed ? 'size-11 justify-center' : cn('w-full gap-3 px-3', touch ? 'min-h-12' : 'min-h-10'),
+    active ? 'bg-brand-gradient font-semibold text-brand-foreground' : 'font-medium text-sidebar-foreground/75 hover:bg-sidebar-hover hover:text-sidebar-foreground',
+  );
+const iconClass = (active: boolean) =>
+  cn('size-[1.125rem] shrink-0 transition-colors duration-200 ease-smooth', active ? 'text-brand-foreground' : 'text-sidebar-muted group-hover/nav:text-sidebar-foreground');
+
+/**
+ * The sidebar's contents: brand, grouped navigation (an item may hold its page's sections, nested),
+ * and at the foot Settings, who is signed in, and sign-out. The same component fills the desktop
+ * panel (full or as an icon rail) and the phone drawer.
+ */
 function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNavigate?: () => void; collapsed?: boolean; /** the phone drawer: taller, touch-sized rows */ touch?: boolean }) {
-  const { user, can } = useAuth();
+  const { user, can, logout } = useAuth();
   const pending = usePendingApprovals();
   const { t } = useI18n();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const { closed, toggle } = useClosedGroups();
+  const subs = useSubmenus();
   const items = NAV_ITEMS.filter((n) => navVisible(n, can));
-  const groups = NAV_GROUPS.map((g) => ({ ...g, items: items.filter((n) => n.group === g.id) })).filter((g) => g.items.length > 0);
+  const footer = items.filter((n) => n.footer);
+  const groups = NAV_GROUPS.map((g) => ({ ...g, items: items.filter((n) => n.group === g.id && !n.footer) })).filter((g) => g.items.length > 0);
   const activeOf = (path: string) => (path === '/' ? pathname === '/' : pathname === path || pathname.startsWith(`${path}/`));
+  const tabNow = new URLSearchParams(search).get('tab');
+
+  /** A tooltip naming the item, for the icon rail (where labels are hidden). */
+  const withTip = (key: string, label: string, node: ReactNode) =>
+    collapsed ? (
+      <Tooltip key={key}>
+        <TooltipTrigger asChild>{node}</TooltipTrigger>
+        <TooltipContent side="right" sideOffset={12}>
+          {label}
+        </TooltipContent>
+      </Tooltip>
+    ) : (
+      node
+    );
 
   const link = (n: (typeof items)[number]) => {
     const label = t(n.labelKey);
@@ -254,46 +305,26 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
     // (Radix Slot) merges className as a string, which would stringify a function.
     const isActive = activeOf(n.path);
     const badge = n.path === '/approvals' && pending > 0 ? (pending > 99 ? '99+' : `${pending}`) : null;
-    const item = (
+    const nested = !collapsed && n.children && n.children.length > 0 ? n.children : null;
+    const subOpen = nested ? subs.isOpen(n.path, isActive) : false;
+    const subId = `sub-${n.path.replace(/\W/g, '')}`;
+
+    const row = (
       <NavLink
-        key={n.path}
         to={n.path}
         end={n.path === '/'}
         onClick={onNavigate}
         aria-label={collapsed ? (badge ? `${label} (${badge})` : label) : undefined}
-        className={cn(
-          'group/nav relative flex shrink-0 items-center rounded-2xl text-sm transition-[background-color,color,box-shadow] duration-200 ease-smooth outline-none focus-visible:ring-2 focus-visible:ring-sidebar-accent',
-          collapsed ? 'size-11 justify-center' : cn('gap-3 px-3', touch ? 'min-h-12' : 'min-h-11'),
-          isActive
-            ? // the open page: an orange gradient pill with white type
-              'bg-brand-gradient font-semibold text-brand-foreground'
-            : 'font-medium text-sidebar-foreground/75 hover:bg-saffron-soft hover:text-saffron-strong',
-        )}
+        className={cn(rowClass(isActive, collapsed, touch), nested && 'pr-10')}
       >
-        {/* the saffron marker of the open page: it grows into place */}
-        <span
-          aria-hidden
-          className={cn(
-            'absolute top-1/2 left-0 w-[3px] -translate-x-3 -translate-y-1/2 rounded-full bg-sidebar-accent transition-[height,opacity] duration-300 ease-smooth',
-            'hidden',
-            collapsed && '-translate-x-3.5',
-          )}
-        />
-        <n.icon
-          className={cn(
-            'size-[1.125rem] shrink-0 transition-colors duration-200 ease-smooth',
-            isActive ? 'text-brand-foreground' : 'text-sidebar-muted group-hover/nav:text-saffron',
-          )}
-          strokeWidth={isActive ? 2 : 1.75}
-        />
+        <n.icon className={iconClass(isActive)} strokeWidth={isActive ? 2 : 1.75} />
         {/* long labels (Tamil) wrap to a second line rather than being cut off */}
         {!collapsed && <span className="line-clamp-2 min-w-0 flex-1 animate-in py-2 leading-snug duration-300 fade-in-0">{label}</span>}
         {badge &&
           (collapsed ? (
-            <span className={cn('absolute top-1.5 right-1.5 size-2.5 animate-in rounded-full border-2 duration-300 zoom-in-50', isActive ? 'border-transparent bg-white' : 'border-sidebar bg-sidebar-accent')} aria-hidden="true" />
+            <span className={cn('absolute top-1.5 right-1.5 size-2.5 animate-in rounded-full ring-2 duration-300 zoom-in-50', isActive ? 'bg-white ring-transparent' : 'bg-sidebar-accent ring-sidebar')} aria-hidden="true" />
           ) : (
-            // the count: a saffron pill; on the open page's orange pill, frosted white with white type
-            // (readable in both themes, like the label beside it). It pops in when the number changes.
+            // the count: a saffron pill; on the open page's orange pill, frosted white. It pops in when the number changes.
             <span
               key={badge}
               className={cn(
@@ -306,14 +337,56 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
           ))}
       </NavLink>
     );
-    if (!collapsed) return item;
+
+    if (!nested) return withTip(n.path, badge ? `${label} · ${badge}` : label, <div key={n.path} className={cn(collapsed && 'flex justify-center')}>{row}</div>);
+
+    const current = nested.some((c) => c.tab === tabNow) ? tabNow : nested[0].tab;
     return (
-      <Tooltip key={n.path}>
-        <TooltipTrigger asChild>{item}</TooltipTrigger>
-        <TooltipContent side="right" sideOffset={10}>
-          {badge ? `${label} · ${badge}` : label}
-        </TooltipContent>
-      </Tooltip>
+      <div key={n.path} className="flex flex-col">
+        <div className="relative">
+          {row}
+          {/* opens and closes the page's sections without leaving the page you're on */}
+          <button
+            type="button"
+            onClick={() => subs.toggle(n.path, isActive)}
+            aria-expanded={subOpen}
+            aria-controls={subId}
+            aria-label={label}
+            className={cn(
+              'absolute top-1/2 right-1.5 grid size-7 -translate-y-1/2 place-items-center rounded-lg transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-accent',
+              isActive ? 'text-brand-foreground hover:bg-white/20' : 'text-sidebar-muted hover:bg-sidebar-hover hover:text-sidebar-foreground',
+            )}
+          >
+            <ChevronDownIcon className={cn('size-4 transition-transform duration-300 ease-smooth', !subOpen && '-rotate-90')} aria-hidden />
+          </button>
+        </div>
+        <div id={subId} className={cn('grid transition-[grid-template-rows] duration-300 ease-smooth', subOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')} inert={!subOpen}>
+          <div className="min-h-0 overflow-hidden">
+            {/* a hairline guide under the parent's icon; the open section marks it in saffron */}
+            <div className="mt-0.5 mb-1 ml-[1.3rem] flex flex-col gap-0.5 border-l border-border pl-2.5">
+              {nested.map((c, i) => {
+                const on = isActive && c.tab === current;
+                return (
+                  <Link
+                    key={c.tab}
+                    to={i === 0 ? n.path : `${n.path}?tab=${c.tab}`}
+                    onClick={onNavigate}
+                    aria-current={on ? 'page' : undefined}
+                    className={cn(
+                      'relative flex items-center rounded-lg px-3 text-[0.8125rem] transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-accent',
+                      touch ? 'min-h-11' : 'min-h-9',
+                      'before:absolute before:inset-y-2 before:-left-[calc(0.625rem+1.5px)] before:w-0.5 before:rounded-full before:transition-colors',
+                      on ? 'font-semibold text-sidebar-selected-foreground before:bg-sidebar-accent' : 'text-sidebar-muted before:bg-transparent hover:bg-sidebar-hover hover:text-sidebar-foreground',
+                    )}
+                  >
+                    <span className="line-clamp-2 py-1.5 leading-snug">{t(c.labelKey)}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -321,14 +394,14 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
     <TooltipProvider delayDuration={150}>
       <div className="flex h-full flex-col">
         {/* brand: the logo tile, the mill, the product name */}
-        <div className={cn('flex h-16 shrink-0 items-center gap-3 ', collapsed ? 'justify-center' : 'px-5')}>
-          <span className="size-10 shrink-0 overflow-hidden rounded-xl">
+        <div className={cn('flex h-[4.25rem] shrink-0 items-center gap-3', collapsed ? 'justify-center' : 'px-4')}>
+          <span className="size-9 shrink-0 overflow-hidden rounded-lg">
             <LogoMark variant="auto" className="size-full" />
           </span>
           {!collapsed && (
             <div className="min-w-0 animate-in leading-tight duration-300 fade-in-0">
               {/* inside the app the company's own name leads; the product is the small print */}
-              <div className="truncate text-base font-bold tracking-tight font-display" title={user?.mill.name}>
+              <div className="truncate text-[0.9375rem] font-bold tracking-tight font-display" title={user?.mill.name}>
                 {user?.mill.name}
               </div>
               <div className="mt-0.5 truncate text-xs text-sidebar-muted">TimberTrail</div>
@@ -336,14 +409,14 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
           )}
         </div>
 
-        {/* navigation scrolls on its own; the brand and the profile stay put */}
-        <nav aria-label={t('menu')} className={cn('scroll-quiet flex flex-1 flex-col overflow-x-hidden overflow-y-auto px-3', touch ? 'py-3' : 'py-2', collapsed && 'items-center')}>
+        {/* navigation scrolls on its own; the brand and the footer stay put */}
+        <nav aria-label={t('menu')} className={cn('scroll-quiet flex flex-1 flex-col overflow-x-hidden overflow-y-auto px-3', touch ? 'py-2' : 'py-1', collapsed && 'items-center')}>
           {groups.map((g, i) => {
             const holdsActive = g.items.some((n) => activeOf(n.path));
             // a group folds away only when expanded; the one holding the open page always stays open
             const open = collapsed || !g.labelKey || holdsActive || !closed.includes(g.id);
             return (
-              <div key={g.id} className="flex flex-col">
+              <div key={g.id} className={cn('flex flex-col', collapsed && 'items-center')}>
                 {g.labelKey && !collapsed ? (
                   <button
                     type="button"
@@ -351,18 +424,18 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
                     aria-expanded={open}
                     disabled={holdsActive}
                     className={cn(
-                      touch ? 'mt-4 mb-1 py-1' : 'mt-3 mb-0.5 py-0.5',
-                      'group/head flex shrink-0 animate-in items-center gap-2 rounded-md px-3 text-left text-xs font-medium text-sidebar-muted/80 transition-colors duration-200 fade-in-0 outline-none hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-accent disabled:cursor-default disabled:hover:text-sidebar-muted/80',
+                      touch ? 'mt-4 mb-1 py-1' : 'mt-4 mb-1 py-0.5',
+                      'group/head flex shrink-0 animate-in items-center gap-2 rounded-md px-3 text-left text-[0.6875rem] font-semibold tracking-wide text-sidebar-muted/80 uppercase transition-colors duration-200 fade-in-0 outline-none hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-accent disabled:cursor-default disabled:hover:text-sidebar-muted/80',
                     )}
                   >
                     <span className="flex-1 truncate">{t(g.labelKey)}</span>
                     {!holdsActive && <ChevronDownIcon className={cn('size-3.5 transition-transform duration-300 ease-smooth', !open && '-rotate-90')} aria-hidden />}
                   </button>
                 ) : (
-                  i > 0 && <div className={cn('shrink-0 border-t border-border', touch ? 'my-3' : 'my-2', collapsed ? 'mx-auto w-8' : 'mx-3')} />
+                  i > 0 && <div className={cn('shrink-0 border-t border-border/70', touch ? 'my-3' : 'my-2.5', collapsed ? 'w-6' : 'mx-3')} />
                 )}
                 {/* the group's items slide open and closed; folded items are out of the tab order */}
-                <div className={cn('grid transition-[grid-template-rows] duration-300 ease-smooth', open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')} inert={!open}>
+                <div className={cn('grid w-full transition-[grid-template-rows] duration-300 ease-smooth', open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')} inert={!open}>
                   <div className={cn('flex min-h-0 flex-col overflow-hidden', touch ? 'gap-1' : 'gap-0.5', collapsed && 'items-center')}>{g.items.map(link)}</div>
                 </div>
               </div>
@@ -370,10 +443,24 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
           })}
         </nav>
 
-        {/* who is signed in: a navy chip anchored at the foot, like the profile card on Android */}
-        <div className={cn('shrink-0 p-3', collapsed && 'flex justify-center')}>
-          <div className={cn(!collapsed && 'rounded-2xl border border-border bg-card')}>
+        {/* the foot: Settings, who is signed in, and the way out */}
+        <div className={cn('flex shrink-0 flex-col gap-0.5 border-t border-border/70 p-3', collapsed && 'items-center')}>
+          {footer.map(link)}
+          <div className={cn('flex items-center', collapsed ? 'mt-1 flex-col gap-1' : 'mt-1 gap-1')}>
             <ProfileMenu variant="sidebar" collapsed={collapsed} />
+            {withTip(
+              'logout',
+              t('logout'),
+              <button
+                type="button"
+                onClick={logout}
+                aria-label={t('logout')}
+                title={collapsed ? undefined : t('logout')}
+                className="grid size-10 shrink-0 place-items-center rounded-xl text-sidebar-muted transition-colors duration-200 outline-none hover:bg-destructive-soft hover:text-destructive focus-visible:ring-2 focus-visible:ring-sidebar-accent"
+              >
+                <LogOutIcon className="size-[1.125rem]" strokeWidth={1.75} aria-hidden />
+              </button>,
+            )}
           </div>
         </div>
       </div>
@@ -641,7 +728,7 @@ function ProfileMenu({ variant, collapsed = false }: { variant: 'sidebar' | 'hea
   const role = isOwner ? t('owner') : t('accountant');
   const initial = user?.name.charAt(0).toUpperCase();
   const avatar = (
-    <Avatar className={variant === 'sidebar' ? 'size-9' : 'size-9'}>
+    <Avatar className="size-9">
       <AvatarFallback className={variant === 'sidebar' ? 'bg-brand font-bold text-brand-foreground' : 'bg-primary font-bold text-primary-foreground'}>{initial}</AvatarFallback>
     </Avatar>
   );
@@ -658,8 +745,8 @@ function ProfileMenu({ variant, collapsed = false }: { variant: 'sidebar' | 'hea
             aria-label={user?.name}
             title={collapsed ? `${user?.name} · ${role}` : undefined}
             className={cn(
-              'flex items-center rounded-2xl text-left transition-colors duration-200 outline-none hover:bg-sidebar-active focus-visible:ring-2 focus-visible:ring-sidebar-accent',
-              collapsed ? 'p-0.5' : 'w-full gap-3 p-2.5',
+              'flex items-center rounded-xl text-left transition-colors duration-200 outline-none hover:bg-sidebar-hover focus-visible:ring-2 focus-visible:ring-sidebar-accent',
+              collapsed ? 'p-0.5' : 'min-w-0 flex-1 gap-3 p-1.5',
             )}
           >
             {avatar}

@@ -2,7 +2,7 @@
  * App-level building blocks on top of shadcn/ui (src/components/ui).
  * Pages compose these + shadcn components + Tailwind classes; nothing else.
  */
-import { AlertTriangleIcon, ArrowUpRightIcon, Building2Icon, CheckCircle2Icon, ChevronLeftIcon, ChevronRightIcon, InboxIcon, InfoIcon, LockIcon, SearchIcon, XCircleIcon, XIcon } from 'lucide-react';
+import { ActivityIcon, AlertTriangleIcon, ArrowDownToLineIcon, ArrowUpFromLineIcon, ArrowUpRightIcon, Building2Icon, CheckCircle2Icon, ChevronLeftIcon, ChevronRightIcon, InboxIcon, InfoIcon, LockIcon, SearchIcon, XCircleIcon, XIcon } from 'lucide-react';
 import { MouseEvent, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -253,6 +253,30 @@ export function HeroTile({
       )}
       {sub && <div className={cn('line-clamp-2 text-xs', accent ? 'opacity-85' : 'text-hero-muted')}>{sub}</div>}
     </Link>
+  );
+}
+
+/** The hero tile for today's loads: in and out, side by side (both dashboards). */
+export function TodayLoadsTile({ loadsIn, loadsOut, to = '/imports' }: { loadsIn: number; loadsOut: number; to?: string }) {
+  const { t } = useI18n();
+  const parts = [
+    [ArrowDownToLineIcon, t('todayImports'), loadsIn],
+    [ArrowUpFromLineIcon, t('todayExports'), loadsOut],
+  ] as const;
+  return (
+    <HeroTile to={to} icon={<ActivityIcon />} label={t('today')}>
+      <div className="grid grid-cols-2 gap-3">
+        {parts.map(([Icon, label, n]) => (
+          <div key={label} className="min-w-0">
+            <div className="flex items-center gap-1.5 text-[1.375rem] leading-none font-bold tabular-nums font-display">
+              <Icon className="size-4 text-saffron" aria-hidden />
+              {n.toLocaleString('en-IN')}
+            </div>
+            <div className="mt-1.5 text-xs leading-snug text-hero-muted">{label}</div>
+          </div>
+        ))}
+      </div>
+    </HeroTile>
   );
 }
 

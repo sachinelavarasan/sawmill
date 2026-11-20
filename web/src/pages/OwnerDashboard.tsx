@@ -45,7 +45,7 @@ import { useAuth } from '../auth';
 import { ChartCard, ColumnChart, LineChart, Sparkline, StackedBars } from '../components/charts';
 import { Reveal } from '../components/depth';
 import { dateTime, money, num3, useLoad } from '../components/common';
-import { HeroBars, HeroFigure, HeroSplit, HeroTile, heroControl, HomeHero, LinkRow, LoadState, numCell, OwnerOnly, Page, Section, Stat, StatGrid, TableCard, useClientPaging, wide } from '../components/page';
+import { HeroBars, HeroFigure, HeroSplit, HeroTile, heroControl, TodayLoadsTile, HomeHero, LinkRow, LoadState, numCell, OwnerOnly, Page, Section, Stat, StatGrid, TableCard, useClientPaging, wide } from '../components/page';
 import { periodQuery, type PeriodValue, presets } from '../components/period';
 import { QuickActions } from '../components/quick-actions';
 import { StatusBadge } from '../components/status-badge';
@@ -461,7 +461,6 @@ export function OwnerDashboard() {
       {/* the navy band of the Android home screen: greeting, mill, period, and total stock with its 14-day flow */}
       <HomeHero
         name={user?.name}
-        mill={user?.mill.name}
         actions={
           <>
             <Select value={periodKey} onValueChange={(v) => setPeriodKey(v as PeriodKey)}>
@@ -495,24 +494,7 @@ export function OwnerDashboard() {
                   value={String(pending)}
                   sub={pending > 0 && oldestAge ? t('alertApprovalsSub', { age: oldestAge }) : t('noNotifications')}
                 />
-                <HeroTile to="/imports" icon={<ActivityIcon />} label={t('today')}>
-                  <div className="grid grid-cols-2 gap-3">
-                    {(
-                      [
-                        [ArrowDownToLineIcon, t('todayImports'), k.todayImports],
-                        [ArrowUpFromLineIcon, t('todayExports'), k.todayExports],
-                      ] as const
-                    ).map(([Icon, label, n]) => (
-                      <div key={label} className="min-w-0">
-                        <div className="flex items-center gap-1.5 text-[1.375rem] leading-none font-bold tabular-nums font-display">
-                          <Icon className="size-4 text-saffron" aria-hidden />
-                          {n}
-                        </div>
-                        <div className="mt-1.5 text-xs leading-snug text-hero-muted">{label}</div>
-                      </div>
-                    ))}
-                  </div>
-                </HeroTile>
+                <TodayLoadsTile loadsIn={k.todayImports} loadsOut={k.todayExports} />
               </>
             }
           >

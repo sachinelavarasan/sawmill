@@ -1,4 +1,4 @@
-import { ArrowDownToLineIcon, ArrowUpFromLineIcon, CalendarDaysIcon, CheckCircle2Icon, RefreshCwIcon, RulerIcon } from 'lucide-react';
+import { CalendarDaysIcon, CheckCircle2Icon, RefreshCwIcon, RulerIcon, Undo2Icon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { ChartCard, ColumnChart } from '../components/charts';
 import { num3, useLoad } from '../components/common';
-import { HeroBars, HeroFigure, heroControl, HomeHero, LinkRow, LoadState, numCell, Page, Section, Stat, TableCard, wide } from '../components/page';
+import { HeroBars, HeroFigure, HeroSplit, HeroTile, heroControl, HomeHero, LinkRow, LoadState, numCell, Page, Section, TableCard, TodayLoadsTile, wide } from '../components/page';
 import { Reveal } from '../components/depth';
 import { QuickActions } from '../components/quick-actions';
 import { StatusBadge } from '../components/status-badge';
@@ -85,7 +85,6 @@ export function AccountantDashboard() {
   const open = data?.measurementProgress ?? [];
   const locale = lang === 'ta' ? 'ta-IN' : 'en-IN';
   const now = new Date();
-  const today = now.toLocaleDateString(locale, { day: 'numeric', month: 'long' });
   const refreshing = loading || charts.loading || entries.loading;
   const refresh = () => {
     reload();
@@ -109,10 +108,9 @@ export function AccountantDashboard() {
       {/* the navy band of the Android home screen: greeting, mill, today, and the person's own measuring */}
       <HomeHero
         name={user?.name}
-        mill={user?.mill.name}
         actions={
           <>
-            <span className={cn('inline-flex h-11 items-center gap-2 rounded-lg border px-3.5 text-sm font-medium', heroControl)}>
+            <span className={cn('inline-flex h-11 items-center gap-2 px-4 text-sm font-medium', heroControl)}>
               <CalendarDaysIcon className="size-4" aria-hidden />
               <time dateTime={now.toISOString().slice(0, 10)}>{now.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</time>
             </span>
@@ -122,11 +120,29 @@ export function AccountantDashboard() {
           </>
         }
       >
-        {logs.length > 0 && (
-          <HeroFigure label={t('chartLogsTitle')} value={String(logs.reduce((a, l) => a + l.logs, 0))} unit={t('logs')} sub={t('chartLogsSub')}>
+        {/* the same bento as the owner's hero: the person's measuring, beside what needs them and today's loads */}
+        <HeroSplit
+          side={
+            k && (
+              <>
+                {/* entries sent back: the accountant's work to do first, orange while any wait */}
+                <HeroTile
+                  to="/my-entries"
+                  accent={k.rejectedEntries > 0}
+                  icon={<Undo2Icon />}
+                  label={t('rejectedEntries')}
+                  value={String(k.rejectedEntries)}
+                  sub={k.rejectedEntries > 0 ? t('returnedForCorrection') : t('noNotifications')}
+                />
+                <TodayLoadsTile loadsIn={k.todayImports} loadsOut={k.todayExports} />
+              </>
+            )
+          }
+        >
+          <HeroFigure flush label={t('chartLogsTitle')} value={String(logs.reduce((a, l) => a + l.logs, 0))} unit={t('logs')} sub={t('chartLogsSub')}>
             {logs.some((l) => l.logs) && <HeroBars labelEvery={2} data={logs.map((l) => ({ label: String(Number(l.day.slice(8, 10))), values: [l.logs] }))} />}
           </HeroFigure>
-        )}
+        </HeroSplit>
       </HomeHero>
 
       {/* the work starts here: one tap to a new import, measuring, production or export */}
@@ -136,15 +152,9 @@ export function AccountantDashboard() {
 
       {k && (
         <>
-          {/* today's two counts beside where every entry stands (the same frame as the owner's dashboard) */}
-          <div className="stagger grid gap-3 sm:gap-5 lg:grid-cols-4">
-            <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-1">
-              <Stat to="/imports" icon={<ArrowDownToLineIcon />} label={t('todayImports')} value={k.todayImports.toLocaleString('en-IN')} hint={today} />
-              <Stat to="/exports" icon={<ArrowUpFromLineIcon />} label={t('todayExports')} value={k.todayExports.toLocaleString('en-IN')} hint={today} />
-            </div>
-
+          {/* where every entry stands (today's loads are in the hero) */}
+          <div className="stagger">
             <Panel
-              className="lg:col-span-3"
               title={t('entryStatus')}
               tools={
                 <span className="text-sm text-muted-foreground">

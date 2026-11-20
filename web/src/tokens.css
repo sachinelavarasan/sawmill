@@ -51,6 +51,21 @@
   --type-figure: 2rem;
   --type-hero: 2.75rem;
 
+  /*
+   * Sidebar: a panel floating inside the window, never touching its edges.
+   *   width / rail  expanded and collapsed widths
+   *   inset         the space between it and the window's edges (and the top bar)
+   *   radius        its corners
+   */
+  --sidebar-width: 256px;
+  --sidebar-rail: 72px;
+  --sidebar-inset: 16px;
+  --sidebar-radius: 20px;
+
+  /* the open page in the sidebar: a soft saffron fill with saffron type (per theme, via the accent tokens) */
+  --side-selected: var(--accent-soft);
+  --side-selected-text: var(--accent);
+
   /* Motion: controls and hovers are quick; panels arrive a touch slower. */
   --duration-fast: 150ms;
   --duration-base: 200ms;
@@ -155,8 +170,8 @@
   --border: #26262b;
   --input: #34343a;
 
-  --control: #26262b;
-  --control-hover: #2f2f35;
+  --control: #2a2a30;
+  --control-hover: #34343b;
 
   --topbar: #161619;
   --content-bg: #0b0b0d;
@@ -202,7 +217,7 @@
   --hero: #161619;
   --hero-text: #f4f4f5;
   --hero-muted: #9a9aa3;
-  --hero-chip: #26262b;
+  --hero-chip: #2a2a30;
   --hero-border: #26262b;
 
   --focus: #f4f4f5;
@@ -233,8 +248,8 @@
     --border: #26262b;
     --input: #34343a;
 
-  --control: #26262b;
-  --control-hover: #2f2f35;
+  --control: #2a2a30;
+  --control-hover: #34343b;
 
     --topbar: #161619;
     --content-bg: #0b0b0d;
@@ -280,7 +295,7 @@
     --hero: #161619;
     --hero-text: #f4f4f5;
     --hero-muted: #9a9aa3;
-    --hero-chip: #26262b;
+    --hero-chip: #2a2a30;
     --hero-border: #26262b;
 
     --focus: #f4f4f5;
