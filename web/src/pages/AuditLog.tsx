@@ -275,7 +275,7 @@ export function AuditLogPage() {
   return (
     <Page>
       <PageHeader title={t('auditLog')} subtitle={t('auditSub')} />
-      <LoadState loading={loading && !data} error={error} onRetry={reload} />
+      <LoadState shape="list" loading={loading && !data} error={error} onRetry={reload} />
       {data && (
         <DataTable
           data={rows}

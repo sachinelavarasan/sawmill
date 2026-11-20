@@ -1,4 +1,4 @@
-import { BellIcon, CheckCheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronsUpDownIcon, LogOutIcon, MenuIcon, MonitorIcon, MoonIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, SunIcon, Undo2Icon } from 'lucide-react';
+import { BellIcon, CheckCheckIcon, ChevronDownIcon, ChevronsUpDownIcon, LogOutIcon, MenuIcon, MonitorIcon, MoonIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, SunIcon, Undo2Icon } from 'lucide-react';
 import { Permission } from '@timbertrail/shared';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
@@ -162,17 +162,17 @@ function useScrolled() {
   return scrolled;
 }
 
-/** Where you are, in the top bar: the mill, then the open section (the page's own heading names the record). */
+/**
+ * Where you are, in the top bar: the open section (the page's own heading names the record).
+ * The mill's name is not repeated here; the sidebar already leads with it.
+ */
 function Crumbs() {
-  const { user } = useAuth();
   const { t } = useI18n();
   const { pathname } = useLocation();
   const item = NAV_ITEMS.find((n) => (n.path === '/' ? pathname === '/' : pathname === n.path || pathname.startsWith(`${n.path}/`)));
   if (!item) return null;
   return (
     <nav aria-label={t('menu')} className="flex min-w-0 items-center gap-2 text-sm">
-      <span className="truncate text-muted-foreground max-lg:hidden">{user?.mill.name}</span>
-      <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground/70 max-lg:hidden" aria-hidden />
       <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-muted text-foreground/80 shadow-xs max-sm:hidden [&_svg]:size-4" aria-hidden>
         <item.icon strokeWidth={1.75} />
       </span>
@@ -286,7 +286,8 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
           )}
           strokeWidth={isActive ? 2 : 1.75}
         />
-        {!collapsed && <span className="flex-1 animate-in truncate duration-300 fade-in-0">{label}</span>}
+        {/* long labels (Tamil) wrap to a second line rather than being cut off */}
+        {!collapsed && <span className="line-clamp-2 min-w-0 flex-1 animate-in py-2 leading-snug duration-300 fade-in-0">{label}</span>}
         {badge &&
           (collapsed ? (
             <span className={cn('absolute top-1.5 right-1.5 size-2.5 animate-in rounded-full border-2 duration-300 zoom-in-50', isActive ? 'border-transparent bg-white' : 'border-sidebar bg-sidebar-accent')} aria-hidden="true" />
@@ -601,20 +602,30 @@ function Notifications() {
 export function LangToggle({ className }: { className?: string }) {
   const { lang, setLang } = useI18n();
   return (
+    // a quiet segmented switch: the chosen language is a white pill on grey, so the top bar's only
+    // black control stays the Create button
     <ToggleGroup
       type="single"
-      variant="outline"
+      spacing={1}
       value={lang}
       onValueChange={(v) => v && setLang(v as Lang)}
       aria-label="Language"
-      className={cn('bg-card', className)}
+      className={cn('rounded-full bg-control p-1', className)}
     >
-      <ToggleGroupItem value="en" className="px-3 font-semibold data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-        EN
-      </ToggleGroupItem>
-      <ToggleGroupItem value="ta" className="px-3 font-semibold data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-        தமிழ்
-      </ToggleGroupItem>
+      {(
+        [
+          ['en', 'EN'],
+          ['ta', 'தமிழ்'],
+        ] as const
+      ).map(([v, label]) => (
+        <ToggleGroupItem
+          key={v}
+          value={v}
+          className="h-8 px-3 text-[0.8125rem] font-semibold text-muted-foreground hover:bg-transparent hover:text-foreground data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-card"
+        >
+          {label}
+        </ToggleGroupItem>
+      ))}
     </ToggleGroup>
   );
 }

@@ -144,7 +144,7 @@ export function ReportsPage() {
     return (
       <Page>
         <PageHeader title={t('reports')} subtitle={t('reportsSub')} />
-        <LoadState loading={list.loading && !list.data} error={list.error} onRetry={list.reload} />
+        <LoadState shape="list" loading={list.loading && !list.data} error={list.error} onRetry={list.reload} />
         {list.data &&
           shownGroups.map(([g, label]) => (
             <section key={g} className="flex flex-col gap-4">

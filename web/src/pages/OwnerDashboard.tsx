@@ -45,7 +45,7 @@ import { useAuth } from '../auth';
 import { ChartCard, ColumnChart, LineChart, Sparkline, StackedBars } from '../components/charts';
 import { Reveal } from '../components/depth';
 import { dateTime, money, num3, useLoad } from '../components/common';
-import { HeroBars, HeroFigure, heroControl, HomeHero, LinkRow, LoadState, numCell, OwnerOnly, Page, Section, Stat, StatGrid, TableCard, useClientPaging, wide } from '../components/page';
+import { HeroBars, HeroFigure, HeroSplit, HeroTile, heroControl, HomeHero, LinkRow, LoadState, numCell, OwnerOnly, Page, Section, Stat, StatGrid, TableCard, useClientPaging, wide } from '../components/page';
 import { periodQuery, type PeriodValue, presets } from '../components/period';
 import { QuickActions } from '../components/quick-actions';
 import { StatusBadge } from '../components/status-badge';
@@ -119,6 +119,8 @@ interface Expense {
 export const shortDay = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 const shortMonth = (m: string) => new Date(`${m}-01T00:00:00`).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
 const rupeesCompact = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', notation: 'compact', maximumFractionDigits: 1 });
+/** One decimal, Indian grouping: a headline figure that reads at a glance (7,421.8). */
+const num1 = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /** Dates as the mill's local calendar days (YYYY-MM-DD), and simple day arithmetic on them. */
 const iso = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
@@ -285,14 +287,20 @@ interface Alert {
   key: string;
   tone: 'warn' | 'bad' | 'info';
   icon: LucideIcon;
+  /** the whole sentence ("7 entries to approve"): the card's accessible name */
   title: string;
+  /** the number or amount, shown large */
+  figure: string;
+  /** what the figure counts ("entries to approve") */
+  label: string;
   sub: string;
   to: string;
 }
 const ALERT_TONE: Record<Alert['tone'], string> = {
   warn: 'bg-warning-soft text-warning',
   bad: 'bg-destructive-soft text-destructive',
-  info: 'bg-info-soft text-info',
+  // not a warning, just worth a look: neutral, so orange stays the only accent on the page
+  info: 'bg-secondary text-foreground/70',
 };
 
 // ───────── the dashboard ─────────
@@ -407,25 +415,32 @@ export function OwnerDashboard() {
   const effWeeks = weekly.filter((w) => w.runs > 0);
 
   // ── alerts: each one only when the data shows it ──
+  // how long the oldest waiting record has waited ("9 days"), for the alert and the hero tile
+  const oldest = waiting[0]?.submittedAt;
+  const waitedHours = oldest ? (Date.now() - Date.parse(oldest)) / 3_600_000 : 0;
+  const oldestAge = !oldest
+    ? null
+    : waitedHours >= 24
+      ? new Intl.NumberFormat(locale, { style: 'unit', unit: 'day', unitDisplay: 'long' }).format(Math.floor(waitedHours / 24))
+      : new Intl.NumberFormat(locale, { style: 'unit', unit: 'hour', unitDisplay: 'long' }).format(Math.max(1, Math.floor(waitedHours)));
+
+  // Pending approvals are not listed here: the hero's orange tile already holds them.
   const alerts: Alert[] = [];
-  if (pending > 0) {
-    const oldest = waiting[0]?.submittedAt;
-    const hours = oldest ? (Date.now() - Date.parse(oldest)) / 3_600_000 : 0;
-    const age =
-      hours >= 24
-        ? new Intl.NumberFormat(locale, { style: 'unit', unit: 'day', unitDisplay: 'long' }).format(Math.floor(hours / 24))
-        : new Intl.NumberFormat(locale, { style: 'unit', unit: 'hour', unitDisplay: 'long' }).format(Math.max(1, Math.floor(hours)));
-    alerts.push({ key: 'approvals', tone: 'warn', icon: ClipboardCheckIcon, title: t(pending === 1 ? 'alertApprovalsOne' : 'alertApprovals', { n: pending }), sub: oldest ? t('alertApprovalsSub', { age }) : '', to: '/approvals' });
-  }
-  if ((measuring.data ?? 0) > 0) alerts.push({ key: 'measuring', tone: 'info', icon: RulerIcon, title: t(measuring.data === 1 ? 'alertMeasuringOne' : 'alertMeasuring', { n: measuring.data! }), sub: t('alertMeasuringSub'), to: '/measurement' });
+  /** a counted alert: one/many wording for the sentence and for the label under the figure */
+  const counted = (n: number, key: string, tone: Alert['tone'], icon: LucideIcon, sentence: [TKey, TKey], label: [TKey, TKey], sub: string, to: string) =>
+    alerts.push({ key, tone, icon, title: t(sentence[n === 1 ? 0 : 1], { n }), figure: n.toLocaleString(locale), label: t(label[n === 1 ? 0 : 1]), sub, to });
+  const measuringN = measuring.data ?? 0;
+  if (measuringN > 0) counted(measuringN, 'measuring', 'info', RulerIcon, ['alertMeasuringOne', 'alertMeasuring'], ['attnMeasuringOne', 'attnMeasuring'], t('alertMeasuringSub'), '/measurement');
   const incomplete = (drafts.data ?? []).filter((r) => r.inputCft == null || r.outputCft === 0);
-  if (incomplete.length) alerts.push({ key: 'incomplete', tone: 'info', icon: FactoryIcon, title: t(incomplete.length === 1 ? 'alertIncompleteOne' : 'alertIncomplete', { n: incomplete.length }), sub: t('alertIncompleteSub'), to: '/production' });
+  if (incomplete.length) counted(incomplete.length, 'incomplete', 'info', FactoryIcon, ['alertIncompleteOne', 'alertIncomplete'], ['attnIncompleteOne', 'attnIncomplete'], t('alertIncompleteSub'), '/production');
   const over = [...(runs.data ?? []).filter((r) => r.productionDate >= weeks[0]), ...(drafts.data ?? [])].filter((r) => r.wasteCft != null && r.wasteCft < 0);
-  if (over.length) alerts.push({ key: 'over', tone: 'bad', icon: AlertTriangleIcon, title: t(over.length === 1 ? 'alertOverRecoveryOne' : 'alertOverRecovery', { n: over.length }), sub: t('alertOverRecoverySub'), to: '/production' });
+  if (over.length) counted(over.length, 'over', 'bad', AlertTriangleIcon, ['alertOverRecoveryOne', 'alertOverRecovery'], ['attnOverRecoveryOne', 'attnOverRecovery'], t('alertOverRecoverySub'), '/production');
   const adjustments = queue.data?.counts.ADJUSTMENT ?? 0;
-  if (adjustments > 0) alerts.push({ key: 'adjustments', tone: 'warn', icon: SlidersHorizontalIcon, title: t(adjustments === 1 ? 'alertAdjustmentsOne' : 'alertAdjustments', { n: adjustments }), sub: t('alertAdjustmentsSub'), to: '/stock?tab=adjustments' });
-  if (canFinance && k && k.pendingPayables > 0) alerts.push({ key: 'payables', tone: 'warn', icon: ArrowUpRightIcon, title: t('alertPayables', { amount: money(k.pendingPayables) }), sub: t('alertBalancesSub'), to: '/accounts' });
-  if (canFinance && k && k.pendingReceivables > 0) alerts.push({ key: 'receivables', tone: 'info', icon: ArrowDownLeftIcon, title: t('alertReceivables', { amount: money(k.pendingReceivables) }), sub: t('alertBalancesSub'), to: '/accounts' });
+  if (adjustments > 0) counted(adjustments, 'adjustments', 'warn', SlidersHorizontalIcon, ['alertAdjustmentsOne', 'alertAdjustments'], ['attnAdjustmentsOne', 'attnAdjustments'], t('alertAdjustmentsSub'), '/stock?tab=adjustments');
+  if (canFinance && k && k.pendingPayables > 0)
+    alerts.push({ key: 'payables', tone: 'warn', icon: ArrowUpRightIcon, title: t('alertPayables', { amount: money(k.pendingPayables) }), figure: money(k.pendingPayables), label: t('attnPayables'), sub: t('alertBalancesSub'), to: '/accounts' });
+  if (canFinance && k && k.pendingReceivables > 0)
+    alerts.push({ key: 'receivables', tone: 'info', icon: ArrowDownLeftIcon, title: t('alertReceivables', { amount: money(k.pendingReceivables) }), figure: money(k.pendingReceivables), label: t('attnReceivables'), sub: t('alertBalancesSub'), to: '/accounts' });
 
   // ── chart series ──
   const m = monthly.data ?? [];
@@ -468,20 +483,56 @@ export function OwnerDashboard() {
         }
       >
         {k && (
-          <HeroFigure
-            to="/stock"
-            label={t('totalStock')}
-            value={num3(k.rawStockCft + k.finishedStockCft)}
-            unit="CFT"
-            sub={`${t('raw')} ${num3(k.rawStockCft)} · ${t('finished')} ${num3(k.finishedStockCft)}`}
+          <HeroSplit
+            side={
+              <>
+                {/* the owner's main job, beside the headline: orange while anything waits */}
+                <HeroTile
+                  to="/approvals"
+                  accent={pending > 0}
+                  icon={<ClipboardCheckIcon />}
+                  label={t('pendingApprovals')}
+                  value={String(pending)}
+                  sub={pending > 0 && oldestAge ? t('alertApprovalsSub', { age: oldestAge }) : t('noNotifications')}
+                />
+                <HeroTile to="/imports" icon={<ActivityIcon />} label={t('today')}>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(
+                      [
+                        [ArrowDownToLineIcon, t('todayImports'), k.todayImports],
+                        [ArrowUpFromLineIcon, t('todayExports'), k.todayExports],
+                      ] as const
+                    ).map(([Icon, label, n]) => (
+                      <div key={label} className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-[1.375rem] leading-none font-bold tabular-nums font-display">
+                          <Icon className="size-4 text-saffron" aria-hidden />
+                          {n}
+                        </div>
+                        <div className="mt-1.5 text-xs leading-snug text-hero-muted">{label}</div>
+                      </div>
+                    ))}
+                  </div>
+                </HeroTile>
+              </>
+            }
           >
-            {c && c.flow.some((f) => f.receivedCft || f.shippedCft) && (
-              <HeroBars
-                data={c.flow.slice(-14).map((f) => ({ label: String(Number(f.day.slice(8, 10))), values: [f.receivedCft, f.shippedCft] }))}
-                legend={[t('receivedCft'), t('shippedCft')]}
-              />
-            )}
-          </HeroFigure>
+            <HeroFigure
+              flush
+              to="/stock"
+              label={t('totalStock')}
+              // the headline reads at a glance; the exact figures are in the line under it
+              value={num1(k.rawStockCft + k.finishedStockCft)}
+              unit="CFT"
+              sub={`${t('raw')} ${num3(k.rawStockCft)} · ${t('finished')} ${num3(k.finishedStockCft)}`}
+            >
+              {c && c.flow.some((f) => f.receivedCft || f.shippedCft) && (
+                <HeroBars
+                  data={c.flow.slice(-14).map((f) => ({ label: String(Number(f.day.slice(8, 10))), values: [f.receivedCft, f.shippedCft] }))}
+                  legend={[t('receivedCft'), t('shippedCft')]}
+                />
+              )}
+            </HeroFigure>
+          </HeroSplit>
         )}
       </HomeHero>
 
@@ -494,20 +545,31 @@ export function OwnerDashboard() {
             <Section title={t('secAttention')}>
               <div className="stagger grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
                 {alerts.map((a) => (
-                  <Link key={a.key} to={a.to} className="hover-lift group flex items-start gap-3.5 rounded-xl bg-card p-4 shadow-card outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:p-5">
-                    <span className={cn('grid size-9 shrink-0 place-items-center rounded-lg [&_svg]:size-[1.125rem]', ALERT_TONE[a.tone])} aria-hidden>
-                      <a.icon />
+                  // the figure leads, large; what it counts and why it matters follow
+                  <Link
+                    key={a.key}
+                    to={a.to}
+                    aria-label={a.sub ? `${a.title}. ${a.sub}` : a.title}
+                    className="hover-lift group flex flex-col gap-4 rounded-xl bg-card p-5 shadow-card outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  >
+                    <span className="flex items-center justify-between gap-3">
+                      <span className={cn('grid size-9 shrink-0 place-items-center rounded-lg [&_svg]:size-[1.125rem]', ALERT_TONE[a.tone])} aria-hidden>
+                        <a.icon />
+                      </span>
+                      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-secondary text-foreground/70 transition-colors duration-200 group-hover:bg-brand group-hover:text-brand-foreground" aria-hidden>
+                        <ArrowUpRightIcon className="size-4" />
+                      </span>
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm leading-snug font-semibold">{a.title}</span>
-                      {a.sub && <span className="mt-0.5 block text-xs text-pretty text-muted-foreground">{a.sub}</span>}
+                    <span className="mt-auto block" aria-hidden>
+                      <span className="block text-figure leading-none font-bold tracking-[-0.03em] tabular-nums font-display">{a.figure}</span>
+                      <span className="mt-2 block text-sm leading-snug font-semibold">{a.label}</span>
+                      {a.sub && <span className="mt-1 block text-xs text-pretty text-muted-foreground">{a.sub}</span>}
                     </span>
-                    <ArrowUpRightIcon className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity duration-200 group-hover:opacity-100" aria-hidden />
                   </Link>
                 ))}
               </div>
             </Section>
-          ) : (
+          ) : pending > 0 ? null : (
             <p className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm font-medium text-success">
               <CheckCircle2Icon className="size-4 shrink-0" aria-hidden />
               {t('noAlerts')}
@@ -530,7 +592,7 @@ export function OwnerDashboard() {
                   info={t('infoPurchases')}
                   value={p ? money(p.purchases) : HOLD}
                   trend={trendOf(p?.purchases, pp?.purchases, false)}
-                  spark={m.length > 1 && <Sparkline values={m.map((x) => x.purchases)} color="var(--chart-4)" />}
+                  spark={m.length > 1 && <Sparkline values={m.map((x) => x.purchases)} color="var(--chart-2)" />}
                 />
                 <Stat
                   icon={<IndianRupeeIcon />}
@@ -546,7 +608,7 @@ export function OwnerDashboard() {
                   info={t('infoExpensesAll')}
                   value={p ? money(p.totalExpenses) : HOLD}
                   trend={trendOf(p?.totalExpenses, pp?.totalExpenses, false)}
-                  spark={m.length > 1 && <Sparkline values={m.map((x) => x.expenses)} color="var(--chart-5)" />}
+                  spark={m.length > 1 && <Sparkline values={m.map((x) => x.expenses)} color="var(--chart-2)" />}
                 />
                 {/* the one figure that takes a colour: green in profit, red in loss */}
                 <Stat

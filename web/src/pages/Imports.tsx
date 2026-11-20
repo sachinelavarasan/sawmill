@@ -294,7 +294,7 @@ export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
         <StatusCards list={list} totalLabel={t("totalImportLoads")} />
       )}
 
-      <LoadState loading={loading && !data} error={error} onRetry={reload} />
+      <LoadState shape="list" loading={loading && !data} error={error} onRetry={reload} />
 
       {data && (
         <DataTable

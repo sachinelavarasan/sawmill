@@ -213,7 +213,7 @@ export function PaymentsPanel({
           </div>
         )}
       </div>
-      <LoadState loading={loading && !data} error={error} onRetry={reload} />
+      <LoadState shape="list" loading={loading && !data} error={error} onRetry={reload} />
       {data && (
         <TableCard empty={false}>
           <form

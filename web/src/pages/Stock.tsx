@@ -197,7 +197,7 @@ export function StockPage() {
         }
       />
 
-      <LoadState loading={loading && !data} error={error} onRetry={reload} />
+      <LoadState shape="list" loading={loading && !data} error={error} onRetry={reload} />
 
       {data && (
         <>
@@ -487,7 +487,7 @@ function MovementsTab({ loads, load, onLoad }: { loads: { id: string; code: stri
 
   return (
     <div className="flex flex-col gap-3">
-      <LoadState loading={loading && !data} error={error} onRetry={reload} />
+      <LoadState shape="list" loading={loading && !data} error={error} onRetry={reload} />
       <TableCard
         empty={!!data && data.items.length === 0}
         emptyText={t('noMovements')}
@@ -862,7 +862,7 @@ function AdjustmentsTab({
         </Card>
       )}
 
-      <LoadState loading={loading && !data} error={error} onRetry={reload} />
+      <LoadState shape="list" loading={loading && !data} error={error} onRetry={reload} />
       {data && (
         <TableCard empty={data.items.length === 0} emptyText={t('noAdjustments')} pager={paging.pager(data.total)}>
           <Table className={gridTable}>

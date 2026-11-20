@@ -100,7 +100,7 @@ export function ExportDetailPage() {
         }
       />
 
-      <LoadState loading={loading && !exp} error={error} onRetry={reload} />
+      <LoadState shape="detail" loading={loading && !exp} error={error} onRetry={reload} />
 
       {exp && (
         <>
@@ -645,7 +645,7 @@ function SaleSection({ exp, canPickClient }: { exp: ExportDetail; canPickClient:
         </>
       }
     >
-      <LoadState loading={loading && !data} error={error} onRetry={reload} />
+      <LoadState shape="form" loading={loading && !data} error={error} onRetry={reload} />
       {data && (
         // what is saved now: who bought it, what it sold for, and what is still due
         <Card className="gap-0 py-0">

@@ -240,7 +240,7 @@ export function MyEntriesPage() {
           <TabsContent key={k} value={k} className="flex flex-col gap-4">
             {k === tab && (
               <>
-                <LoadState loading={list.loading && !list.data} error={list.error} onRetry={list.reload} />
+                <LoadState shape="list" loading={list.loading && !list.data} error={list.error} onRetry={list.reload} />
                 {list.data && (
                   <DataTable
                     data={rows[tab]}

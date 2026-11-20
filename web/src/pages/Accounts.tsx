@@ -435,7 +435,7 @@ function ExpensesSection({
         </div>
       }
     >
-      <LoadState loading={loading && !data} error={error} onRetry={onRetry} />
+      <LoadState shape="list" loading={loading && !data} error={error} onRetry={onRetry} />
       {deleteError && <Notice tone="error">{deleteError}</Notice>}
       {data && (
         <TableCard empty={data.items.length === 0} emptyText={t('noExpenses')} pager={pager} busy={loading}>
@@ -568,7 +568,7 @@ function ExpensesSection({
                   </Select>
                 </Field>
                 <Field id="exp-notes" label={t('notes')} className="sm:col-span-2">
-                  <Textarea id="exp-notes" value={form.notes} onChange={set('notes')} maxLength={1000} rows={2} className="bg-card" />
+                  <Textarea id="exp-notes" value={form.notes} onChange={set('notes')} maxLength={1000} rows={2} />
                 </Field>
               </FormGrid>
               {formError && <Notice tone="error">{formError}</Notice>}

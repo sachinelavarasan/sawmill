@@ -110,7 +110,7 @@ export function ReviewActions({
                   *
                 </span>
               </Label>
-              <Textarea id={`reject-${base}`} value={reason} onChange={(e) => setReason(e.target.value)} required minLength={3} maxLength={500} rows={3} autoFocus className="bg-card" />
+              <Textarea id={`reject-${base}`} value={reason} onChange={(e) => setReason(e.target.value)} required minLength={3} maxLength={500} rows={3} autoFocus />
               <div className="text-right text-xs text-muted-foreground tabular-nums" aria-hidden>
                 {reason.length} / 500
               </div>

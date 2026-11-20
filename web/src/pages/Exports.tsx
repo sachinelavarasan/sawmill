@@ -143,7 +143,7 @@ export function ExportsPage() {
       {/* the list at a glance; each card also filters the table to that state */}
       <StatusCards list={list} totalLabel={t('totalExportLoads')} />
 
-      <LoadState loading={loading && !data} error={error} onRetry={reload} />
+      <LoadState shape="list" loading={loading && !data} error={error} onRetry={reload} />
 
       {data && (
         <DataTable
@@ -282,7 +282,7 @@ export function NewExportPage() {
   return (
     <Page className="max-w-5xl">
       <PageHeader title={t('newExport')} subtitle={t('requiredNote')} back={{ to: '/exports', label: t('exports') }} />
-      <LoadState loading={stock.loading && !stock.data} error={stock.error} onRetry={stock.reload} />
+      <LoadState shape="form" loading={stock.loading && !stock.data} error={stock.error} onRetry={stock.reload} />
       <FormCard onSubmit={submit} className="py-7 [&_form]:gap-7">
         <ExportFields form={form} onChange={setForm} finished={stock.data?.finished ?? []} />
         {error && <Notice tone="error">{error}</Notice>}

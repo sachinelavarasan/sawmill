@@ -170,7 +170,7 @@ export function ProductionPage() {
 
       <StatusCards list={list} totalLabel={t('totalRuns')} />
 
-      <LoadState loading={loading && !data} error={error} onRetry={reload} />
+      <LoadState shape="list" loading={loading && !data} error={error} onRetry={reload} />
 
       {data && (
         <DataTable
@@ -300,7 +300,7 @@ export function NewProductionPage() {
   return (
     <Page className="max-w-5xl">
       <PageHeader title={t('newProduction')} subtitle={t('requiredNote')} back={{ to: '/production', label: t('production') }} />
-      <LoadState loading={stock.loading && !stock.data} error={stock.error} onRetry={stock.reload} />
+      <LoadState shape="form" loading={stock.loading && !stock.data} error={stock.error} onRetry={stock.reload} />
       {stock.data && loads.length === 0 && <Notice>{t('noRawStock')}</Notice>}
       {stock.data && loads.length > 0 && (
         <FormCard onSubmit={submit} className="[&_form]:gap-8">

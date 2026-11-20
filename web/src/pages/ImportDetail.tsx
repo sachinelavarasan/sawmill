@@ -104,7 +104,7 @@ export function ImportDetailPage() {
         }
       />
 
-      <LoadState loading={loading && !load} error={error} onRetry={reload} />
+      <LoadState shape="detail" loading={loading && !load} error={error} onRetry={reload} />
 
       {load && (
         <>
@@ -481,7 +481,7 @@ function PurchaseSection({ load, canPickSupplier }: { load: ImportDetail; canPic
         </>
       }
     >
-      <LoadState loading={loading && !data} error={error} onRetry={reload} />
+      <LoadState shape="form" loading={loading && !data} error={error} onRetry={reload} />
       {form && (
         <FormCard onSubmit={submit}>
           <FormGrid>

@@ -19,8 +19,8 @@ import { LogoMark } from './brand';
 
 /** Table column shown only from the md breakpoint up. */
 export const wide = 'hidden md:table-cell';
-/** Right-aligned, tabular figures. */
-export const numCell = 'text-right tabular-nums';
+/** Right-aligned, tabular figures that never split across lines (text columns wrap to keep tables in their card). */
+export const numCell = 'text-right tabular-nums whitespace-nowrap';
 /** Radix Select can't hold an empty value, so "no filter" is this sentinel. */
 export const ALL = 'all';
 
@@ -112,7 +112,24 @@ export function HomeHero({ name, mill, actions, children }: { name: ReactNode; m
 export const heroControl = 'rounded-full border-transparent bg-hero-chip text-hero-foreground shadow-none hover:bg-hero-border hover:text-hero-foreground [&_svg]:text-hero-muted';
 
 /** The headline figure inside a HomeHero: a label, a big number, a line under it, and an optional chart. */
-export function HeroFigure({ label, value, unit, sub, to, children }: { label: ReactNode; value: ReactNode; unit?: string; sub?: ReactNode; to?: string; children?: ReactNode }) {
+export function HeroFigure({
+  label,
+  value,
+  unit,
+  sub,
+  to,
+  flush,
+  children,
+}: {
+  label: ReactNode;
+  value: ReactNode;
+  unit?: string;
+  sub?: ReactNode;
+  to?: string;
+  /** inside a HeroSplit, which draws the divider itself */
+  flush?: boolean;
+  children?: ReactNode;
+}) {
   const body = (
     <>
       <div className="flex items-center justify-between gap-3">
@@ -127,7 +144,7 @@ export function HeroFigure({ label, value, unit, sub, to, children }: { label: R
       {children && <div className="mt-2">{children}</div>}
     </>
   );
-  const cls = 'flex flex-col gap-2 border-t border-hero-border pt-5';
+  const cls = cn('flex min-w-0 flex-col gap-2', !flush && 'border-t border-hero-border pt-5');
   if (!to) return <div className={cls}>{body}</div>;
   return (
     <Link to={to} className={cn(cls, 'group/hero rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-saffron')}>
@@ -136,19 +153,30 @@ export function HeroFigure({ label, value, unit, sub, to, children }: { label: R
   );
 }
 
-/** Small paired columns for the navy hero (saffron and slate, as on Android), with a legend. */
+/** Small paired columns for the hero panel (orange lead series, striped comparison), with a legend. */
 export function HeroBars({ data, legend, labelEvery = 3 }: { data: { label: string; values: number[] }[]; legend?: string[]; labelEvery?: number }) {
   const max = Math.max(1, ...data.flatMap((d) => d.values));
-  const fills = ['bg-brand-gradient', 'bg-chart-bar'];
+  // the lead series in orange; the comparison series striped, so it reads second
+  const fills = ['bg-brand-gradient', 'bg-hatch'];
   return (
     <div className="flex flex-col gap-3" aria-hidden>
       <div className="flex h-20 items-end gap-1.5 sm:gap-2">
         {data.map((d, i) => (
           <div key={i} className="flex h-full flex-1 flex-col justify-end gap-1">
             <div className="flex flex-1 items-end justify-center gap-px">
-              {d.values.map((v, j) => (
-                <span key={j} className={cn('w-full max-w-4 rounded-full transition-[height] duration-500 ease-smooth', fills[j % fills.length])} style={{ height: `${Math.max(v ? 6 : 2, (v / max) * 100)}%`, opacity: v ? 1 : 0.25 }} />
-              ))}
+              {d.values.some((v) => v > 0) ? (
+                d.values.map((v, j) =>
+                  v > 0 ? (
+                    <span key={j} className={cn('w-full max-w-4 rounded-full transition-[height] duration-500 ease-smooth', fills[j % fills.length])} style={{ height: `${Math.max(8, (v / max) * 100)}%` }} />
+                  ) : (
+                    // the other series had nothing that day: keep its slot so the pair stays aligned
+                    <span key={j} className="w-full max-w-4" />
+                  ),
+                )
+              ) : (
+                // a quiet day: one faint dot on the baseline, so the days with movement stand out
+                <span className="size-1.5 rounded-full bg-hero-muted/30" />
+              )}
             </div>
             <span className="h-3 text-center text-[0.625rem] leading-3 text-hero-muted tabular-nums">{i % labelEvery === 0 ? d.label : ''}</span>
           </div>
@@ -165,6 +193,66 @@ export function HeroBars({ data, legend, labelEvery = 3 }: { data: { label: stri
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * The hero's lower half as a bento: the headline figure (wide) beside a column of small tiles.
+ * The side column drops below the figure on narrower screens.
+ */
+export function HeroSplit({ children, side }: { children: ReactNode; side?: ReactNode }) {
+  return (
+    <div className="grid gap-5 border-t border-hero-border pt-5 lg:grid-cols-[minmax(0,1fr)_17rem] lg:gap-7">
+      {children}
+      {side && <div className="grid content-start gap-3 sm:grid-cols-2 lg:grid-cols-1">{side}</div>}
+    </div>
+  );
+}
+
+/**
+ * A small figure tile for a HeroSplit's side column, linking to the page behind it.
+ * `accent`: the thing to act on now, in the orange fill (use for one tile at most).
+ */
+export function HeroTile({
+  to,
+  icon,
+  label,
+  value,
+  sub,
+  accent,
+  children,
+}: {
+  to: string;
+  icon: ReactNode;
+  label: ReactNode;
+  value?: ReactNode;
+  sub?: ReactNode;
+  accent?: boolean;
+  /** custom body in place of the single figure (e.g. two small figures) */
+  children?: ReactNode;
+}) {
+  return (
+    <Link
+      to={to}
+      className={cn(
+        'group/tile flex min-w-0 flex-col gap-3 rounded-2xl p-4 outline-none transition-[transform,box-shadow] duration-200 ease-smooth hover:-translate-y-0.5 hover:shadow-lift focus-visible:ring-[3px] focus-visible:ring-ring/50',
+        accent ? 'bg-brand-gradient text-brand-foreground' : 'bg-hero-chip text-hero-foreground',
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className={cn('flex min-w-0 items-center gap-2 text-[0.8125rem] font-medium [&_svg]:size-4 [&_svg]:shrink-0', accent ? 'opacity-90' : 'text-hero-muted')}>
+          {icon}
+          <span className="min-w-0 leading-snug">{label}</span>
+        </span>
+        <ArrowUpRightIcon className={cn('size-4 shrink-0 transition-transform duration-200 group-hover/tile:translate-x-0.5 group-hover/tile:-translate-y-0.5', accent ? 'opacity-90' : 'text-hero-muted')} aria-hidden />
+      </div>
+      {children ?? (
+        <div className="text-[1.75rem] leading-none font-bold tracking-[-0.03em] tabular-nums font-display">
+          <CountUp value={value} />
+        </div>
+      )}
+      {sub && <div className={cn('line-clamp-2 text-xs', accent ? 'opacity-85' : 'text-hero-muted')}>{sub}</div>}
+    </Link>
   );
 }
 
@@ -258,14 +346,14 @@ export function Stat({
           <span
             className={cn(
               'grid size-8 shrink-0 place-items-center rounded-full transition-colors duration-200 [&_svg]:size-4',
-              hero ? 'bg-white/20' : 'bg-secondary text-foreground/80 group-hover/stat:bg-brand group-hover/stat:text-brand-foreground',
+              hero ? 'bg-current/15' : 'bg-secondary text-foreground/80 group-hover/stat:bg-brand group-hover/stat:text-brand-foreground',
             )}
             aria-hidden
           >
             <ArrowUpRightIcon />
           </span>
         ) : (
-          icon && <span className={cn('grid size-8 shrink-0 place-items-center rounded-full [&_svg]:size-4', hero ? 'bg-white/20' : iconTone ? toneTile[iconTone] : 'bg-secondary text-muted-foreground')}>{icon}</span>
+          icon && <span className={cn('grid size-8 shrink-0 place-items-center rounded-full [&_svg]:size-4', hero ? 'bg-current/15' : iconTone ? toneTile[iconTone] : 'bg-secondary text-muted-foreground')}>{icon}</span>
         )}
       </div>
       {/* the figure with its recent shape beside it; the comparison runs full width underneath */}
@@ -422,9 +510,69 @@ export function Notice({ tone = 'neutral', children, className }: { tone?: keyof
   );
 }
 
-/** Loading skeleton / error with retry, for useLoad results. Renders nothing once loaded. */
-export function LoadState({ loading, error, onRetry }: { loading: boolean; error: string | null; onRetry: () => void }) {
+/** A placeholder table: a toolbar line, a header band, and rows of varying length. */
+function TableSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="overflow-hidden rounded-xl bg-card shadow-card">
+      <Skeleton className="h-10 rounded-none" />
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="flex h-13 items-center gap-4 border-t border-border/70 px-4">
+          <Skeleton className="h-4 w-24 rounded-md" />
+          <Skeleton className="h-4 flex-1 rounded-md" style={{ maxWidth: `${14 - (i % 5) * 1.5}rem` }} />
+          <Skeleton className="ml-auto h-4 w-16 rounded-md" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** A placeholder card of labelled fields, in two columns from sm up. */
+function FieldsSkeleton({ fields = 6 }: { fields?: number }) {
+  return (
+    <div className="grid gap-x-5 gap-y-6 rounded-xl bg-card p-card shadow-card sm:grid-cols-2">
+      {Array.from({ length: fields }, (_, i) => (
+        <div key={i} className="grid gap-2">
+          <Skeleton className="h-3 w-24 rounded-md" />
+          <Skeleton className="h-11 rounded-lg" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Loading skeleton / error with retry, for useLoad results. Renders nothing once loaded.
+ * `shape` mirrors what is about to appear, so the page doesn't jump when it does:
+ *   overview  figures above a table (dashboards, statements, reports; the default)
+ *   list      a table on its own (record lists)
+ *   detail    a record: its summary strip, then its fields beside a side card
+ *   form      a card of fields
+ */
+export function LoadState({ loading, error, onRetry, shape = 'overview' }: { loading: boolean; error: string | null; onRetry: () => void; shape?: 'overview' | 'list' | 'detail' | 'form' }) {
   const { t } = useI18n();
+  if (loading && !error && shape !== 'overview')
+    return (
+      <div className="flex flex-col gap-4" role="status" aria-label={t('loading')}>
+        {shape === 'list' && <TableSkeleton rows={8} />}
+        {shape === 'form' && <FieldsSkeleton />}
+        {shape === 'detail' && (
+          <>
+            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-card shadow-card lg:grid-cols-4">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="grid gap-2 px-5 py-4">
+                  <Skeleton className="h-3 w-20 rounded-md" />
+                  <Skeleton className="h-7 w-28 rounded-md" />
+                </div>
+              ))}
+            </div>
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+              <TableSkeleton rows={6} />
+              <Skeleton className="h-56 rounded-xl" />
+            </div>
+          </>
+        )}
+      </div>
+    );
   if (error)
     return (
       <Notice tone="error">
@@ -442,16 +590,7 @@ export function LoadState({ loading, error, onRetry }: { loading: boolean; error
             <Skeleton key={i} className="h-28" />
           ))}
         </div>
-        <div className="overflow-hidden rounded-xl bg-card shadow-card">
-          <Skeleton className="h-10 rounded-none" />
-          {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex h-13 items-center gap-4 border-t border-border/70 px-4">
-              <Skeleton className="h-4 w-24 rounded-md" />
-              <Skeleton className="h-4 flex-1 rounded-md" style={{ maxWidth: `${14 - i * 1.5}rem` }} />
-              <Skeleton className="ml-auto h-4 w-16 rounded-md" />
-            </div>
-          ))}
-        </div>
+        <TableSkeleton />
       </div>
     );
   return null;
@@ -775,8 +914,8 @@ export function FilterChips<V extends string>({
             aria-pressed={on}
             onClick={() => onChange(o.value)}
             className={cn(
-              'inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border px-3.5 text-[0.8125rem] font-medium whitespace-nowrap transition-colors duration-150 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
-              on ? 'border-transparent bg-primary text-primary-foreground shadow-button' : 'border-input bg-card text-muted-foreground shadow-xs hover:border-foreground/25 hover:text-foreground',
+              'inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-[0.8125rem] font-medium whitespace-nowrap transition-colors duration-150 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+              on ? 'border-transparent bg-primary text-primary-foreground shadow-button' : 'border-transparent bg-control text-muted-foreground hover:bg-control-hover hover:text-foreground',
             )}
           >
             {o.dot && <span className={cn('size-2 rounded-full', o.dot, on && 'ring-2 ring-primary-foreground/40')} />}

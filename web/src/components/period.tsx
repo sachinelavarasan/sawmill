@@ -40,7 +40,7 @@ export function PeriodPicker({ value, onChange, className }: { value: PeriodValu
           </Button>
         ))}
       </div>
-      <div className="flex h-10 items-center gap-1.5 rounded-lg border border-input bg-card pr-2 pl-3 sm:ml-auto transition-colors hover:border-foreground/25 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50">
+      <div className="flex h-10 items-center gap-1.5 rounded-lg border border-transparent bg-control pr-2 pl-3 sm:ml-auto transition-colors hover:bg-control-hover focus-within:border-ring focus-within:bg-card focus-within:ring-[3px] focus-within:ring-ring/50">
         <CalendarRangeIcon className="size-4 text-muted-foreground" />
         <Input
           type="date"
@@ -48,7 +48,7 @@ export function PeriodPicker({ value, onChange, className }: { value: PeriodValu
           value={value.from}
           max={value.to}
           onChange={(e) => e.target.value && onChange({ ...value, from: e.target.value })}
-          className="h-8 w-[8.5rem] border-0 bg-transparent px-1 shadow-none focus-visible:ring-0"
+          className="h-8 w-[8.5rem] border-0 bg-transparent px-1 shadow-none hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0"
         />
         <span className="text-muted-foreground">–</span>
         <Input
@@ -57,7 +57,7 @@ export function PeriodPicker({ value, onChange, className }: { value: PeriodValu
           value={value.to}
           min={value.from}
           onChange={(e) => e.target.value && onChange({ ...value, to: e.target.value })}
-          className="h-8 w-[8.5rem] border-0 bg-transparent px-1 shadow-none focus-visible:ring-0"
+          className="h-8 w-[8.5rem] border-0 bg-transparent px-1 shadow-none hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0"
         />
       </div>
     </div>

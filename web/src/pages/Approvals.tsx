@@ -228,7 +228,7 @@ export function ApprovalsPage() {
       <PageHeader title={t('approvals')} subtitle={t('approvalsSubtitle')} />
 
       {error && <Notice tone="error">{error}</Notice>}
-      <LoadState loading={loading && !data} error={loadError} onRetry={reload} />
+      <LoadState shape="list" loading={loading && !data} error={loadError} onRetry={reload} />
 
       {data && (
         <>

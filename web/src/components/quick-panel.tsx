@@ -42,13 +42,13 @@ export function QuickPanel({
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
         // floats over the list with the page still readable behind it; fills the screen on a phone
-        overlayClassName="bg-[rgb(17_17_19/0.18)] backdrop-blur-[2px]"
+        overlayClassName="bg-scrim/60 backdrop-blur-[2px]"
         // z-60: above the list's selected row (z-55), which itself sits above the backdrop (z-50)
         className="inset-0 z-[60] w-full gap-0 overflow-hidden border-0 bg-card sm:inset-y-3 sm:right-3 sm:left-auto sm:h-auto sm:w-[34rem] sm:max-w-[calc(100vw-1.5rem)] sm:rounded-3xl sm:shadow-pop"
       >
         <div className="flex min-h-16 items-center border-b border-border px-6 py-4 pr-16 text-base font-semibold tracking-tight font-display">{title}</div>
         <div className="scroll-quiet flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-6">
-          <div className="flex items-center gap-4 rounded-2xl bg-secondary p-4">
+          <div className="flex items-center gap-4 rounded-2xl bg-control p-4">
             <span className="grid size-16 shrink-0 place-items-center rounded-2xl bg-card text-saffron [&_svg]:size-7 [&_svg]:stroke-[1.75]">{icon}</span>
             <div className="min-w-0 flex-1">
               <SheetTitle className="text-xl leading-tight">{code}</SheetTitle>
@@ -85,12 +85,12 @@ export function Boxes({ children }: { children: ReactNode }) {
   return <div className="grid grid-cols-2 gap-x-3 gap-y-4">{children}</div>;
 }
 
-/** A read-only value drawn like a form field: label above, the value in a bordered box. `wide` spans the row. */
+/** A read-only value drawn like a form field: label above, the value in a filled box, like an input. `wide` spans the row. */
 export function Box({ label, children, wide }: { label: string; children: ReactNode; wide?: boolean }) {
   return (
     <div className={cn('min-w-0', wide && 'col-span-2')}>
       <div className="mb-1.5 text-xs font-medium text-muted-foreground">{label}</div>
-      <div className="flex min-h-11 items-center rounded-xl bg-secondary px-3.5 py-2.5 text-sm font-medium break-words">{children || <span className="text-muted-foreground">—</span>}</div>
+      <div className="flex min-h-11 items-center rounded-lg bg-control px-3.5 py-2.5 text-sm font-medium break-words">{children || <span className="text-muted-foreground">—</span>}</div>
     </div>
   );
 }

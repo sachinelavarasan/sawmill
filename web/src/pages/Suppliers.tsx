@@ -341,7 +341,7 @@ function PartiesPage({
         }
       />
 
-      <LoadState loading={loading && !data} error={error} onRetry={reload} />
+      <LoadState shape="list" loading={loading && !data} error={error} onRetry={reload} />
 
       <Dialog
         open={!!editing}

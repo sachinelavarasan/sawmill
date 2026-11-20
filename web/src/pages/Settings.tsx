@@ -173,7 +173,7 @@ export function SettingsPage() {
         badge={<OwnerOnly />}
         subtitle={t("settingsSubtitle")}
       />
-      <LoadState loading={loading && !data} error={error} onRetry={reload} />
+      <LoadState shape="form" loading={loading && !data} error={error} onRetry={reload} />
 
       {data && form && (
         <FormCard onSubmit={save} className="py-7 [&_form]:gap-7">

@@ -1,5 +1,5 @@
 import { translate, type Lang, type TKey } from '@timbertrail/shared';
-import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 export type { Lang, TKey };
 const LANG_KEY = 'timbertrail.lang';
@@ -34,6 +34,11 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       /* ignore */
     }
   }, []);
+
+  // the page's language, from the first render on (screen readers, hyphenation, and the Tamil type rules in index.css)
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
 
   const t = useCallback(
     (key: TKey, vars?: Record<string, string | number>) => translate(lang, key, vars),

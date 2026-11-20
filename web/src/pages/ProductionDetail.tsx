@@ -93,7 +93,7 @@ export function ProductionDetailPage() {
         }
       />
 
-      <LoadState loading={loading && !run} error={error} onRetry={reload} />
+      <LoadState shape="detail" loading={loading && !run} error={error} onRetry={reload} />
 
       {run && (
         <>

@@ -2,12 +2,60 @@
  * TimberTrail on the web — "industrial operations" style: a pale grey canvas, white panels with
  * generous corners floating on it (sidebar, top bar, cards), pill-shaped controls, near-black for the
  * main action and one orange accent (the open page, the highlighted bar, counts).
- * Panels separate by colour, not by borders or shadows; only menus and dialogs cast a shadow.
+ * Panels separate by colour first: no borders, only a soft resting shadow (index.css, elevation);
+ * menus, drawers and dialogs float with a deeper one.
+ * Components use these tokens (through the Tailwind names in index.css), never raw values.
  *
  * Dark: near-black canvas, panels step lighter, hairline edges, orange a touch brighter.
  * Light is the default. Dark follows the system unless overridden with
  * <html data-theme="dark"> or <html data-theme="light">.
  */
+
+/* ============ 0. SHAPE, SPACE, TYPE, MOTION (the same in every theme) ============ */
+
+:root {
+  /*
+   * Corners. One rule: the larger the surface, the rounder its corners.
+   *   control  pills: buttons, search, chips, tabs, toggles, badges
+   *   field    form fields that sit in a grid (inputs, selects, textareas)
+   *   tile     icon tiles, small inner blocks, menu items
+   *   card     cards, tables, charts, notices
+   *   panel    the floating frame (sidebar, top bar), hero panels, drawers, dialogs
+   */
+  --shape-control: 9999px;
+  --shape-field: 12px;
+  --shape-tile: 12px;
+  --shape-card: 20px;
+  --shape-panel: 24px;
+
+  /*
+   * Spacing. The canvas shows between floating panels; content inside a panel breathes more.
+   *   frame    the gap around and between the frame panels (sidebar, top bar, page)
+   *   grid     the gap between cards in a bento grid
+   *   card     the padding inside a card
+   *   section  the gap between sections of a page
+   */
+  --space-frame: 0.75rem;
+  --space-grid: 1.25rem;
+  --space-card: 1.5rem;
+  --space-section: 2rem;
+
+  /* Type. Inter reads; Plus Jakarta Sans speaks (headings, headline figures). Tamil falls back to Noto Sans Tamil. */
+  --font-text: Inter, 'Noto Sans Tamil', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Plus Jakarta Sans', Inter, 'Noto Sans Tamil', system-ui, -apple-system, sans-serif;
+  --type-caption: 0.75rem;
+  --type-body: 0.875rem;
+  --type-label: 0.9375rem;
+  --type-section: 1.125rem;
+  --type-page: 1.75rem;
+  --type-figure: 2rem;
+  --type-hero: 2.75rem;
+
+  /* Motion: controls and hovers are quick; panels arrive a touch slower. */
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-panel: 300ms;
+}
 
 /* ============ 1. LIGHT (default) ============ */
 
@@ -17,6 +65,11 @@
   --surface-2: #f4f4f5;
   --border: #ebebed;
   --input: #e1e1e5;
+
+  /* the fill of a control (input, select, search, segmented track, secondary button): a step darker
+     than --surface-2, so it reads clearly on a white panel */
+  --control: #ebebee;
+  --control-hover: #e2e2e6;
 
   --topbar: #ffffff;
   --content-bg: #eeeef0;
@@ -52,6 +105,10 @@
 
   --bad: #dc2626;
   --bad-soft: #fdecec;
+  --on-bad: #ffffff;
+
+  /* behind a dialog or drawer: dims and (with backdrop blur) softens the page */
+  --scrim: rgb(17 17 19 / 0.28);
 
   --warning: #a16207;
   --warning-soft: #fef8e1;
@@ -63,7 +120,7 @@
   --hero: #ffffff;
   --hero-text: #111113;
   --hero-muted: #6b6b74;
-  --hero-chip: #f4f4f5;
+  --hero-chip: #ebebee;
   --hero-border: #ebebed;
 
   --focus: #111113;
@@ -83,7 +140,7 @@
   --chart-grid: #ebebed;
 
   color-scheme: light;
-  font-family: Inter, 'Noto Sans Tamil', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-text);
   font-size: 16px;
   line-height: 1.5;
   color: var(--text);
@@ -97,6 +154,9 @@
   --surface-2: #202024;
   --border: #26262b;
   --input: #34343a;
+
+  --control: #26262b;
+  --control-hover: #2f2f35;
 
   --topbar: #161619;
   --content-bg: #0b0b0d;
@@ -129,6 +189,9 @@
 
   --bad: #f87171;
   --bad-soft: #2d1414;
+  --on-bad: #ffffff;
+
+  --scrim: rgb(0 0 0 / 0.55);
 
   --warning: #facc15;
   --warning-soft: #2a2410;
@@ -139,7 +202,7 @@
   --hero: #161619;
   --hero-text: #f4f4f5;
   --hero-muted: #9a9aa3;
-  --hero-chip: #202024;
+  --hero-chip: #26262b;
   --hero-border: #26262b;
 
   --focus: #f4f4f5;
@@ -169,6 +232,9 @@
     --surface-2: #202024;
     --border: #26262b;
     --input: #34343a;
+
+  --control: #26262b;
+  --control-hover: #2f2f35;
 
     --topbar: #161619;
     --content-bg: #0b0b0d;
@@ -201,6 +267,9 @@
 
     --bad: #f87171;
     --bad-soft: #2d1414;
+  --on-bad: #ffffff;
+
+  --scrim: rgb(0 0 0 / 0.55);
 
     --warning: #facc15;
     --warning-soft: #2a2410;
@@ -211,7 +280,7 @@
     --hero: #161619;
     --hero-text: #f4f4f5;
     --hero-muted: #9a9aa3;
-    --hero-chip: #202024;
+    --hero-chip: #26262b;
     --hero-border: #26262b;
 
     --focus: #f4f4f5;
@@ -269,6 +338,11 @@ body {
     --border: #ebebed;
     --input: #e1e1e5;
 
+  /* the fill of a control (input, select, search, segmented track, secondary button): a step darker
+     than --surface-2, so it reads clearly on a white panel */
+  --control: #ebebee;
+  --control-hover: #e2e2e6;
+
     --topbar: #ffffff;
     --content-bg: #eeeef0;
 
@@ -303,6 +377,10 @@ body {
 
     --bad: #dc2626;
     --bad-soft: #fdecec;
+  --on-bad: #ffffff;
+
+  /* behind a dialog or drawer: dims and (with backdrop blur) softens the page */
+  --scrim: rgb(17 17 19 / 0.28);
 
     --warning: #a16207;
     --warning-soft: #fef8e1;
@@ -314,7 +392,7 @@ body {
     --hero: #ffffff;
     --hero-text: #111113;
     --hero-muted: #6b6b74;
-    --hero-chip: #f4f4f5;
+    --hero-chip: #ebebee;
     --hero-border: #ebebed;
 
     --focus: #111113;

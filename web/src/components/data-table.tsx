@@ -153,7 +153,7 @@ export function DataTable<T extends RowData>({
         <TableBody>
           {rows.map((r) => {
             const cells = columns.map((c) => (
-              <TableCell key={c.id} className={cn(c.numeric && 'text-right tabular-nums', c.from && FROM[c.from], c.className)}>
+              <TableCell key={c.id} className={cn(c.numeric && 'text-right tabular-nums whitespace-nowrap', c.from && FROM[c.from], c.className)}>
                 {c.cell(r.original)}
               </TableCell>
             ));
