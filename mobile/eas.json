@@ -18,7 +18,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://mill.example.in/api"
+        "EXPO_PUBLIC_API_URL": "https://api-timbertrail.vercel.app/api"
       }
     },
     "previewInternal": {
@@ -28,7 +28,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://mill.example.in/api"
+        "EXPO_PUBLIC_API_URL": "https://api-timbertrail.vercel.app/api"
       }
     },
     "production": {
@@ -40,7 +40,7 @@
         "resourceClass": "large"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://mill.example.in/api"
+        "EXPO_PUBLIC_API_URL": "https://api-timbertrail.vercel.app/api"
       }
     }
   },
