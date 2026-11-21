@@ -180,10 +180,17 @@ export function CalcPad({
     fields.forEach((f) => onChange(f.key, ''));
     setActive(0);
   };
+  /** set at once (props update later): a second "=" or Enter while saving is ignored, not saved twice */
+  const saving = useRef(false);
   const save = async () => {
-    if (!ready) return;
-    await onSave();
-    setActive(afterSave);
+    if (!ready || saving.current) return;
+    saving.current = true;
+    try {
+      await onSave();
+      setActive(afterSave);
+    } finally {
+      saving.current = false;
+    }
   };
   /** Next, or "=" on the last field: move on while something is missing, save once it is all there */
   const enter = () => {

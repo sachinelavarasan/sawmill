@@ -783,8 +783,12 @@ export function NewImportPage() {
     minutes = charges = null; // end before start, or a bad rate: the inputs say so themselves
   }
 
+  /** set at once: a second tap or Enter while saving would create the load (and its unloading) twice */
+  const inFlight = useRef(false);
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (inFlight.current) return;
+    inFlight.current = true;
     const goTo = next.current;
     next.current = "record";
     setBusy(true);
@@ -828,6 +832,7 @@ export function NewImportPage() {
     } catch (err) {
       setError((err as Error).message);
       setBusy(false);
+      inFlight.current = false;
     }
   }
 

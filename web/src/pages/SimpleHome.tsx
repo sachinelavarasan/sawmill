@@ -82,12 +82,12 @@ export function SimpleHome() {
       </HomeHero>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-bold font-display">{t('whatToDo')}</h2>
+        <h2 className="text-base font-semibold text-muted-foreground">{t('whatToDo')}</h2>
         <QuickActions simple pending={data?.pendingApprovals ?? 0} />
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-bold font-display">{t('needsAction')}</h2>
+        <h2 className="text-base font-semibold text-muted-foreground">{t('needsAction')}</h2>
         {data && todo.length === 0 ? (
           <div className="flex items-center gap-3 rounded-2xl bg-card p-5 text-base shadow-card">
             <PartyPopperIcon className="size-7 shrink-0 text-success" aria-hidden />
@@ -101,11 +101,11 @@ export function SimpleHome() {
                 to={x.to}
                 className="flex min-h-16 items-center gap-4 rounded-2xl bg-card px-5 py-3 text-base font-medium shadow-card hover-lift outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
-                <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary [&_svg]:size-6" aria-hidden>
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary [&_svg]:size-5 [&_svg]:stroke-[1.75]" aria-hidden>
                   {x.icon}
                 </span>
                 <span className="min-w-0 flex-1 leading-snug">{x.text}</span>
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
                   {t('open')}
                   <ChevronRightIcon className="size-4" aria-hidden />
                 </span>
@@ -125,9 +125,9 @@ function Figure({ icon, label, value, unit, wide }: { icon: ReactNode; label: st
         {icon}
         {label}
       </span>
-      <span className="text-3xl leading-none font-bold tabular-nums font-display">
+      <span className="text-[1.75rem] leading-none font-semibold tabular-nums font-display">
         {value}
-        {unit && <span className="ml-1.5 text-base font-semibold text-hero-muted">{unit}</span>}
+        {unit && <span className="ml-1.5 text-sm font-medium text-hero-muted">{unit}</span>}
       </span>
     </div>
   );

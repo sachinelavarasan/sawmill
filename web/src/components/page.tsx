@@ -29,8 +29,9 @@ export const ALL = 'all';
 // ───────── page frame ─────────
 
 export function Page({ children, className }: { children: ReactNode; className?: string }) {
-  // a short fade as the page opens; nothing moves
-  return <div className={cn('mx-auto flex w-full min-w-0 max-w-6xl animate-in flex-col gap-6 duration-300 ease-smooth fade-in-0 slide-in-from-bottom-1.5 lg:gap-8', className)}>{children}</div>;
+  // a short fade as the page opens; nothing moves. Pages use the full width beside the sidebar (capped only on very
+  // large monitors, where lines would get too long), centred; a form passes its own narrower max-w and sits centred too.
+  return <div className={cn('mx-auto flex w-full min-w-0 max-w-[1800px] animate-in flex-col gap-6 duration-300 ease-smooth fade-in-0 slide-in-from-bottom-1.5 lg:gap-8', className)}>{children}</div>;
 }
 
 export function PageHeader({

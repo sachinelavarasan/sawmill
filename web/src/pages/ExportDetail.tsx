@@ -12,7 +12,7 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { dateTime, money, num3, useLoad } from '../components/common';
 import { useEditGuard } from '../components/leave-guard';
-import { EntryField, Field, FormActions, FormCard, FormGrid, LoadState, MoreDetails, Notice, numCell, OwnerOnly, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging } from '../components/page';
+import { EntryField, Field, FilterChips, FormActions, FormCard, FormGrid, LoadState, MoreDetails, Notice, numCell, OwnerOnly, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
 import { PartyPicker, type PartyOption } from '../components/party-picker';
 import { PaymentsPanel, PayBadge } from '../components/payments';
@@ -329,7 +329,11 @@ function LinesSection({ exp, finished, pending, onChanged }: { exp: ExportDetail
   const liveCft = tIn != null && wIn != null && lFt != null && pcs != null ? exportPieceCft(tIn, wIn, lFt, pcs) : null;
   const set = (k: keyof LineForm) => (e: { target: { value: string } }) => setEntry({ ...entry, [k]: e.target.value });
 
+  /** set at once (state updates later): a second tap while saving is ignored, not sent again */
+  const inFlight = useRef(false);
   async function act(action: () => Promise<unknown>, ok?: string) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -339,6 +343,7 @@ function LinesSection({ exp, finished, pending, onChanged }: { exp: ExportDetail
     } catch (err) {
       setError(errorText(err));
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   }
@@ -348,8 +353,26 @@ function LinesSection({ exp, finished, pending, onChanged }: { exp: ExportDetail
 
   // ── calculator view: stock by size, and the loads holding the size being typed ──
   const sizeKey = (f: { thicknessIn: number; widthIn: number; lengthFt: number }) => `${f.thicknessIn}|${f.widthIn}|${f.lengthFt}`;
-  const bySize = new Map<string, { key: string; f: StockChoice; pieces: number; pending: boolean }>();
+  // the loads holding this wood, each with how many sizes it has; the sizes can be shown for one load
+  const stockLoads = new Map<string, { code: string; sizes: Set<string>; pieces: number }>();
   for (const f of sameWood) {
+    const l = stockLoads.get(f.importLoadId) ?? { code: f.importCode, sizes: new Set<string>(), pieces: 0 };
+    l.sizes.add(sizeKey(f));
+    l.pieces += f.pieces;
+    stockLoads.set(f.importLoadId, l);
+  }
+  // starts on the load chosen for this load out (when it holds stock), so its sizes are seen together
+  const [loadFilter, setLoadFilter] = useState('');
+  const chosenHasStock = !!exp.importLoadId && stockLoads.has(exp.importLoadId);
+  const filterStarted = useRef(false);
+  useEffect(() => {
+    // stock arrives after the page: start on the chosen load once, then leave it to the person
+    if (filterStarted.current || !chosenHasStock) return;
+    filterStarted.current = true;
+    setLoadFilter(exp.importLoadId ?? '');
+  }, [chosenHasStock, exp.importLoadId]);
+  const bySize = new Map<string, { key: string; f: StockChoice; pieces: number; pending: boolean }>();
+  for (const f of sameWood.filter((x) => !loadFilter || x.importLoadId === loadFilter)) {
     const g = bySize.get(sizeKey(f)) ?? { key: sizeKey(f), f, pieces: 0, pending: true };
     g.pieces += f.pieces;
     g.pending &&= !!f.pendingRun; // dashed only when none of it is approved stock yet
@@ -375,14 +398,23 @@ function LinesSection({ exp, finished, pending, onChanged }: { exp: ExportDetail
     const list = sourceKey.split(',').map((x) => ({ id: x.split(':')[0], pieces: Number(x.split(':')[1]) }));
     const need = pcs ?? 0;
     setEntry((e) => {
+      // the load being looked at wins whenever it holds enough of this size
+      const shown = loadFilter ? list.find((x) => x.id === loadFilter) : undefined;
+      if (shown && shown.pieces >= need) return shown.id === e.importLoadId ? e : { ...e, importLoadId: shown.id };
       const current = list.find((x) => x.id === e.importLoadId);
       if (current && current.pieces >= need) return e;
       const best = list.find((x) => x.pieces >= need) ?? [...list].sort((a, b) => b.pieces - a.pieces)[0];
       return best.id === e.importLoadId ? e : { ...e, importLoadId: best.id };
     });
-  }, [calc, sourceKey, pcs]);
+  }, [calc, sourceKey, pcs, loadFilter]);
   const pickSize = (g: { f: StockChoice }) => {
-    setEntry((e) => ({ ...e, thickness: String(g.f.thicknessIn), width: String(g.f.widthIn), length: String(g.f.lengthFt) }));
+    setEntry((e) => ({
+      ...e,
+      thickness: String(g.f.thicknessIn),
+      width: String(g.f.widthIn),
+      length: String(g.f.lengthFt),
+      ...(loadFilter && { importLoadId: loadFilter }),
+    }));
     setCalcField(3); // the size is filled in: only the count is left to type
   };
 
@@ -517,9 +549,22 @@ function LinesSection({ exp, finished, pending, onChanged }: { exp: ExportDetail
                   <FactoryIcon /> {t('notInStockAddSawing')}
                 </Link>
               </Button>
+              {calc && stockLoads.size > 1 && (
+                // which load's sizes to see: all loads together, or one load at a time
+                <FilterChips
+                  label={t('fromLoad')}
+                  value={loadFilter}
+                  onChange={setLoadFilter}
+                  className="mt-4"
+                  options={[
+                    { value: '', label: t('allLoads'), count: new Set(sameWood.map(sizeKey)).size, quiet: true },
+                    ...[...stockLoads].map(([id, l]) => ({ value: id, label: l.code, count: l.sizes.size, quiet: true })),
+                  ]}
+                />
+              )}
               {calc && sameWood.length > 0 ? (
-                // the calculator view: one chip per size (all its loads together); the load is chosen in the calculator
-                <ul className="scroll-quiet mt-4 grid max-h-60 gap-2.5 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label={t('pickSize')}>
+                // the calculator view: one chip per size (of all loads, or of the load chosen above); the load is chosen in the calculator
+                <ul className="scroll-quiet mt-3 grid max-h-60 gap-2.5 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label={t('pickSize')}>
                   {[...bySize.values()].map((g) => {
                     const on = typedSize === g.key;
                     return (

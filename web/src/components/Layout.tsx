@@ -95,17 +95,16 @@ export function Layout({ children }: { children: ReactNode }) {
   const desktop = useMedia('(min-width: 1024px)');
   // on a tablet there is room for the rail, not for the full sidebar
   const rail = collapsed || !desktop;
-  const scrolled = useScrolled();
 
   return (
     <div className="min-h-svh bg-background">
       {/*
-       * The sidebar: a panel floating inside the window, --sidebar-inset from its edges, never a full-height bar.
-       * Its size, inset and corners are tokens (tokens.css); the page leaves room for it below.
+       * The sidebar: a flat, full-height bar on the left edge, matching the flat top bar (its logo row
+       * lines up with the top bar's hairline). On a phone it is a floating drawer instead (below).
        */}
       <aside
         className={cn(
-          'fixed inset-y-(--sidebar-inset) left-(--sidebar-inset) z-40 hidden overflow-hidden rounded-(--sidebar-radius) bg-sidebar text-sidebar-foreground shadow-card transition-[width] duration-300 ease-smooth md:block print:hidden',
+          'fixed inset-y-0 left-0 z-40 hidden overflow-hidden border-r border-border bg-sidebar text-sidebar-foreground transition-[width] duration-300 ease-smooth md:block print:hidden',
           rail ? 'w-(--sidebar-rail)' : 'w-(--sidebar-width)',
         )}
       >
@@ -130,15 +129,18 @@ export function Layout({ children }: { children: ReactNode }) {
       <div
         className={cn(
           'flex min-h-svh min-w-0 flex-col transition-[padding] duration-300 ease-smooth print:pl-0',
-          rail ? 'md:pl-[calc(var(--sidebar-rail)+var(--sidebar-inset))]' : 'md:pl-[calc(var(--sidebar-width)+var(--sidebar-inset))]',
+          rail ? 'md:pl-(--sidebar-rail)' : 'md:pl-(--sidebar-width)',
         )}
       >
-        {/* the workspace toolbar: a white panel, sticky; it casts a soft shadow once the page slides under it */}
-        <div className="sticky top-0 z-30 bg-background px-3 pt-3 md:px-(--sidebar-inset) md:pt-(--sidebar-inset) print:hidden">
+        {/* the workspace toolbar: one flat bar, edge to edge across the top of the page (no floating gaps),
+            sticky, with one soft shadow falling onto the page */}
+        <div className="sticky top-0 z-30 print:hidden">
         <header
           className={cn(
-            'flex h-[4.25rem] items-center gap-2 rounded-3xl bg-card/95 px-3 backdrop-blur-xl transition-shadow duration-300 sm:px-4 lg:px-5',
-            scrolled ? 'shadow-lift' : 'shadow-card',
+            // the side padding matches the page's, so the bar's contents line up with the page below
+            'flex h-[4.25rem] items-center gap-2 bg-card/95 px-3 backdrop-blur-xl transition-shadow duration-300 sm:px-5 lg:px-6',
+            // lifted above the page by one soft shadow — the same whether or not the page is scrolled
+            'shadow-topbar',
           )}
         >
           <Button variant="ghost" size="icon" className="md:hidden" aria-label={t('menu')} onClick={() => setOpen(true)} data-tour="menu-button">
@@ -194,18 +196,6 @@ function HelpButton() {
       <CircleHelpIcon />
     </Button>
   );
-}
-
-/** True once the page has scrolled under the top bar. */
-function useScrolled() {
-  const [scrolled, setScrolled] = useState(false);
-  useEffect(() => {
-    const on = () => setScrolled(window.scrollY > 4);
-    on();
-    window.addEventListener('scroll', on, { passive: true });
-    return () => window.removeEventListener('scroll', on);
-  }, []);
-  return scrolled;
 }
 
 /**
@@ -305,7 +295,7 @@ const rowClass = (active: boolean, collapsed: boolean, touch: boolean) =>
   cn(
     'group/nav relative flex shrink-0 items-center rounded-xl text-sm transition-[background-color,color] duration-200 ease-smooth outline-none focus-visible:ring-2 focus-visible:ring-sidebar-accent',
     collapsed ? 'size-11 justify-center' : cn('w-full gap-3 px-3', touch ? 'min-h-12' : 'min-h-10'),
-    active ? 'bg-brand-gradient font-semibold text-brand-foreground' : 'font-medium text-sidebar-foreground/75 hover:bg-sidebar-hover hover:text-sidebar-foreground',
+    active ? 'nav-active font-semibold text-brand-foreground' : 'font-medium text-sidebar-foreground/75 hover:bg-sidebar-hover hover:text-sidebar-foreground',
   );
 const iconClass = (active: boolean) =>
   cn('size-[1.125rem] shrink-0 transition-colors duration-200 ease-smooth', active ? 'text-brand-foreground' : 'text-sidebar-muted group-hover/nav:text-sidebar-foreground');
@@ -376,7 +366,15 @@ function SidebarNav({
         aria-label={collapsed ? (badge ? `${label} (${badge})` : label) : undefined}
         className={cn(rowClass(isActive, collapsed, big), simple && !collapsed && 'text-[0.9375rem]', nested && 'pr-10')}
       >
-        <n.icon className={cn(iconClass(isActive), simple && 'size-5')} strokeWidth={isActive ? 2 : 1.75} />
+        {isActive && !collapsed ? (
+          // the open page's icon sits in a small frosted chip on the pill
+          // (negative margins: the chip takes the icon's own width, so the label stays in line with the others)
+          <span className={cn('grid size-7 shrink-0 place-items-center rounded-lg bg-white/20 ring-1 ring-white/25', simple ? '-mx-1' : '-mx-[5px]')}>
+            <n.icon className={cn(iconClass(true), simple ? 'size-[1.125rem]' : 'size-4')} strokeWidth={2} />
+          </span>
+        ) : (
+          <n.icon className={cn(iconClass(isActive), simple && 'size-5')} strokeWidth={isActive ? 2 : 1.75} />
+        )}
         {/* long labels (Tamil) wrap to a second line rather than being cut off */}
         {!collapsed && <span className="line-clamp-2 min-w-0 flex-1 animate-in py-2 leading-snug duration-300 fade-in-0">{label}</span>}
         {badge &&
@@ -453,7 +451,7 @@ function SidebarNav({
     <TooltipProvider delayDuration={150}>
       <div className="flex h-full flex-col">
         {/* brand: the logo tile, the mill, the product name */}
-        <div className={cn('flex h-[4.25rem] shrink-0 items-center gap-3', collapsed ? 'justify-center' : 'px-4')}>
+        <div className={cn('relative z-10 flex h-[4.25rem] shrink-0 items-center gap-3 bg-sidebar shadow-topbar', collapsed ? 'justify-center' : 'px-4')}>
           <span className="size-9 shrink-0 overflow-hidden rounded-lg">
             <LogoMark variant="auto" className="size-full" />
           </span>
@@ -831,7 +829,7 @@ function ProfileMenu({ variant, collapsed = false }: { variant: 'sidebar' | 'hea
             aria-label={user?.name}
             title={collapsed ? `${user?.name} · ${role}` : undefined}
             className={cn(
-              'flex items-center rounded-xl text-left transition-colors duration-200 outline-none hover:bg-sidebar-hover focus-visible:ring-2 focus-visible:ring-sidebar-accent',
+              'flex items-center rounded-xl text-left transition-colors duration-200 outline-none hover:bg-sidebar-hover data-[state=open]:bg-sidebar-hover focus-visible:ring-2 focus-visible:ring-sidebar-accent',
               collapsed ? 'p-0.5' : 'min-w-0 flex-1 gap-3 p-1.5',
             )}
           >

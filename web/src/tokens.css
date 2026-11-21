@@ -111,7 +111,7 @@
   --side: #ffffff;
   --side-text: #111113;
   --side-muted: #6b6b74;
-  --side-active: #f4f4f5;
+  --side-active: #ebebee;
   --side-accent: #f26b1d;
 
   --shadow: none;
@@ -196,7 +196,7 @@
   --side: #161619;
   --side-text: #f4f4f5;
   --side-muted: #9a9aa3;
-  --side-active: #202024;
+  --side-active: #27272c;
   --side-accent: #f47a33;
 
   --shadow: none;
@@ -275,7 +275,7 @@
     --side: #161619;
     --side-text: #f4f4f5;
     --side-muted: #9a9aa3;
-    --side-active: #202024;
+    --side-active: #27272c;
     --side-accent: #f47a33;
 
     --shadow: none;
@@ -386,7 +386,7 @@ body {
     --side: #ffffff;
     --side-text: #111113;
     --side-muted: #6b6b74;
-    --side-active: #f4f4f5;
+    --side-active: #ebebee;
     --side-accent: #f26b1d;
 
     --shadow: none;

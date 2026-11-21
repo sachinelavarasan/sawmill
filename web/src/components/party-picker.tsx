@@ -108,7 +108,7 @@ export function SearchAddPicker({
         <PopoverPrimitive.Content
           align="start"
           sideOffset={4}
-          className="z-50 w-(--radix-popover-trigger-width) min-w-[16rem] overflow-hidden rounded-xl bg-popover text-popover-foreground shadow-float data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          className="z-[80] w-(--radix-popover-trigger-width) min-w-[16rem] overflow-hidden rounded-xl bg-popover text-popover-foreground shadow-float data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
         >
           <Command
             // our own matching: cmdk's fuzzy score would also show loosely related names.

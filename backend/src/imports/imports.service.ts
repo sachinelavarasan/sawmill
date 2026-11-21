@@ -315,6 +315,17 @@ export class ImportsService {
       const rate = dto.ratePerHour ?? mill?.settings.defaultUnloadingRatePerHour ?? null;
       const { durationMinutes, totalCharges } = unloadingTotals(startAt, endAt, rate);
 
+      // the same vehicle starting within the same minute is the same unloading sent twice (a double
+      // tap, a retried request) — the load row is locked above, so two such requests can't both pass
+      const squash = (v: string) => v.replace(/\s+/g, '').toUpperCase();
+      const existing = await tx
+        .select({ vehicleNumber: unloadingEntries.vehicleNumber, startAt: unloadingEntries.startAt })
+        .from(unloadingEntries)
+        .where(eq(unloadingEntries.importLoadId, loadId));
+      if (existing.some((u) => squash(u.vehicleNumber) === squash(dto.vehicleNumber) && Math.abs(u.startAt.getTime() - startAt.getTime()) < 60_000)) {
+        throw new ConflictException('This unloading is already recorded');
+      }
+
       const [row] = await tx
         .insert(unloadingEntries)
         .values({

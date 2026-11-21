@@ -52,12 +52,12 @@ export function QuickActions({ simple = false, pending = 0 }: { simple?: boolean
           <Link
             key={a.to}
             to={a.to}
-            className="relative flex min-h-32 flex-col items-center justify-center gap-3 rounded-2xl bg-card p-4 text-center shadow-card hover-lift outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:min-h-36"
+            className="relative flex min-h-28 flex-col items-center justify-center gap-2.5 rounded-2xl bg-card p-4 text-center shadow-card hover-lift outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:min-h-32"
           >
-            <span className="grid size-16 place-items-center rounded-2xl bg-primary-soft text-primary [&_svg]:size-9">{a.icon}</span>
-            <span className="text-base leading-tight font-bold sm:text-lg">{a.label}</span>
+            <span className="grid size-13 place-items-center rounded-xl bg-primary-soft text-primary [&_svg]:size-6.5 [&_svg]:stroke-[1.75]">{a.icon}</span>
+            <span className="text-[0.9375rem] leading-tight font-medium sm:text-base">{a.label}</span>
             {!!a.badge && (
-              <span className="absolute top-3 right-3 min-w-7 rounded-full bg-primary px-2 text-center text-sm leading-7 font-bold text-primary-foreground tabular-nums">
+              <span className="absolute top-3 right-3 min-w-6 rounded-full bg-primary px-1.5 text-center text-xs leading-6 font-semibold text-primary-foreground tabular-nums">
                 {a.badge > 99 ? '99+' : a.badge}
               </span>
             )}

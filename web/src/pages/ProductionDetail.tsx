@@ -454,7 +454,11 @@ function OutputsSection({ run, onChanged, start }: { run: ProductionDetail; onCh
   const live = sizeCft(entry);
   const set = (k: keyof SizeForm) => (e: { target: { value: string } }) => setEntry({ ...entry, [k]: e.target.value });
 
+  /** set at once (state updates later): a second tap while saving is ignored, not sent again */
+  const inFlight = useRef(false);
   async function act(action: () => Promise<unknown>, ok?: string) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -464,6 +468,7 @@ function OutputsSection({ run, onChanged, start }: { run: ProductionDetail; onCh
     } catch (err) {
       setError(errorText(err));
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   }

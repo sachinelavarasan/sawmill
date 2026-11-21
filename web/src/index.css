@@ -149,6 +149,7 @@
   --shadow-table: var(--elev-table);
   --shadow-widget: var(--elev-widget);
   --shadow-lift: var(--elev-lift);
+  --shadow-topbar: var(--elev-topbar);
   --shadow-float: var(--elev-float);
   --shadow-pop: var(--elev-pop);
   /* a pressed-in control (inputs) and a raised one (primary buttons) */
@@ -275,10 +276,67 @@
     background-image: linear-gradient(100deg, var(--saffron), color-mix(in oklab, var(--saffron), var(--saffron-2) 70%));
   }
 
-  /* thin scrollbars inside panels (sidebar, tab strips) */
+  /* the sidebar's open page: the brand pill with a glossy top edge and a tight, crisp shadow — no soft glow */
+  .nav-active {
+    background-image: linear-gradient(100deg, var(--saffron), color-mix(in oklab, var(--saffron), var(--saffron-2) 70%));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.28),
+      0 1px 2px color-mix(in oklab, var(--saffron) 45%, transparent);
+  }
+
+  /* thin scrollbars inside panels (sidebar, tab strips) — now the look of every scrollbar (below);
+     kept as a name so existing panels stay marked */
   .scroll-quiet {
+  }
+}
+
+/*
+ * Scrollbars: the macOS look on every system (Windows and Linux too) — a thin rounded thumb, no
+ * track, a little darker under the pointer. Chrome / Edge / Safari draw it from the ::-webkit-scrollbar
+ * rules; Firefox (which has no such rules) gets the standard thin scrollbar in the same colours.
+ * The standard properties are given to Firefox only: in Chrome they would switch the rounded look off.
+ */
+:root {
+  --scrollbar-thumb: rgb(17 17 19 / 0.22);
+  --scrollbar-thumb-hover: rgb(17 17 19 / 0.42);
+}
+:root[data-theme='dark'] {
+  --scrollbar-thumb: rgb(255 255 255 / 0.2);
+  --scrollbar-thumb-hover: rgb(255 255 255 / 0.4);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --scrollbar-thumb: rgb(255 255 255 / 0.2);
+    --scrollbar-thumb-hover: rgb(255 255 255 / 0.4);
+  }
+}
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+  background: transparent;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  min-height: 36px;
+  min-width: 36px;
+  border: 3px solid transparent; /* the gap around the thumb, as on a Mac */
+  border-radius: 9999px;
+  background-color: var(--scrollbar-thumb);
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+::-webkit-scrollbar-button {
+  display: none; /* no arrow buttons at the ends */
+}
+@supports not selector(::-webkit-scrollbar) {
+  * {
     scrollbar-width: thin;
-    scrollbar-color: color-mix(in oklab, currentColor 25%, transparent) transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 }
 
@@ -302,8 +360,11 @@
   --elev-pop: 0 0 0 1px var(--border), var(--elev-xl);
   --elev-inset: none;
   --elev-button: none;
+  /* the top bar stands a step above the page: one soft shadow falling down onto it */
+  --elev-topbar: 0 1px 0 rgb(17 17 19 / 0.06), 0 2px 6px -2px rgb(17 17 19 / 0.06), 0 10px 28px -14px rgb(17 17 19 / 0.14);
 }
 :root[data-theme='dark'] {
+  --elev-topbar: 0 1px 0 var(--border), 0 12px 32px -12px rgb(0 0 0 / 0.65);
   --elev-card: 0 0 0 1px var(--border);
   --elev-table: 0 0 0 1px var(--border);
   --elev-widget: 0 0 0 1px var(--border);
@@ -314,6 +375,7 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
+    --elev-topbar: 0 1px 0 var(--border), 0 12px 32px -12px rgb(0 0 0 / 0.65);
     --elev-card: 0 0 0 1px var(--border);
     --elev-table: 0 0 0 1px var(--border);
     --elev-widget: 0 0 0 1px var(--border);
@@ -326,7 +388,7 @@
 @media print {
   :root, :root[data-theme='dark'], :root:not([data-theme='light']) {
     --elev-xs: none; --elev-sm: none; --elev-md: none; --elev-lg: none; --elev-xl: none; --elev-widget: none;
-    --elev-card: none; --elev-table: none; --elev-lift: none; --elev-float: none; --elev-pop: none; --elev-inset: none; --elev-button: none;
+    --elev-card: none; --elev-table: none; --elev-lift: none; --elev-topbar: none; --elev-float: none; --elev-pop: none; --elev-inset: none; --elev-button: none;
   }
 }
 

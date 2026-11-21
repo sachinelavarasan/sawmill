@@ -319,7 +319,13 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
   const set = (k: keyof ReturnType<typeof blank>) => (e: { target: { value: string } }) =>
     setForm((f) => (f ? { ...f, [k]: e.target.value } : f));
 
+  const [busy, setBusy] = useState(false);
+  /** set at once (state updates later): a second tap or Enter while saving is ignored, not sent again */
+  const inFlight = useRef(false);
   async function run(action: () => Promise<unknown>, ok?: string) {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
     setError(null);
     try {
       await action();
@@ -327,12 +333,15 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
       onChanged();
     } catch (err) {
       setError(errorText(err));
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
     }
   }
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (!form) return;
+    if (!form || inFlight.current) return;
     run(async () => {
       await api(`/imports/${load.id}/unloading`, {
         method: 'POST',
@@ -391,10 +400,12 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
             </Field>
           </FormGrid>
           <FormActions>
-            <Button type="button" variant="ghost" onClick={() => setForm(null)}>
+            <Button type="button" variant="ghost" onClick={() => setForm(null)} disabled={busy}>
               {t('cancel')}
             </Button>
-            <Button type="submit">{t('save')}</Button>
+            <Button type="submit" disabled={busy}>
+              {t('save')}
+            </Button>
           </FormActions>
         </FormCard>
       )}
@@ -436,12 +447,12 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
                   {load.editable && (
                     <div className="flex justify-end gap-1">
                       {!u.endAt && (
-                        <Button variant="outline" size="sm" className="max-lg:size-9 max-lg:px-0" onClick={() => endNow(u)} aria-label={t('endNow')} title={t('endNow')}>
+                        <Button variant="outline" size="sm" className="max-lg:size-9 max-lg:px-0" onClick={() => endNow(u)} disabled={busy} aria-label={t('endNow')} title={t('endNow')}>
                           <ClockIcon />
                           <span className="max-lg:sr-only">{t('endNow')}</span>
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm" className="max-lg:size-9 max-lg:px-0" aria-label={t('delete')} title={t('delete')} onClick={() => remove(u)}>
+                      <Button variant="ghost" size="sm" className="max-lg:size-9 max-lg:px-0" aria-label={t('delete')} title={t('delete')} onClick={() => remove(u)} disabled={busy}>
                         <Trash2Icon />
                         <span className="max-lg:sr-only">{t('delete')}</span>
                       </Button>
@@ -593,7 +604,8 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
   const [editing, setEditing] = useState<{ id: string; girth: string; length: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const girthRef = useRef<HTMLInputElement>(null);
+  /** the first box (length): the cursor goes back here for the next log */
+  const firstRef = useRef<HTMLInputElement>(null);
 
   const g = positive(girth);
   const l = positive(length);
@@ -607,7 +619,11 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
   const [saved, setSaved] = useState<{ n: number; cft: number } | null>(null);
   const nextNo = (load.logs[load.logs.length - 1]?.logNumber ?? 0) + 1;
 
+  /** set at once (state updates later): a second tap while saving is ignored, not sent again */
+  const inFlight = useRef(false);
   async function run(action: () => Promise<unknown>, ok?: string) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -617,6 +633,7 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
     } catch (err) {
       setError(errorText(err));
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   }
@@ -641,7 +658,7 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
       setGirth('');
       setLength('');
       logs.reset(); // the new log is the first row of page 1
-      girthRef.current?.focus(); // ready for the next log without touching the mouse
+      firstRef.current?.focus(); // ready for the next log without touching the mouse
     }, t('logAddedToast', { n: done.n, cft: num3(done.cft) }));
   }
   function add(e: FormEvent) {
@@ -813,8 +830,8 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
             title={`${t('logNo')} ${nextNo}`}
             editing={calcEdit && { key: calcEdit.id, label: `${t('edit')} · ${t('logNo')} ${calcEdit.logNumber}`, onCancel: cancelEdit }}
             fields={[
-              { key: 'girth', label: t('girth'), unit: 'in', value: girth },
               { key: 'length', label: t('lengthFt'), unit: 'ft', value: length },
+              { key: 'girth', label: t('girth'), unit: 'in', value: girth },
             ]}
             onChange={(k, v) => {
               (k === 'girth' ? setGirth : setLength)(v);
@@ -823,14 +840,14 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
             active={calcField}
             setActive={setCalcField}
             result={previewCft}
-            formula={g != null && l != null ? `${g} × ${g} × ${l} ÷ 2304` : `${t('girth')} × ${t('girth')} × ${t('lengthFt')} ÷ 2304`}
+            formula={g != null && l != null ? `${l} × ${g} × ${g} ÷ 2304` : `${t('lengthFt')} × ${t('girth')} × ${t('girth')} ÷ 2304`}
             total={
               previewCft != null
                 ? totalCft([calcEdit ? load.totalCft - calcEdit.cft : load.totalCft, previewCft])
                 : load.totalCft
             }
             totalLabel={t('totalAfterLog')}
-            problem={girthProblem ? t(girthProblem) : lengthProblem ? t(lengthProblem) : null}
+            problem={lengthProblem ? t(lengthProblem) : girthProblem ? t(girthProblem) : null}
             canSave={canSave}
             busy={busy}
             onSave={saveLog}
@@ -840,7 +857,7 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
             entries={newestFirst.map((x) => ({
               key: x.id,
               no: x.logNumber,
-              label: `${x.girthIn} × ${x.lengthFt}`,
+              label: `${x.lengthFt} ft × ${x.girthIn} in`,
               cft: x.cft,
               onEdit: () => editLog(x),
               onDelete: () => remove(x),
@@ -896,8 +913,8 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
                   <div className="grid grid-cols-2 gap-3">
                     {(
                       [
-                        { key: 'girth', label: t('girth'), value: girth, set: setGirth, problem: girthProblem, ref: girthRef },
-                        { key: 'length', label: t('lengthFt'), value: length, set: setLength, problem: lengthProblem, ref: undefined },
+                        { key: 'length', label: t('lengthFt'), value: length, set: setLength, problem: lengthProblem, ref: firstRef },
+                        { key: 'girth', label: t('girth'), value: girth, set: setGirth, problem: girthProblem, ref: undefined },
                       ] as const
                     ).map((f) => (
                       <label key={f.key} className="flex min-w-0 flex-col gap-1.5">
@@ -945,8 +962,8 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
                       {t('cftFormulaLabel')}:{' '}
                       <span className="font-semibold text-foreground tabular-nums">
                         {g != null && l != null && previewCft != null
-                          ? `${g} × ${g} × ${l} ÷ 2304 = ${num3(previewCft)} CFT`
-                          : `${t('girth')} × ${t('girth')} × ${t('lengthFt')} ÷ 2304`}
+                          ? `${l} × ${g} × ${g} ÷ 2304 = ${num3(previewCft)} CFT`
+                          : `${t('lengthFt')} × ${t('girth')} × ${t('girth')} ÷ 2304`}
                       </span>
                     </div>
                   </div>
@@ -969,7 +986,7 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
                       onClick={() => {
                         setGirth('');
                         setLength('');
-                        girthRef.current?.focus();
+                        firstRef.current?.focus();
                       }}
                     >
                       {t('clear')}
