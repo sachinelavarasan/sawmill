@@ -833,22 +833,35 @@ export function IconButton({ icon, label, onPress, tone }: { icon: IconName; lab
 }
 
 /** Filter / choice chip. Selected = solid black (white in dark). */
-export function Chip({ text, on, onPress, count }: { text: string; on?: boolean; onPress: () => void; count?: number }) {
-  // inside a grey panel, an unselected chip sits on white so it stays visible
-  const inset = useContext(InsetGroup);
+/**
+ * A filter pill, the same as the web's (FilterChips in web/src/components/page.tsx):
+ *  - off: white control with a visible border (#d6d6dd), text slightly softened — it stands out on
+ *    any background, grey panel or white sheet, in light and dark;
+ *  - on: solid near-black (near-white in dark) with a soft shadow;
+ *  - count: a muted bubble, or a translucent one on the selected pill; `alert` makes a non-zero
+ *    count amber (something waiting), as the web does for counts that aren't `quiet`.
+ */
+export function Chip({ text, on, onPress, count, alert, dot }: { text: string; on?: boolean; onPress: () => void; count?: number; alert?: boolean; /** a small coloured dot before the text, e.g. a status colour (`bg-success`) */ dot?: string }) {
   return (
     <Tap
-      scale={0.94}
+      scale={0.95}
       haptic={!on}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: !!on }}
-      className={cn('min-h-9 flex-row items-center gap-1.5 rounded-full border px-4', on ? 'border-primary bg-primary' : cn('border-transparent active:bg-secondary', inset ? 'bg-card' : 'bg-background'))}
+      accessibilityLabel={count != null ? `${text}, ${count}` : text}
+      className={cn(
+        'h-10 flex-row items-center gap-2 rounded-full border px-4',
+        on ? 'border-transparent bg-primary shadow-sm shadow-black/20' : 'border-control-border bg-control active:bg-control-hover',
+      )}
     >
-      <Text className={cn('text-[13px] font-semibold', on ? 'text-primary-foreground' : 'text-muted-foreground')}>{text}</Text>
-      {count != null && count > 0 && (
-        <View className={cn('min-w-5 items-center rounded-full px-1.5', on ? 'bg-saffron' : 'bg-secondary')}>
-          <Text className={cn('text-[11px] font-bold', on ? 'text-saffron-foreground' : 'text-foreground')}>{count}</Text>
+      {!!dot && <View className={cn('h-2 w-2 rounded-full', dot, on && 'border border-primary-foreground/40')} />}
+      <Text className={cn('text-[13px] font-medium', on ? 'text-primary-foreground' : 'text-foreground/80')} numberOfLines={1}>
+        {text}
+      </Text>
+      {count != null && (
+        <View className={cn('-mr-1 min-w-5 items-center rounded-full px-1.5', on ? 'bg-primary-foreground/20' : alert && count > 0 ? 'bg-warning-soft' : 'bg-secondary')}>
+          <Text className={cn('text-xs font-semibold leading-5 tabular-nums', on ? 'text-primary-foreground' : alert && count > 0 ? 'text-warning' : 'text-foreground')}>{count}</Text>
         </View>
       )}
     </Tap>

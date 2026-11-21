@@ -21,6 +21,7 @@ import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { DayHeader, MovementRow } from '../../../components/cards';
 import { HeaderButton, ScreenHeader, SheetList, StickyFooter } from '../../../components/header';
 import { RecordList } from '../../../components/RecordList';
+import { SimpleStock } from '../../../components/SimpleStock';
 import { PeriodPicker } from '../../../components/sheet';
 import { Text } from '../../../components/text';
 import {
@@ -57,10 +58,18 @@ type Tab = 'raw' | 'finished' | 'movements' | 'adjustments';
 export default function InventoryScreen() {
   const t = useT();
   const router = useRouter();
-  const { can } = useSession();
+  const { can, simple } = useSession();
   const [tab, setTab] = useState<Tab>('finished');
   const mayAdjust = can(Permission.OPERATIONS_CREATE);
   const newAdjustment = () => router.push('/stock/adjustments/new');
+  // simple view: two big cards, one wood filter, cards with the next thing to do — no tabs, tables or adjustments
+  if (simple)
+    return (
+      <View className="flex-1 bg-background">
+        <ScreenHeader title={t('simpleStock')} large />
+        <SimpleStock />
+      </View>
+    );
   return (
     <View className="flex-1 bg-background">
       <ScreenHeader title={t('inventory')} large right={mayAdjust ? <HeaderButton icon="sliders" label={t('newAdjustment')} onPress={newAdjustment} /> : undefined}>

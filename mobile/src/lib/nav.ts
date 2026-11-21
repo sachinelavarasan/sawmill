@@ -4,6 +4,10 @@
  *
  * Bottom bar: Home · Loads in · Production · Loads out · More (the daily work).
  * Everything else (parties, money, admin, preferences, security) lives under More.
+ *
+ * Simple view (web: nav.ts): plain names (`simple*` keys), and Reports, Accounts, expenses, Users
+ * and Change History are hidden from More — hidden, not removed: a link to one still opens when the
+ * person may see it, because permissions decide access, not the view.
  */
 import { Permission, type TKey } from '@timbertrail/shared';
 import type { IconName } from '../components/icon';
@@ -20,9 +24,17 @@ export interface MenuItem {
   permission?: Permission;
   /** not offered to whoever holds this permission */
   unless?: Permission;
+  /** the plain name used in the simple view */
+  simpleKey?: TKey;
+  /** offered in one view only */
+  only?: 'simple' | 'full';
 }
 
-export const visible = (m: MenuItem, can: (p: Permission) => boolean) => (!m.permission || can(m.permission)) && !(m.unless && can(m.unless));
+export const visible = (m: MenuItem, can: (p: Permission) => boolean, simple = false) =>
+  (!m.permission || can(m.permission)) && !(m.unless && can(m.unless)) && !(m.only === 'simple' && !simple) && !(m.only === 'full' && simple);
+
+/** The name to show for an item in the current view. */
+export const labelOf = (m: MenuItem, simple: boolean): TKey => (simple && m.simpleKey) || m.labelKey;
 
 /**
  * More tab, in four clean sections:
@@ -35,9 +47,11 @@ export const MORE_GROUPS: { labelKey: TKey; items: MenuItem[] }[] = [
   {
     labelKey: 'operations',
     items: [
-      { key: 'approvals', href: '/more/approvals', labelKey: 'pendingApprovals', icon: 'check-circle', permission: Permission.OPERATIONS_APPROVE },
-      { key: 'inventory', href: '/inventory', labelKey: 'stock', icon: 'boxes' },
-      { key: 'reports', href: '/reports', labelKey: 'reports', icon: 'bar-chart-2' },
+      // the simple view lists the daily work here, in the order it is done
+      { key: 'measurement', href: '/more/measurement', labelKey: 'measurement', simpleKey: 'simpleMeasure', icon: 'ruler', only: 'simple' },
+      { key: 'inventory', href: '/inventory', labelKey: 'stock', simpleKey: 'simpleStock', icon: 'boxes' },
+      { key: 'approvals', href: '/more/approvals', labelKey: 'pendingApprovals', simpleKey: 'simpleApprove', icon: 'check-circle', permission: Permission.OPERATIONS_APPROVE },
+      { key: 'reports', href: '/reports', labelKey: 'reports', icon: 'bar-chart-2', only: 'full' },
     ],
   },
   {
@@ -45,15 +59,15 @@ export const MORE_GROUPS: { labelKey: TKey; items: MenuItem[] }[] = [
     items: [
       { key: 'clients', href: '/more/clients', labelKey: 'clients', icon: 'users', permission: Permission.CLIENTS_MANAGE },
       { key: 'suppliers', href: '/more/suppliers', labelKey: 'suppliers', icon: 'truck', permission: Permission.SUPPLIERS_MANAGE },
-      { key: 'accounts', href: '/more/accounts', labelKey: 'accounts', icon: 'wallet', permission: Permission.FINANCE_VIEW },
-      { key: 'expenses', href: '/more/expenses', labelKey: 'otherExpenses', icon: 'receipt', permission: Permission.FINANCE_VIEW },
+      { key: 'accounts', href: '/more/accounts', labelKey: 'accounts', icon: 'wallet', permission: Permission.FINANCE_VIEW, only: 'full' },
+      { key: 'expenses', href: '/more/expenses', labelKey: 'otherExpenses', icon: 'receipt', permission: Permission.FINANCE_VIEW, only: 'full' },
     ],
   },
   {
     labelKey: 'navAdmin',
     items: [
-      { key: 'users', href: '/more/users', labelKey: 'userManagement', icon: 'user-check', permission: Permission.USERS_MANAGE },
-      { key: 'audit', href: '/more/audit', labelKey: 'auditLog', icon: 'shield', permission: Permission.AUDIT_VIEW },
+      { key: 'users', href: '/more/users', labelKey: 'userManagement', icon: 'user-check', permission: Permission.USERS_MANAGE, only: 'full' },
+      { key: 'audit', href: '/more/audit', labelKey: 'auditLog', icon: 'shield', permission: Permission.AUDIT_VIEW, only: 'full' },
       { key: 'millSettings', href: '/mill-settings', labelKey: 'millSettings', icon: 'building', permission: Permission.SETTINGS_MANAGE },
     ],
   },

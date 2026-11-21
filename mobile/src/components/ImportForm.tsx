@@ -1,18 +1,36 @@
-/** New import load, or edit one that is still a draft / rejected. Arrival is "now" on the server for new loads. */
+/**
+ * New import load, or edit one that is still a draft / rejected (web: pages/Imports.tsx → ImportFields).
+ *
+ * Simple view: only what is needed to start measuring — Lorry number, Wood type, Arrival, and the
+ * Supplier (owner) — with everything else under "More fields (optional)", and one big
+ * "Save & start measuring" button ("Save for later" is the quiet second option). A problem in a
+ * folded field opens the fold: an error is never hidden inside a closed section.
+ *
+ * Lorry number is a pick list of every lorry seen before (LorryPicker); picking one fills the
+ * driver and owner fields that are still empty.
+ *
+ * `?wood=` pre-fills the wood and `?back=/production/new…` is the way back (New Load In opened from
+ * New Sawing): the note says so, and the back link rides on to measuring, where "Back to sawing" shows.
+ */
 import { Permission, type TKey } from '@timbertrail/shared';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { type ComponentProps, useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
+import { Fold } from './fold';
 import { Field, FormScreen, FormSection, RequiredNote } from './form';
-import { SelectField } from './sheet';
+import { fillFromLorry, LorryPicker } from './LorryPicker';
+import { DateTimeField, SelectField } from './sheet';
 import { toast } from './toast';
-import { Button, Chip, Loading } from './ui';
+import { Button, Chip, Loading, Notice } from './ui';
 import { api } from '../lib/api';
 import { useSubmit, useUnsavedGuard } from '../lib/hooks';
 import { useT } from '../lib/i18n';
 import { type ImportForm as Form, importsApi } from '../lib/imports-api';
+import { useCreateParty } from '../lib/parties';
 import { invalidate, invalidateOperations, useApi } from '../lib/query';
 import { useSession } from '../lib/session';
+import { param, sawingLink } from '../lib/ways-back';
+import type { Party } from '../lib/types';
 
 const EMPTY: Form = {
   lorryNumber: '',
@@ -26,14 +44,25 @@ const EMPTY: Form = {
   notes: '',
 };
 const PHONE = /^[0-9+ ]{7,15}$/;
+/** fields that sit under "More fields" in the simple view */
+const FOLDED: (keyof Form)[] = ['woodCategory', 'driverName', 'driverMobile', 'lorryOwnerName', 'lorryOwnerMobile', 'originLocation', 'notes'];
 
 export function ImportForm({ id }: { id?: string }) {
   const t = useT();
   const router = useRouter();
-  const [initial, setInitial] = useState<Form | null>(id ? null : EMPTY);
+  const params = useLocalSearchParams<{ wood?: string; back?: string }>();
+  const forSawing = id ? null : sawingLink(param(params.back));
+  const { can, simple } = useSession();
+  const startWood = !id && typeof params.wood === 'string' ? params.wood : '';
+  const [initial, setInitial] = useState<Form | null>(id ? null : { ...EMPTY, woodType: startWood });
   const [form, setForm] = useState<Form | null>(initial);
+  /** arrival date & time (ISO); a new load starts at "now" */
+  const [arrivalAt, setArrivalAt] = useState(() => (id ? '' : new Date().toISOString()));
+  const [initialArrival, setInitialArrival] = useState(arrivalAt);
+  const [supplierId, setSupplierId] = useState('');
   const [touched, setTouched] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+
   // the mill's wood types (Settings → Wood types); with no list yet, the names already used
   const choices = useApi<{ items: string[]; fixed: boolean }>('/wood-types').data;
   const woodTypes = useMemo(() => {
@@ -42,7 +71,6 @@ export function ImportForm({ id }: { id?: string }) {
     return form?.woodType && choices?.fixed && !items.includes(form.woodType) ? [form.woodType, ...items] : items;
   }, [choices, form?.woodType]);
   // the owner can add a missing wood to the list right here, without a trip to Settings
-  const { can } = useSession();
   const addWoodType = can(Permission.SETTINGS_MANAGE)
     ? async (name: string) => {
         const r = await api<{ name: string }>('/settings/wood-types', { method: 'POST', body: { name } });
@@ -51,6 +79,11 @@ export function ImportForm({ id }: { id?: string }) {
         return r.name;
       }
     : undefined;
+
+  // the supplier sits on the purchase record, which only the owner may see or set; set here on a new load only
+  const canSupplier = !id && can(Permission.FINANCE_VIEW) && can(Permission.SUPPLIERS_MANAGE);
+  const suppliers = useApi<Party[]>(canSupplier ? '/suppliers' : null);
+  const addSupplier = useCreateParty('suppliers');
 
   useEffect(() => {
     if (!id) return;
@@ -70,6 +103,8 @@ export function ImportForm({ id }: { id?: string }) {
         };
         setInitial(f);
         setForm(f);
+        setArrivalAt(d.arrivalAt);
+        setInitialArrival(d.arrivalAt);
       })
       .catch((e: Error) => setLoadError(e.message));
   }, [id]);
@@ -82,24 +117,30 @@ export function ImportForm({ id }: { id?: string }) {
     if (form.lorryOwnerMobile.trim() && !PHONE.test(form.lorryOwnerMobile.trim())) errors.lorryOwnerMobile = t('invalidMobile');
   }
   const valid = !!form && Object.keys(errors).length === 0;
-  const dirty = !!form && !!initial && JSON.stringify(form) !== JSON.stringify(initial);
+  const dirty = !!form && !!initial && (JSON.stringify(form) !== JSON.stringify(initial) || arrivalAt !== initialArrival || !!supplierId);
   const release = useUnsavedGuard(dirty);
 
   const [save, busy, error] = useSubmit(async (thenMeasure: boolean) => {
     if (!form) return;
+    const body = { ...form, ...(arrivalAt ? { arrivalAt } : {}) };
     if (id) {
-      await importsApi.update(id, form);
+      await importsApi.update(id, body);
       release();
       await invalidateOperations();
       toast(t('saved'));
       router.back();
-    } else {
-      const created = await importsApi.create(form);
-      release();
-      await invalidateOperations();
-      toast(t('saved'), 'success', created.code);
-      router.replace(thenMeasure ? `/imports/${created.id}/measure` : `/imports/${created.id}`);
+      return;
     }
+    const created = await importsApi.create(body);
+    // the load now exists; a failure saving the supplier onto it must not lose it
+    let missed: string | null = null;
+    if (supplierId) await importsApi.saveFinancials(created.id, { supplierId }).catch((e: Error) => (missed = `${t('supplier')} (${e.message})`));
+    release();
+    await invalidateOperations();
+    if (missed) toast(t('savedButNot', { what: missed }), 'info', created.code);
+    else toast(t('saved'), 'success', created.code);
+    const carry = forSawing ? { back: forSawing } : {};
+    router.replace(thenMeasure ? { pathname: '/imports/[id]/measure', params: { id: created.id, ...carry } } : { pathname: '/imports/[id]', params: { id: created.id, ...carry } });
   });
 
   function submit(thenMeasure: boolean) {
@@ -112,59 +153,119 @@ export function ImportForm({ id }: { id?: string }) {
   const field = (k: keyof Form, label: TKey, extra: Partial<ComponentProps<typeof Field>> = {}) => (
     <Field label={t(label)} value={form![k]} onChangeText={set(k)} error={err(k)} {...extra} />
   );
+  /** a folded field has a problem showing: the fold opens itself */
+  const foldedError = FOLDED.some((k) => !!err(k));
+
+  // ── every field once; the two views below only arrange them ──
+  const lorry = form && (
+    <LorryPicker
+      required
+      value={form.lorryNumber}
+      error={err('lorryNumber')}
+      hint={simple ? undefined : t('lorryNumberHint')}
+      // a lorry seen before brings its driver and owner, where those are still empty
+      onChange={(lorryNumber, known) => setForm((f) => f && fillFromLorry({ ...f, lorryNumber }, known))}
+    />
+  );
+  const wood =
+    form &&
+    (choices?.fixed ? (
+      // a fixed list: picked, never typed, so one wood is never spelled two ways
+      <SelectField
+        label={t('woodType')}
+        required
+        value={form.woodType}
+        options={woodTypes.map((w) => ({ value: w, label: w }))}
+        onChange={(w) => set('woodType')(w)}
+        placeholder={t('pickWoodType')}
+        error={err('woodType')}
+        hint={t(addWoodType ? 'woodTypeAddHint' : 'woodTypeMissing')}
+        onCreate={addWoodType}
+      />
+    ) : (
+      <Field label={t('woodType')} required value={form.woodType} onChangeText={set('woodType')} error={err('woodType')} placeholder={t('woodTypeHint')} autoCapitalize="words">
+        {woodTypes.length > 0 && (
+          <View className="flex-row flex-wrap gap-1.5">
+            {woodTypes.slice(0, 12).map((w) => (
+              <Chip key={w} text={w} on={form.woodType === w} onPress={() => set('woodType')(w)} />
+            ))}
+          </View>
+        )}
+      </Field>
+    ));
+  const arrival = <DateTimeField label={t('arrivalDateTime')} value={arrivalAt} onChange={setArrivalAt} />;
+  const supplier = canSupplier && (
+    <SelectField
+      label={t('supplier')}
+      value={supplierId}
+      allowClear
+      options={(suppliers.data ?? []).map((s) => ({ value: s.id, label: s.name, hint: s.phone ?? undefined }))}
+      onChange={setSupplierId}
+      placeholder={t('noSupplier')}
+      hint={simple ? undefined : t('supplierHint')}
+      emptyText={t('noSuppliers')}
+      onCreate={addSupplier}
+    />
+  );
+  const people = form && (
+    <>
+      {field('driverName', 'driverName', { autoCapitalize: 'words' })}
+      {field('driverMobile', 'driverMobile', { keyboardType: 'phone-pad', hint: simple ? undefined : t('mobileHint') })}
+      {field('lorryOwnerName', 'lorryOwnerName', { autoCapitalize: 'words' })}
+      {field('lorryOwnerMobile', 'lorryOwnerMobile', { keyboardType: 'phone-pad' })}
+    </>
+  );
+
+  const footer =
+    form &&
+    (id ? (
+      <Button icon="check" title={t('save')} busy={busy} onPress={() => submit(false)} />
+    ) : simple ? (
+      // one big button that goes straight on to measuring; saving for later is the quiet option
+      <View className="gap-1.5">
+        <Button icon="ruler" title={t('startMeasuring')} busy={busy} onPress={() => submit(true)} />
+        <Button kind="ghost" size="md" title={t('saveDraft')} disabled={busy} onPress={() => submit(false)} />
+      </View>
+    ) : (
+      <View className="flex-row gap-2.5">
+        <Button className="flex-1" kind="secondary" title={t('saveDraft')} busy={busy} onPress={() => submit(false)} />
+        <Button className="flex-1" icon="edit-3" title={t('saveAndMeasure')} busy={busy} onPress={() => submit(true)} />
+      </View>
+    ));
 
   return (
-    <FormScreen
-      title={id ? t('edit') : t('newImport')}
-      error={error ?? loadError}
-      footer={
-        form && (
-          <View className="flex-row gap-2.5">
-            {!id && <Button className="flex-1" kind="secondary" title={t('saveDraft')} busy={busy} onPress={() => submit(false)} />}
-            <Button className="flex-1" icon={id ? 'check' : 'edit-3'} title={id ? t('save') : t('saveAndMeasure')} busy={busy} onPress={() => submit(!id)} />
-          </View>
-        )
-      }
-    >
+    <FormScreen title={id ? t('edit') : simple ? t('simpleLoadIn') : t('newImport')} error={error ?? loadError} footer={footer}>
+      {forSawing && <Notice icon="factory">{t('loadInForSawing')}</Notice>}
       {!form ? (
         !loadError && <Loading />
+      ) : simple ? (
+        <>
+          <FormSection title={t('lorryAndWood')}>
+            {lorry}
+            {wood}
+            {arrival}
+            {supplier}
+          </FormSection>
+          <Fold title={t('moreFields')} forceOpen={foldedError}>
+            {field('woodCategory', 'woodCategory', { autoCapitalize: 'words' })}
+            {field('originLocation', 'originLocation', { autoCapitalize: 'words' })}
+            {people}
+            <Field label={t('notes')} value={form.notes} onChangeText={set('notes')} multiline />
+          </Fold>
+        </>
       ) : (
         <>
           <FormSection title={t('secImportInfo')} subtitle={t('secImportInfoSub')}>
-            {field('lorryNumber', 'lorryNumber', { required: true, autoCapitalize: 'characters', hint: t('lorryNumberHint') })}
-            {choices?.fixed ? (
-              // a fixed list: picked, never typed, so one wood is never spelled two ways
-              <SelectField
-                label={t('woodType')}
-                required
-                value={form.woodType}
-                options={woodTypes.map((w) => ({ value: w, label: w }))}
-                onChange={(w) => set('woodType')(w)}
-                placeholder={t('pickWoodType')}
-                error={err('woodType')}
-                hint={t(addWoodType ? 'woodTypeAddHint' : 'woodTypeMissing')}
-                onCreate={addWoodType}
-              />
-            ) : (
-              <Field label={t('woodType')} required value={form.woodType} onChangeText={set('woodType')} error={err('woodType')} placeholder={t('woodTypeHint')} autoCapitalize="words">
-                {woodTypes.length > 0 && (
-                  <View className="flex-row flex-wrap gap-1.5">
-                    {woodTypes.slice(0, 12).map((w) => (
-                      <Chip key={w} text={w} on={form.woodType === w} onPress={() => set('woodType')(w)} />
-                    ))}
-                  </View>
-                )}
-              </Field>
-            )}
+            {arrival}
+            {wood}
             {field('woodCategory', 'woodCategory', { autoCapitalize: 'words' })}
             <RequiredNote />
           </FormSection>
 
-          <FormSection title={t('secLorry')} subtitle={t('secLorrySub')}>
-            {field('driverName', 'driverName', { autoCapitalize: 'words' })}
-            {field('driverMobile', 'driverMobile', { keyboardType: 'phone-pad', hint: t('mobileHint') })}
-            {field('lorryOwnerName', 'lorryOwnerName', { autoCapitalize: 'words' })}
-            {field('lorryOwnerMobile', 'lorryOwnerMobile', { keyboardType: 'phone-pad' })}
+          <FormSection title={t(supplier ? 'secSupplierLorry' : 'secLorry')} subtitle={t('secLorrySub')}>
+            {supplier}
+            {lorry}
+            {people}
           </FormSection>
 
           <FormSection title={t('secAdditional')} subtitle={t('secAdditionalSub')} collapsible initiallyOpen={!!(form.originLocation || form.notes)}>

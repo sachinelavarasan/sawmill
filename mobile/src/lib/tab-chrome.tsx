@@ -14,6 +14,7 @@
 import { requireOptionalNativeModule } from 'expo';
 import { createContext, type ReactNode, type RefObject, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { useCSSVariable } from 'uniwind';
 
 type BlurModule = typeof import('expo-blur');
 /** expo-blur, if this build has its native side; loaded lazily so a missing module can't crash the import */
@@ -59,6 +60,8 @@ const styles = StyleSheet.create({ fill: { flex: 1 } });
 export function TabScreenLayout({ routeKey, children }: { routeKey: string; children: ReactNode }) {
   const ctx = useContext(Ctx);
   const ref = useRef<View>(null);
+  // painted from the first frame: an unpainted blur target showed black for a moment on a newly opened tab
+  const [card] = useCSSVariable(['--color-card']).map(String);
   useEffect(() => {
     if (!ctx) return;
     const { targets, targetsChanged } = ctx;
@@ -74,7 +77,7 @@ export function TabScreenLayout({ routeKey, children }: { routeKey: string; chil
   if (!blur || Platform.OS !== 'android') return <>{children}</>;
   const Target = blur.BlurTargetView;
   return (
-    <Target ref={ref} style={styles.fill}>
+    <Target ref={ref} style={[styles.fill, { backgroundColor: card }]}>
       {children}
     </Target>
   );

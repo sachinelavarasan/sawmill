@@ -23,11 +23,12 @@ import { AnimatedView, EASE_SMOOTH, SLIDE, tick } from './motion';
 import { Text } from './text';
 import { cn, CountBadge, Icon, type IconName } from './ui';
 
-const TABS: { name: string; labelKey: TKey; icon: IconName }[] = [
+/** `simpleKey`: the plain name used in the simple view */
+const TABS: { name: string; labelKey: TKey; simpleKey?: TKey; icon: IconName }[] = [
   { name: 'index', labelKey: 'home', icon: 'home' },
-  { name: 'loads-in', labelKey: 'imports', icon: 'download' },
-  { name: 'runs', labelKey: 'production', icon: 'factory' },
-  { name: 'loads-out', labelKey: 'exports', icon: 'upload' },
+  { name: 'loads-in', labelKey: 'imports', simpleKey: 'simpleLoadIn', icon: 'download' },
+  { name: 'runs', labelKey: 'production', simpleKey: 'simpleCut', icon: 'factory' },
+  { name: 'loads-out', labelKey: 'exports', simpleKey: 'simpleLoadOut', icon: 'upload' },
   { name: 'more', labelKey: 'more', icon: 'grid' },
 ];
 
@@ -39,7 +40,7 @@ const PAD = 6;
 export function TabBar({ state, navigation }: BottomTabBarProps) {
   const t = useT();
   const insets = useSafeAreaInsets();
-  const { can } = useSession();
+  const { can, simple } = useSession();
   const pending = useApi<{ total: number }>(can(Permission.OPERATIONS_APPROVE) ? '/approvals/count' : null, { refetchInterval: 60_000 });
   const { setHeight, targetFor } = useTabChrome();
   const { dark } = useThemeToggle();
@@ -115,7 +116,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
           <Tab
             key={tb.name}
             icon={tb.icon}
-            label={t(tb.labelKey)}
+            label={t((simple && tb.simpleKey) || tb.labelKey)}
             on={i === activeIndex}
             badge={tb.name === 'more' ? (pending.data?.total ?? 0) : 0}
             onPress={() => go(tb.name)}

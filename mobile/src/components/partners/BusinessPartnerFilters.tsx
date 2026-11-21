@@ -25,7 +25,7 @@ export function BusinessPartnerFilters({
       <Chip text={t('all')} on={value === 'all'} count={totalCount} onPress={() => onChange('all')} />
       {financialsAvailable && (
         <>
-          <Chip text={t('outstanding')} on={value === 'outstanding'} count={outstandingCount} onPress={() => onChange('outstanding')} />
+          <Chip alert text={t('outstanding')} on={value === 'outstanding'} count={outstandingCount} onPress={() => onChange('outstanding')} />
           <Chip text={t('settled')} on={value === 'settled'} count={settledCount} onPress={() => onChange('settled')} />
         </>
       )}

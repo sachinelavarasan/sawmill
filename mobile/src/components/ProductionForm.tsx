@@ -1,8 +1,16 @@
 /**
  * New production run (step 1: which load, how much raw wood, when) or edit one.
  * Finished sizes are added on the run's page afterwards (step 2).
+ *
+ * The load list shows approved raw stock first, then loads measured but waiting approval ("Waiting
+ * approval"): sawing may start on them, and the owner approves the load in before the sawing.
+ * "Not in stock? Load in new logs" opens New Load In with the wood and the way back here.
+ *
+ * Params (web: NewProductionPage): `wood` limits the list to that wood (the only load is chosen);
+ * `load` chooses a load (back from New Load In); from a load out, `t w l pcs back backCode` are
+ * carried on to the new run, where the size is typed and "Back to load out" shown.
  */
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { api } from '../lib/api';
@@ -15,6 +23,8 @@ import { Field, FormScreen, FormSection, NumberField, RequiredNote } from './for
 import { DateField, DateTimeField, SelectField } from './sheet';
 import { toast } from './toast';
 import { Button, Chip, Loading, Notice } from './ui';
+import { useSession } from '../lib/session';
+import { loadOutLink, param, toQuery } from '../lib/ways-back';
 
 interface Form {
   importLoadId: string;
@@ -31,6 +41,11 @@ interface Form {
 export function ProductionForm({ id }: { id?: string }) {
   const t = useT();
   const router = useRouter();
+  const { simple } = useSession();
+  const raw = useLocalSearchParams<Record<string, string>>();
+  const p = (k: string) => (id ? '' : param(raw[k]));
+  const woodWanted = p('wood').trim().toLowerCase();
+  const forLoadOut = loadOutLink(p('back'), p('backCode'));
   const stock = useApi<Balances>('/stock');
   const [initial, setInitial] = useState<Form | null>(null);
   const [form, setForm] = useState<Form | null>(null);
@@ -40,7 +55,7 @@ export function ProductionForm({ id }: { id?: string }) {
 
   useEffect(() => {
     if (!id) {
-      const f: Form = { importLoadId: '', productionDate: todayIso(), inputCft: '', cuttingMachine: '', machineOperator: '', workerDetails: '', startAt: '', endAt: '', wasteNotes: '' };
+      const f: Form = { importLoadId: p('load'), productionDate: todayIso(), inputCft: '', cuttingMachine: '', machineOperator: '', workerDetails: '', startAt: '', endAt: '', wasteNotes: '' };
       setInitial(f);
       setForm(f);
       return;
@@ -66,11 +81,41 @@ export function ProductionForm({ id }: { id?: string }) {
   }, [id]);
 
   const loads = useMemo(() => {
-    const rows = (stock.data?.raw ?? []).filter((r) => r.cft > 0).map((r) => ({ value: r.importLoadId, label: `${r.importCode} · ${r.woodType}`, hint: `${num3(r.cft)} CFT ${t('inStock')}`, cft: r.cft }));
+    const sameWood = (w: string) => !woodWanted || w.trim().toLowerCase() === woodWanted;
+    // approved raw stock, then loads measured but still waiting for approval (sawing may start on them)
+    const rows: { value: string; label: string; hint: string; cft: number; pending?: boolean }[] = [
+      ...(stock.data?.raw ?? [])
+        .filter((r) => r.cft > 0 && sameWood(r.woodType))
+        .map((r) => ({ value: r.importLoadId, label: `${r.importCode} · ${r.woodType}`, hint: `${num3(r.cft)} CFT ${t('inStock')}`, cft: r.cft })),
+      ...(stock.data?.pendingRaw ?? [])
+        .filter((r) => sameWood(r.woodType))
+        // while unapproved, "raw CFT used" is checked against its measured CFT
+        .map((r) => ({ value: r.importLoadId, label: `${r.importCode} · ${r.woodType}`, hint: `${num3(r.cft)} CFT · ${t('pendingApproval')}`, cft: r.cft, pending: true })),
+    ];
     if (rawOfRun && !rows.some((r) => r.value === rawOfRun.id)) rows.unshift({ value: rawOfRun.id, label: rawOfRun.label, hint: `${num3(rawOfRun.cft)} CFT`, cft: rawOfRun.cft });
     return rows;
-  }, [stock.data, rawOfRun, t]);
+  }, [stock.data, rawOfRun, t, woodWanted]);
   const picked = loads.find((l) => l.value === form?.importLoadId);
+
+  // back from New Load In with the new load: choose it (the param arrives on a screen already open)
+  const loadParam = p('load');
+  useEffect(() => {
+    if (loadParam) setForm((f) => (f && f.importLoadId !== loadParam ? { ...f, importLoadId: loadParam, inputCft: '' } : f));
+  }, [loadParam]);
+
+  // only one raw load of the wood asked for: it is the one
+  useEffect(() => {
+    if (!id && woodWanted && loads.length === 1) setForm((f) => (f && !f.importLoadId ? { ...f, importLoadId: loads[0].value } : f));
+  }, [id, woodWanted, loads]);
+
+  /** Not there? Load the logs in first, then come back here with that load chosen. */
+  const loadInNew = () => {
+    const here = `/production/new${(() => {
+      const q = toQuery({ wood: p('wood'), t: p('t'), w: p('w'), l: p('l'), pcs: p('pcs'), back: p('back'), backCode: p('backCode') });
+      return q ? `?${q}` : '';
+    })()}`;
+    router.push({ pathname: '/imports/new', params: { ...(p('wood') && { wood: p('wood') }), back: here } });
+  };
 
   const input = form ? parseNum(form.inputCft) : null;
   const errors: Partial<Record<keyof Form, string>> = {};
@@ -109,7 +154,10 @@ export function ProductionForm({ id }: { id?: string }) {
       release();
       await invalidateOperations();
       toast(t('saved'), 'success', created.code);
-      router.replace(`/production/${created.id}`);
+      // carry the wanted size and the way back on to the run, where the size is typed
+      const carry: Record<string, string> = {};
+      for (const k of ['t', 'w', 'l', 'pcs', 'back', 'backCode']) if (p(k)) carry[k] = p(k);
+      router.replace({ pathname: '/production/[id]', params: { id: created.id, ...carry } });
     }
   });
 
@@ -118,7 +166,7 @@ export function ProductionForm({ id }: { id?: string }) {
 
   return (
     <FormScreen
-      title={id ? t('edit') : t('newProduction')}
+      title={id ? t('edit') : simple ? t('simpleCut') : t('newProduction')}
       subtitle={id ? undefined : t('stepOf', { n: 1, total: 2 })}
       error={error ?? loadError}
       footer={
@@ -139,8 +187,9 @@ export function ProductionForm({ id }: { id?: string }) {
         !loadError && <Loading />
       ) : (
         <>
+          {forLoadOut && <Notice icon="truck">{t('sawingForLoadOut', { code: forLoadOut.code })}</Notice>}
           <FormSection title={t('secRawInput')}>
-            {stock.isSuccess && loads.length === 0 && !id && <Notice>{t('noRawStock')}</Notice>}
+            {stock.isSuccess && loads.length === 0 && !id && <Notice>{woodWanted ? t('noRawOfWood', { wood: p('wood') }) : t('noRawStock')}</Notice>}
             <SelectField
               label={t('sourceLoad')}
               required
@@ -150,8 +199,10 @@ export function ProductionForm({ id }: { id?: string }) {
               placeholder={t('pickLoad')}
               error={err('importLoadId')}
               emptyText={t('noRawStock')}
+              hint={picked?.pending ? t('pendingRawHint') : undefined}
               onChange={(v) => setForm((f) => f && { ...f, importLoadId: v, inputCft: f.importLoadId === v ? f.inputCft : '' })}
             />
+            {!id && <Button kind={stock.isSuccess && loads.length === 0 ? 'primary' : 'secondary'} size="md" icon="download" title={t('loadInNewLogs')} onPress={loadInNew} />}
             <DateField label={t('productionDate')} required value={form.productionDate} max={todayIso()} onChange={set('productionDate')} error={err('productionDate')} />
             <NumberField label={t('inputCft')} unit="CFT" decimals={3} value={form.inputCft} onChangeText={set('inputCft')} error={err('inputCft')} hint={picked ? t('inputCftHint', { cft: num3(picked.cft) }) : undefined}>
               {picked && (

@@ -1,6 +1,6 @@
 /** Form building blocks: labelled inputs, numeric inputs with units, grouped sections, and the form screen shell. */
 import { KeyboardView } from './keyboard';
-import { Children, ReactNode, useState } from 'react';
+import { Children, ReactNode, useEffect, useState } from 'react';
 import { Pressable, ScrollView, type TextInputProps, View } from 'react-native';
 import { cleanDecimal, cleanInt } from '../lib/format';
 import { useT } from '../lib/i18n';
@@ -97,21 +97,29 @@ export function Row({ children }: { children: ReactNode }) {
   );
 }
 
-/** A titled group of fields in a white card; `collapsible` ones start closed. */
+/**
+ * A titled group of fields in a white card; `collapsible` ones start closed. Pass `forceOpen` while
+ * a field inside shows a problem: an error is never hidden inside a closed section.
+ */
 export function FormSection({
   title,
   subtitle,
   children,
   collapsible,
   initiallyOpen = !collapsible,
+  forceOpen = false,
 }: {
   title: string;
   subtitle?: string;
   children: ReactNode;
   collapsible?: boolean;
   initiallyOpen?: boolean;
+  forceOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(initiallyOpen);
+  const [open, setOpen] = useState(initiallyOpen || forceOpen);
+  useEffect(() => {
+    if (forceOpen) setOpen(true);
+  }, [forceOpen]);
   const head = (
     <View className="flex-row items-center gap-2">
       <View className="flex-1 gap-0.5">

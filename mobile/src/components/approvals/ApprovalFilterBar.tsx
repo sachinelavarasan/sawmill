@@ -40,9 +40,9 @@ export function ApprovalFilterBar({
     <>
       <View className="flex-row items-center gap-2">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-1" contentContainerClassName="gap-1.5 pr-1">
-          <Chip text={t('allPending')} on={!kind} count={counts?.total} onPress={() => onKind('')} />
+          <Chip alert text={t('allPending')} on={!kind} count={counts?.total} onPress={() => onKind('')} />
           {kinds.map((k) => (
-            <Chip key={k} text={t(APPROVAL_KIND[k].labelKey)} on={kind === k} count={counts?.[k]} onPress={() => onKind(k)} />
+            <Chip alert key={k} text={t(APPROVAL_KIND[k].labelKey)} on={kind === k} count={counts?.[k]} onPress={() => onKind(k)} />
           ))}
         </ScrollView>
         <Pressable

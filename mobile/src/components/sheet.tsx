@@ -10,8 +10,8 @@ import { dateOnly, isoDay, type Period, PERIOD_KEYS, presets, todayIso } from '.
 import { useT } from '../lib/i18n';
 import { CalendarPicker, TimePicker } from './calendar';
 import { AppBottomSheet, SheetActions, type SheetHandle, SheetInput, useSheet, useSheetColors } from './bottom-sheet';
-import { useThemeToggle } from '../lib/theme';
 import { fontStyleFor, Text } from './text';
+import { Tap, tick } from './motion';
 import { toast } from './toast';
 import { Chip, cn, Icon, Muted } from './ui';
 
@@ -153,6 +153,34 @@ export function SelectField<V extends string>({
   );
 }
 
+/** The letter on an option's tile: its first character that isn't a space or punctuation (works for Tamil too). */
+const monogram = (label: string) => (label.match(/[^\s\-–—·.,:;()[\]'"#/×+&*]/)?.[0] ?? '•').toUpperCase();
+
+/** The label with the searched text picked out (when it appears as typed). */
+function Highlight({ text, needle, on }: { text: string; needle: string; on: boolean }) {
+  const base = cn('text-[15px] leading-5 text-foreground', on ? 'font-bold' : 'font-semibold');
+  const i = needle ? text.toLowerCase().indexOf(needle.toLowerCase()) : -1;
+  if (i < 0)
+    return (
+      <Text className={base} numberOfLines={2}>
+        {text}
+      </Text>
+    );
+  return (
+    <Text className={base} numberOfLines={2}>
+      {text.slice(0, i)}
+      <Text className="rounded bg-saffron/20 font-bold text-saffron-strong">{text.slice(i, i + needle.length)}</Text>
+      {text.slice(i + needle.length)}
+    </Text>
+  );
+}
+
+/**
+ * The list behind a SelectField: a pill search box (orange edge while typing, one-tap clear, a
+ * count of what matches), "Add …" when the typed name isn't there, and the options as cards — a
+ * letter tile, the label with the searched text picked out, its hint, and a round tick. The chosen
+ * option sits first, so it is always in view.
+ */
 export const SelectSheet = forwardRef<
   SheetHandle,
   {
@@ -170,114 +198,171 @@ export const SelectSheet = forwardRef<
   const t = useT();
   const sheet = useRef<SheetHandle>(null);
   const { surface } = useSheetColors();
-  const { dark } = useThemeToggle();
   const [q, setQ] = useState('');
+  const [focused, setFocused] = useState(false);
   useImperativeHandle(ref, () => ({ open: () => sheet.current?.open(), close: () => sheet.current?.close() }), []);
   const [adding, setAdding] = useState(false);
+  /** set on the tap, so a double tap on "Add …" creates one record (adding only shows from the next render) */
+  const addLock = useRef(false);
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase().replace(/\s+/g, '');
-    if (!needle) return options;
-    return options.filter((o) => `${o.label} ${o.hint ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(needle));
-  }, [q, options]);
+    const found = needle ? options.filter((o) => `${o.label} ${o.hint ?? ''}`.toLowerCase().replace(/\s+/g, '').includes(needle)) : options;
+    // the chosen one first, so it is in view when the sheet opens
+    const i = found.findIndex((o) => o.value === value);
+    return i > 0 ? [found[i], ...found.slice(0, i), ...found.slice(i + 1)] : found;
+  }, [q, options, value]);
   const typed = q.trim().replace(/\s+/g, ' ');
   const squash = (s: string) => s.toLowerCase().replace(/\s+/g, '');
   // offered unless that exact name (ignoring case and spaces) is already in the list
   const canAdd = !!onCreate && typed.length >= 2 && !options.some((o) => squash(o.label) === squash(typed));
   const add = async () => {
-    if (!onCreate || adding) return;
+    if (!onCreate || addLock.current) return;
+    addLock.current = true;
     setAdding(true);
     try {
       await onCreate(typed);
     } catch (e) {
       toast((e as Error).message, 'error');
     } finally {
+      addLock.current = false;
       setAdding(false);
     }
+  };
+  const pick = (v: string) => {
+    tick();
+    onPick(v);
   };
 
   return (
     // a long or searchable list gets the tall fixed sheet (it doesn't jump while you type); a short one fits its options
     <AppBottomSheet ref={sheet} variant={searchable ? 'expanded' : 'medium'} content="list" title={title} onDismiss={() => setQ('')}>
       {({ header, bottomPadding }) => (
-      <BottomSheetFlatList
-        data={shown}
-        keyExtractor={(o: Option) => o.value}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingBottom: bottomPadding }}
-        // title and search stay put while the options scroll
-        stickyHeaderIndices={[0]}
-        ListHeaderComponent={
-          <View style={{ backgroundColor: surface }}>
-            {header}
-            <View className="gap-3 px-5 pb-2">
-            {searchable && (
-              <View className={cn('min-h-12 flex-row items-center gap-2.5 rounded-xl border border-border px-3.5', dark ? 'bg-primary-soft' : 'bg-secondary')}>
-                <Icon name="search" size={18} colorClassName="accent-muted-foreground" />
-                <SheetInput
-                  value={q}
-                  onChangeText={setQ}
-                  placeholder={onCreate ? t('searchOrAddName') : t('search')}
-                  maxLength={onCreate ? 120 : undefined}
-                  returnKeyType={canAdd ? 'done' : undefined}
-                  onSubmitEditing={canAdd && !shown.length ? () => void add() : undefined}
-                  placeholderTextColorClassName="accent-muted-foreground"
-                  autoCorrect={false}
-                  accessibilityLabel={t('search')}
-                  className="flex-1 py-2 text-[15px] text-foreground"
-                  style={fontStyleFor()}
-                />
+        <BottomSheetFlatList
+          data={shown}
+          keyExtractor={(o: Option) => o.value}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: bottomPadding, paddingHorizontal: 16, gap: 8 }}
+          // title and search stay put while the options scroll
+          stickyHeaderIndices={[0]}
+          ListHeaderComponent={
+            <View style={{ backgroundColor: surface }} className="-mx-4">
+              {header}
+              <View className="gap-3 px-4 pb-3">
+                {searchable && (
+                  <View
+                    className={cn(
+                      'h-[50px] flex-row items-center gap-2.5 rounded-full border-2 bg-control pl-4 pr-1.5',
+                      focused || q ? 'border-saffron' : 'border-control-border',
+                    )}
+                  >
+                    <Icon name="search" size={18} colorClassName={focused || q ? 'accent-saffron-strong' : 'accent-muted-foreground'} />
+                    <SheetInput
+                      value={q}
+                      onChangeText={setQ}
+                      onFocus={() => setFocused(true)}
+                      onBlur={() => setFocused(false)}
+                      placeholder={onCreate ? t('searchOrAddName') : t('search')}
+                      maxLength={onCreate ? 120 : undefined}
+                      returnKeyType={canAdd ? 'done' : 'search'}
+                      onSubmitEditing={canAdd && !shown.length ? () => void add() : undefined}
+                      placeholderTextColorClassName="accent-muted-foreground"
+                      autoCorrect={false}
+                      accessibilityLabel={t('search')}
+                      className="flex-1 py-2 text-[15px] text-foreground"
+                      style={fontStyleFor()}
+                    />
+                    {!!q && (
+                      <View className="min-w-7 items-center rounded-full bg-secondary px-2">
+                        <Text className="text-xs font-bold leading-6 tabular-nums text-muted-foreground">{shown.length}</Text>
+                      </View>
+                    )}
+                    {!!q && (
+                      <Pressable onPress={() => setQ('')} accessibilityRole="button" accessibilityLabel={t('clear')} hitSlop={6} className="h-9 w-9 items-center justify-center rounded-full active:bg-control-hover">
+                        <Icon name="x-circle" size={19} colorClassName="accent-muted-foreground" />
+                      </Pressable>
+                    )}
+                  </View>
+                )}
+                {canAdd && (
+                  <Pressable
+                    onPress={() => void add()}
+                    disabled={adding}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('addNamed', { name: typed })}
+                    accessibilityState={{ busy: adding }}
+                    className={cn('min-h-16 flex-row items-center gap-3 rounded-2xl border-2 border-dashed border-saffron/50 bg-saffron-soft px-3.5 py-3 active:opacity-75', adding && 'opacity-75')}
+                  >
+                    <View className="h-11 w-11 items-center justify-center rounded-xl bg-saffron">
+                      {adding ? <ActivityIndicator size="small" colorClassName="accent-saffron-foreground" /> : <Icon name="plus" size={22} colorClassName="accent-saffron-foreground" />}
+                    </View>
+                    <View className="flex-1 gap-0.5">
+                      <Text className="text-[15px] font-bold text-foreground" numberOfLines={1}>
+                        {t('addNamed', { name: typed })}
+                      </Text>
+                      <Text className="text-[13px] text-saffron-strong" numberOfLines={1}>
+                        {t('notInListTapToAdd')}
+                      </Text>
+                    </View>
+                    <Icon name="chevron-right" size={18} colorClassName="accent-saffron-strong" />
+                  </Pressable>
+                )}
+                {allowClear && !!value && (
+                  <Pressable
+                    onPress={() => pick('')}
+                    accessibilityRole="button"
+                    className="min-h-12 flex-row items-center gap-3 rounded-2xl border border-control-border bg-control px-3.5 active:bg-control-hover"
+                  >
+                    <View className="h-9 w-9 items-center justify-center rounded-xl bg-destructive-soft">
+                      <Icon name="x" size={17} colorClassName="accent-destructive" />
+                    </View>
+                    <Text className="flex-1 text-[15px] font-semibold text-destructive">{t('clear')}</Text>
+                  </Pressable>
+                )}
               </View>
-            )}
-            {canAdd && (
-              <Pressable
-                onPress={() => void add()}
-                disabled={adding}
-                accessibilityRole="button"
-                accessibilityLabel={t('addNamed', { name: typed })}
-                accessibilityState={{ busy: adding }}
-                className={cn('min-h-16 flex-row items-center gap-3 rounded-2xl border border-saffron/35 bg-saffron-soft px-3.5 py-3 active:opacity-75', adding && 'opacity-75')}
+            </View>
+          }
+          ListEmptyComponent={
+            canAdd ? null : (
+              <View className="items-center gap-3 px-6 py-10">
+                <View className="h-14 w-14 items-center justify-center rounded-2xl bg-secondary">
+                  <Icon name={options.length ? 'search' : 'inbox'} size={24} colorClassName="accent-muted-foreground" />
+                </View>
+                <Text className="text-center text-[15px] text-muted-foreground">{options.length ? t('noResults') : (emptyText ?? t('noData'))}</Text>
+              </View>
+            )
+          }
+          renderItem={({ item }: { item: Option }) => {
+            const on = item.value === value;
+            return (
+              <Tap
+                scale={0.98}
+                onPress={() => pick(item.value)}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: on }}
+                accessibilityLabel={item.hint ? `${item.label}, ${item.hint}` : item.label}
+                className={cn(
+                  'min-h-[60px] flex-row items-center gap-3 rounded-2xl border px-3 py-2.5',
+                  on ? 'border-saffron bg-saffron-soft' : 'border-control-border bg-control active:bg-control-hover',
+                )}
               >
-                <View className="size-10 items-center justify-center rounded-full bg-saffron">
-                  {adding ? <ActivityIndicator size="small" colorClassName="accent-saffron-foreground" /> : <Icon name="plus" size={20} colorClassName="accent-saffron-foreground" />}
+                <View className={cn('h-10 w-10 items-center justify-center rounded-xl', on ? 'bg-saffron' : 'bg-secondary')}>
+                  <Text className={cn('text-[16px] font-bold font-display', on ? 'text-saffron-foreground' : 'text-muted-foreground')}>{monogram(item.label)}</Text>
                 </View>
                 <View className="flex-1 gap-0.5">
-                  <Text className="text-[15px] font-bold text-foreground" numberOfLines={1}>
-                    {t('addNamed', { name: typed })}
-                  </Text>
-                  <Text className="text-[13px] text-saffron-strong" numberOfLines={1}>
-                    {t('notInListTapToAdd')}
-                  </Text>
+                  <Highlight text={item.label} needle={typed} on={on} />
+                  {!!item.hint && (
+                    <Text className={cn('text-[13px] leading-[18px]', on ? 'text-saffron-strong' : 'text-muted-foreground')} numberOfLines={2}>
+                      {item.hint}
+                    </Text>
+                  )}
                 </View>
-                <Icon name="chevron-right" size={18} colorClassName="accent-saffron-strong" />
-              </Pressable>
-            )}
-            {allowClear && value && (
-              <Pressable onPress={() => onPick('')} accessibilityRole="button" className="min-h-11 justify-center">
-                <Text className="text-[15px] font-semibold text-destructive">{t('clear')}</Text>
-              </Pressable>
-            )}
-            </View>
-          </View>
-        }
-        ListEmptyComponent={canAdd ? null : <Muted className="px-5 py-6">{options.length ? t('noResults') : (emptyText ?? t('noData'))}</Muted>}
-        renderItem={({ item }: { item: Option }) => {
-          const on = item.value === value;
-          return (
-            <Pressable
-              onPress={() => onPick(item.value)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: on }}
-              className={cn('min-h-14 flex-row items-center gap-3 border-b border-border px-5 py-3 active:bg-secondary', on && 'bg-saffron-soft')}
-            >
-              <View className="flex-1">
-                <Text className={cn('text-[15px] text-foreground', on ? 'font-bold' : 'font-medium')}>{item.label}</Text>
-                {!!item.hint && <Muted>{item.hint}</Muted>}
-              </View>
-              {on && <Icon name="check" size={18} colorClassName="accent-saffron-strong" />}
-            </Pressable>
-          );
-        }}
-      />
+                <View className={cn('h-6 w-6 items-center justify-center rounded-full border-2', on ? 'border-saffron bg-saffron' : 'border-control-border')}>
+                  {on && <Icon name="check" size={14} strokeWidth={3} colorClassName="accent-saffron-foreground" />}
+                </View>
+              </Tap>
+            );
+          }}
+        />
       )}
     </AppBottomSheet>
   );

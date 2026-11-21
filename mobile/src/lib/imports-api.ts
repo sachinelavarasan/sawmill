@@ -82,8 +82,8 @@ export const importsApi = {
   financials: (id: string) => api<import('./types').PurchaseFinancials>(`/imports/${id}/financials`),
   saveFinancials: (id: string, f: Record<string, unknown>) => api(`/imports/${id}/financials`, json('PUT', f)),
   get: (id: string) => api<ImportDetail>(`/imports/${id}`),
-  create: (f: ImportForm) => api<ImportDetail>('/imports', json('POST', f)),
-  update: (id: string, f: Partial<ImportForm>) => api<ImportDetail>(`/imports/${id}`, json('PATCH', f)),
+  create: (f: ImportForm & { arrivalAt?: string }) => api<ImportDetail>('/imports', json('POST', f)),
+  update: (id: string, f: Partial<ImportForm> & { arrivalAt?: string }) => api<ImportDetail>(`/imports/${id}`, json('PATCH', f)),
 
   startUnloading: (id: string, b: { vehicleNumber: string; driverName?: string; ratePerHour?: number }) =>
     api<Unloading>(`/imports/${id}/unloading`, json('POST', b)),

@@ -3,7 +3,7 @@
  * reason (owner, submitted), or a status note. The API re-checks everything; this only
  * decides what to offer. Stock changes only when the server approves.
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Text } from './text';
 import { api } from '../lib/api';
@@ -42,17 +42,31 @@ export function WorkflowBar({
   const prompt = usePrompt();
   const [busy, setBusy] = useState<'submit' | 'approve' | 'reject' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** set synchronously, so a second tap before the next render is ignored (busy alone is too late) */
+  const lock = useRef(false);
+
+  /** Held from the first tap until the dialog is answered and the request is done: one dialog, one request. */
+  function locked(fn: () => Promise<void>) {
+    return async () => {
+      if (lock.current) return;
+      lock.current = true;
+      try {
+        await fn();
+      } finally {
+        lock.current = false;
+      }
+    };
+  }
 
   async function act(kind: 'submit' | 'approve' | 'reject', body?: object) {
-    if (busy) return;
     setBusy(kind);
     setError(null);
     try {
       await api(`${base}/${kind}`, { method: 'POST', body });
       await invalidateOperations();
-      if (kind === 'approve') toast(t('approvedToast', { code }));
-      else if (kind === 'reject') toast(t('rejectedToast', { code }), 'info');
-      else toast(t('waitingApproval'));
+      if (kind === 'approve') toast(t('approvedDoneToast'), 'success', code);
+      else if (kind === 'reject') toast(t('sentBackToast'), 'info', code);
+      else toast(t('sentForApprovalToast'), 'success', code);
       onDone();
     } catch (e) {
       setError((e as Error).message);
@@ -61,18 +75,18 @@ export function WorkflowBar({
     }
   }
 
-  async function submit() {
+  const submit = locked(async () => {
     const ok = await confirm({ title: t('submitForApproval'), message: t('submitHint'), confirmText: t('submitForApproval'), cancelText: t('cancel') });
     if (ok) await act('submit');
-  }
-  async function approve() {
+  });
+  const approve = locked(async () => {
     const ok = await confirm({ title: t('approve'), message: confirmApprove, confirmText: t('approve'), cancelText: t('cancel') });
     if (ok) await act('approve');
-  }
-  async function reject() {
+  });
+  const reject = locked(async () => {
     const reason = await prompt({ title: t('reject'), message: t('rejectReasonHint'), placeholder: t('rejectReason'), confirmText: t('reject'), minLength: 3, destructive: true });
     if (reason) await act('reject', { reason });
-  }
+  });
 
   return (
     <View className="gap-2.5">

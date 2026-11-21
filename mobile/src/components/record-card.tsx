@@ -204,11 +204,13 @@ export function SkeletonRecordCards({ count = 3 }: { count?: number }) {
 export function OperationFilterChips({ value, onChange }: { value: Status | ''; onChange: (s: Status | '') => void }) {
   const t = useT();
   const label: Record<Status, 'draft' | 'pending' | 'approved' | 'rejected'> = { DRAFT: 'draft', SUBMITTED: 'pending', APPROVED: 'approved', REJECTED: 'rejected' };
+  // the same status colours as the web's filter chips
+  const dot: Record<Status, string> = { DRAFT: 'bg-muted-foreground', SUBMITTED: 'bg-warning', APPROVED: 'bg-success', REJECTED: 'bg-destructive' };
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-1.5" accessibilityRole="tablist">
       <Chip text={t('allStatuses')} on={!value} onPress={() => onChange('')} />
       {STATUSES.map((s) => (
-        <Chip key={s} text={t(label[s])} on={value === s} onPress={() => onChange(s)} />
+        <Chip key={s} text={t(label[s])} dot={dot[s]} on={value === s} onPress={() => onChange(s)} />
       ))}
     </ScrollView>
   );

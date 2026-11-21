@@ -9,15 +9,17 @@ import { HeaderButton, ScreenHeader, StickyFooter } from './header';
 import { RecordList } from './RecordList';
 import { Button } from './ui';
 import { useT } from '../lib/i18n';
+import { useSimple } from '../lib/session';
 import type { ImportSummary } from '../lib/imports-api';
 import type { ExportSummary } from '../lib/types';
 
 export function ImportsList() {
   const t = useT();
+  const simple = useSimple();
   const router = useRouter();
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader title={t('imports')} large right={<HeaderButton icon="edit-3" label={t('measure')} onPress={() => router.push('/more/measurement')} />} />
+      <ScreenHeader title={simple ? t('simpleLoadIn') : t('imports')} large right={<HeaderButton icon="edit-3" label={t('measure')} onPress={() => router.push('/more/measurement')} />} />
       <RecordList<ImportSummary>
         path="/imports"
         search={t('searchImports')}
@@ -34,10 +36,11 @@ export function ImportsList() {
 
 export function ExportsList() {
   const t = useT();
+  const simple = useSimple();
   const router = useRouter();
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader title={t('exports')} large />
+      <ScreenHeader title={simple ? t('simpleLoadOut') : t('exports')} large />
       <RecordList<ExportSummary>
         path="/exports"
         search={t('searchRecords')}

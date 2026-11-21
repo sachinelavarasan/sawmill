@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { api } from '../lib/api';
 import { dateOnly, inr, parseNum, todayIso } from '../lib/format';
-import { useSubmit } from '../lib/hooks';
+import { useLocked, useSubmit } from '../lib/hooks';
 import { useT } from '../lib/i18n';
 import { invalidate, queryClient, useApi } from '../lib/query';
 import type { PaymentSummary } from '../lib/types';
@@ -45,7 +45,8 @@ export function Payments({ kind, loadId }: { kind: 'imports' | 'exports'; loadId
     sheet.close();
   });
 
-  const remove = async (id: string, label: string) => {
+  const locked = useLocked();
+  const remove = locked(async (id: string, label: string) => {
     if (!(await confirm({ title: t('deletePayment'), message: label, confirmText: t('delete'), cancelText: t('cancel'), destructive: true }))) return;
     try {
       await settle(await api<PaymentSummary>(`${path}/${id}`, { method: 'DELETE' }));
@@ -53,7 +54,7 @@ export function Payments({ kind, loadId }: { kind: 'imports' | 'exports'; loadId
     } catch (e) {
       toast((e as Error).message, 'error');
     }
-  };
+  });
 
   const open = () => {
     setF((x) => ({ ...blank, mode: x.mode }));

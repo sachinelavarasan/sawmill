@@ -35,6 +35,29 @@ export function useSubmit<A extends unknown[]>(fn: (...args: A) => Promise<unkno
 }
 
 /**
+ * One action at a time across a screen: `locked(fn)` returns a handler that does nothing while
+ * any other locked handler is still running. The lock is a ref, set synchronously on the tap, so
+ * a fast double tap can't slip in before the next render (a `busy` state alone can). Hold it
+ * around the whole flow (confirm dialog + request) so a double tap opens one dialog, not two.
+ */
+export function useLocked() {
+  const held = useRef(false);
+  return useCallback(
+    <A extends unknown[]>(fn: (...args: A) => Promise<unknown> | void) =>
+      async (...args: A) => {
+        if (held.current) return;
+        held.current = true;
+        try {
+          await fn(...args);
+        } finally {
+          held.current = false;
+        }
+      },
+    [],
+  );
+}
+
+/**
  * Ask before leaving a form with unsaved changes (back button, swipe, header back).
  * Call the returned `release()` right before navigating away after a successful save.
  */

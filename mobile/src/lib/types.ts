@@ -85,10 +85,31 @@ export interface FinishedStockRow {
   cft: number;
 }
 
+/** A size from a Sawing entry that is saved but not approved yet: not stock until the owner approves it. */
+export interface PendingFinishedRow extends FinishedStockRow {
+  runId: string;
+  runCode: string;
+}
+
+/** A load in that is measured but not approved yet (DRAFT / SUBMITTED, totalCft > 0). */
+export interface PendingRawRow {
+  importLoadId: string;
+  importCode: string;
+  woodType: string;
+  arrivalAt: string;
+  status: string;
+  logs: number;
+  cft: number;
+}
+
 export interface Balances {
   totals: { rawCft: number; rawLoads: number; finishedCft: number; finishedPieces: number };
   raw: RawStockRow[];
   finished: FinishedStockRow[];
+  /** sizes sawn but waiting approval — can be loaded out now; real stock changes on approval */
+  pendingFinished?: PendingFinishedRow[];
+  /** loads in measured but waiting approval — can be sawn now */
+  pendingRaw?: PendingRawRow[];
 }
 
 export type MovementSource = 'IMPORT' | 'PRODUCTION_INPUT' | 'PRODUCTION_OUTPUT' | 'EXPORT' | 'ADJUSTMENT';

@@ -15,6 +15,7 @@ import { setStatusBarStyle } from 'expo-status-bar';
 import { createContext, createElement, ReactNode, useCallback, useContext } from 'react';
 import { FlatList, type FlatListProps, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCSSVariable } from 'uniwind';
 import { useTabBarInset } from '../lib/tab-chrome';
 import { useT } from '../lib/i18n';
 import { useThemeToggle } from '../lib/theme';
@@ -158,6 +159,18 @@ export function HeroPanel({ children, className }: { children: ReactNode; classN
   );
 }
 
+/**
+ * Why the scroll views below are white, not dark: a dark scroll view relied on the white sheet
+ * stretching (flex-grow) to cover it, and on the first frame of a newly opened tab that stretch
+ * isn't measured yet — the empty space showed dark for a moment, then turned white (a flicker on
+ * every tab change). Now only the band itself is dark:
+ *  - OVERSCROLL: a tall dark strip above the band, so pulling down to refresh still shows dark;
+ *  - CornerBacking: dark behind the sheet's rounded top corners.
+ */
+export const BandOverscroll = () => <View pointerEvents="none" className="absolute inset-x-0 bottom-full h-[1000px] bg-hero" />;
+export const CornerBacking = () => <View pointerEvents="none" className="absolute inset-x-0 top-0 h-[30px] bg-hero" />;
+const OVERSCROLL = <BandOverscroll />;
+
 /** Scrolling page body: optional hero, then the content (on the sheet, or flat when `compact`). */
 export function Page({
   children,
@@ -190,10 +203,16 @@ export function Page({
       </ScrollView>
     );
   return (
-    <ScrollView className="flex-1 bg-hero" contentContainerClassName="grow" refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
-      <Hero>{hero}</Hero>
-      <View className={cn('grow gap-3 px-4 pt-6', SHEET_TOP, className)} style={{ paddingBottom }}>
-        {children}
+    <ScrollView className="flex-1 bg-card" contentContainerClassName="grow" refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
+      <View className="bg-hero">
+        {OVERSCROLL}
+        <Hero>{hero}</Hero>
+      </View>
+      <View className="grow">
+        <CornerBacking />
+        <View className={cn('grow gap-3 px-4 pt-6', SHEET_TOP, className)} style={{ paddingBottom }}>
+          {children}
+        </View>
       </View>
     </ScrollView>
   );
@@ -215,11 +234,13 @@ type SheetListProps<T> = Omit<FlatListProps<T>, 'contentContainerClassName' | 'c
  */
 export function SheetList<T>({ hero, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, renderItem, bottomPad = 24, compact, ...rest }: SheetListProps<T>) {
   const tabBar = useTabBarInset();
+  const [card] = useCSSVariable(['--color-card']).map(String);
   const node = (c: SheetListProps<T>['ListHeaderComponent']) => (c == null ? null : typeof c === 'function' ? createElement(c) : c);
   return (
     <FlatList
       {...rest}
-      className={cn('flex-1', compact ? 'bg-card' : 'bg-hero')}
+      // white even under a dark band (see OVERSCROLL above): a dark list flickered on a tab's first frame
+      className="flex-1 bg-card"
       contentContainerClassName="grow"
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={
@@ -229,17 +250,17 @@ export function SheetList<T>({ hero, ListHeaderComponent, ListFooterComponent, L
             {node(ListHeaderComponent)}
           </View>
         ) : (
-          <>
+          <View className="bg-hero">
+            {OVERSCROLL}
             <Hero>{hero}</Hero>
             <View className={cn('gap-3 px-4 pb-1 pt-6', SHEET_TOP)}>{node(ListHeaderComponent)}</View>
-          </>
+          </View>
         )
       }
       renderItem={renderItem ? (info) => <View className="bg-card px-4">{renderItem(info)}</View> : undefined}
       ListEmptyComponent={ListEmptyComponent ? <View className="bg-card px-4 pt-2">{node(ListEmptyComponent)}</View> : null}
       ListFooterComponent={<View style={{ paddingBottom: bottomPad + tabBar }}>{node(ListFooterComponent)}</View>}
-      ListFooterComponentStyle={{ flexGrow: 1 }}
-      ListFooterComponentClassName="bg-card"
+      ListFooterComponentStyle={{ flexGrow: 1, backgroundColor: card }}
     />
   );
 }

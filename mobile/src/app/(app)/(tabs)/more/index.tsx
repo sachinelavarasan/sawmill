@@ -12,14 +12,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandMark } from '../../../../components/Brand';
 import { useConfirm } from '../../../../components/confirm';
 import { Glow } from '../../../../components/glow';
-import { SHEET_TOP, useStatusBar } from '../../../../components/header';
+import { BandOverscroll, CornerBacking, SHEET_TOP, useStatusBar } from '../../../../components/header';
 import { Appear } from '../../../../components/motion';
 import { Text } from '../../../../components/text';
 import { Avatar, cn, Icon, MenuGroup, MenuRow, Overline } from '../../../../components/ui';
 import { useAppLock } from '../../../../lib/app-lock';
 import { APP_NAME } from '../../../../lib/brand';
 import { useT } from '../../../../lib/i18n';
-import { MORE_GROUPS, visible } from '../../../../lib/nav';
+import { labelOf, MORE_GROUPS, visible } from '../../../../lib/nav';
 import { useApi } from '../../../../lib/query';
 import { useSession, useUser } from '../../../../lib/session';
 import { useTabBarInset } from '../../../../lib/tab-chrome';
@@ -41,18 +41,20 @@ export default function MoreHome() {
   const tabBar = useTabBarInset();
   useStatusBar(true);
 
-  const { can, logout } = useSession();
+  const { can, logout, simple } = useSession();
   const confirm = useConfirm();
   const lock = useAppLock();
   const pending = useApi<{ total: number }>(can(Permission.OPERATIONS_APPROVE) ? '/approvals/count' : null);
 
   const groups = MORE_GROUPS.map((g) => ({
     ...g,
-    items: g.items.filter((i) => visible(i, can)),
+    items: g.items.filter((i) => visible(i, can, simple)),
   })).filter((g) => g.items.length > 0);
 
   return (
-    <ScrollView className="flex-1 bg-hero" contentContainerClassName="grow" keyboardShouldPersistTaps="handled">
+    // white scroll view, dark band only (components/header.tsx): a dark one flickered on the tab's first frame
+    <ScrollView className="flex-1 bg-card" contentContainerClassName="grow" keyboardShouldPersistTaps="handled">
+      <BandOverscroll />
       <View className="overflow-hidden bg-hero" style={{ paddingTop: insets.top }}>
         <Glow />
         <View className="gap-2.5 px-4 pb-5 pt-2">
@@ -82,6 +84,8 @@ export default function MoreHome() {
         </View>
       </View>
 
+      <View className="grow">
+      <CornerBacking />
       <View className={cn('grow gap-3 px-4 pt-5', SHEET_TOP)} style={{ paddingBottom: 32 + tabBar }}>
         {groups.map((g, gi) => (
           <Group key={g.labelKey} index={gi} title={t(g.labelKey)}>
@@ -90,7 +94,7 @@ export default function MoreHome() {
                 <MenuRow
                   key={item.key}
                   icon={item.icon}
-                  title={t(item.labelKey)}
+                  title={t(labelOf(item, simple))}
                   badge={item.key === 'approvals' ? pending.data?.total : undefined}
                   last={idx === g.items.length - 1}
                   onPress={() => router.push(item.href as never)}
@@ -146,6 +150,7 @@ export default function MoreHome() {
             {APP_NAME} · {t('version')} {Constants.expoConfig?.version ?? ''}
           </Text>
         </View>
+      </View>
       </View>
     </ScrollView>
   );

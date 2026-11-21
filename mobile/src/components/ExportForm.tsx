@@ -1,5 +1,14 @@
-/** New export load (step 1: lorry, wood, when) or edit one. Lines are picked from finished stock on its page (step 2). */
-import { useRouter } from 'expo-router';
+/**
+ * New export load (step 1: lorry, wood, when) or edit one. Lines are picked from finished stock on its page (step 2).
+ *
+ * Wood type lists only woods with sawn pieces in stock, each with what it holds
+ * ("10 sizes · 739 pcs · 437.639 CFT"); "Take pieces from load" lists only loads of that wood, and
+ * the chosen load's sizes are shown underneath ("In this load"). `?wood=` pre-fills the wood
+ * (the Stock "Load out" button).
+ */
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { sizeLabel } from '@timbertrail/shared';
+import { View } from 'react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { int, num3, todayIso } from '../lib/format';
@@ -7,10 +16,13 @@ import { useSubmit, useUnsavedGuard } from '../lib/hooks';
 import { useT } from '../lib/i18n';
 import { invalidateOperations, useApi } from '../lib/query';
 import type { Balances, ExportDetail } from '../lib/types';
+import { fillFromLorry, LorryPicker } from './LorryPicker';
 import { Field, FormScreen, FormSection, RequiredNote } from './form';
 import { DateField, DateTimeField, SelectField } from './sheet';
 import { toast } from './toast';
+import { Text } from './text';
 import { Button, Loading, Notice } from './ui';
+import { useSession } from '../lib/session';
 
 interface Form {
   exportDate: string;
@@ -30,6 +42,9 @@ const PHONE = /^[0-9+ ]{7,15}$/;
 export function ExportForm({ id }: { id?: string }) {
   const t = useT();
   const router = useRouter();
+  const { simple } = useSession();
+  const params = useLocalSearchParams<{ wood?: string }>();
+  const startWood = typeof params.wood === 'string' ? params.wood : '';
   const stock = useApi<Balances>('/stock');
   const [initial, setInitial] = useState<Form | null>(null);
   const [form, setForm] = useState<Form | null>(null);
@@ -38,7 +53,7 @@ export function ExportForm({ id }: { id?: string }) {
 
   useEffect(() => {
     if (!id) {
-      const f: Form = { exportDate: todayIso(), lorryNumber: '', woodType: '', importLoadId: '', driverName: '', driverMobile: '', lorryOwnerName: '', lorryOwnerMobile: '', startAt: '', endAt: '', notes: '' };
+      const f: Form = { exportDate: todayIso(), lorryNumber: '', woodType: startWood, importLoadId: '', driverName: '', driverMobile: '', lorryOwnerName: '', lorryOwnerMobile: '', startAt: '', endAt: '', notes: '' };
       setInitial(f);
       setForm(f);
       return;
@@ -64,26 +79,40 @@ export function ExportForm({ id }: { id?: string }) {
       .catch((e: Error) => setLoadError(e.message));
   }, [id]);
 
-  const finished = stock.data?.finished ?? [];
-  // wood types that have finished stock, with how much
+  const finished = useMemo(() => (stock.data?.finished ?? []).filter((r) => r.pieces > 0), [stock.data]);
+  const summary = (x: { sizes: number; pcs: number; cft: number }) => t('stockSummaryLine', { sizes: x.sizes, pcs: int(x.pcs), cft: num3(x.cft) });
+  // every wood with sawn pieces in stock, with what it holds
   const woods = useMemo(() => {
-    const m = new Map<string, { pieces: number; cft: number }>();
+    const m = new Map<string, { sizes: Set<string>; pcs: number; cft: number }>();
     for (const r of finished) {
-      const w = m.get(r.woodType) ?? { pieces: 0, cft: 0 };
-      m.set(r.woodType, { pieces: w.pieces + r.pieces, cft: w.cft + r.cft });
+      const w = m.get(r.woodType) ?? { sizes: new Set<string>(), pcs: 0, cft: 0 };
+      w.sizes.add(sizeLabel(r.thicknessIn, r.widthIn, r.lengthFt));
+      w.pcs += r.pieces;
+      w.cft += r.cft;
+      m.set(r.woodType, w);
     }
-    const opts = [...m].map(([w, v]) => ({ value: w, label: w, hint: `${t('piecesCount', { n: int(v.pieces) })} · ${num3(v.cft)} CFT` }));
+    const opts = [...m]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([w, v]) => ({ value: w, label: w, hint: summary({ sizes: v.sizes.size, pcs: v.pcs, cft: v.cft }) }));
+    // an older load out may carry a wood no longer in stock: keep it pickable
     if (form?.woodType && !m.has(form.woodType)) opts.unshift({ value: form.woodType, label: form.woodType, hint: '' });
     return opts;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished, form?.woodType, t]);
-  const loads = useMemo(() => {
-    const m = new Map<string, { code: string; pieces: number }>();
-    for (const r of finished.filter((r) => r.woodType === form?.woodType)) {
-      const l = m.get(r.importLoadId) ?? { code: r.importCode, pieces: 0 };
-      m.set(r.importLoadId, { code: r.importCode, pieces: l.pieces + r.pieces });
+  // loads holding sawn pieces of the chosen wood, each with its sizes and totals
+  const loadInfo = useMemo(() => {
+    const m = new Map<string, { code: string; wood: string; sizes: { label: string; pcs: number }[]; pcs: number; cft: number }>();
+    for (const r of finished.filter((x) => x.woodType === form?.woodType)) {
+      const l = m.get(r.importLoadId) ?? { code: r.importCode, wood: r.woodType, sizes: [], pcs: 0, cft: 0 };
+      l.sizes.push({ label: sizeLabel(r.thicknessIn, r.widthIn, r.lengthFt), pcs: r.pieces });
+      l.pcs += r.pieces;
+      l.cft += r.cft;
+      m.set(r.importLoadId, l);
     }
-    return [...m].map(([v, l]) => ({ value: v, label: l.code, hint: t('piecesCount', { n: int(l.pieces) }) }));
-  }, [finished, form?.woodType, t]);
+    return m;
+  }, [finished, form?.woodType]);
+  const loads = [...loadInfo].map(([v, l]) => ({ value: v, label: `${l.code} · ${l.wood}`, hint: summary({ sizes: l.sizes.length, pcs: l.pcs, cft: l.cft }) }));
+  const chosenLoad = form?.importLoadId ? loadInfo.get(form.importLoadId) : undefined;
 
   const errors: Partial<Record<keyof Form, string>> = {};
   if (form) {
@@ -125,7 +154,7 @@ export function ExportForm({ id }: { id?: string }) {
 
   return (
     <FormScreen
-      title={id ? t('edit') : t('newExport')}
+      title={id ? t('edit') : simple ? t('simpleLoadOut') : t('newExport')}
       subtitle={id ? undefined : t('stepOf', { n: 1, total: 2 })}
       error={error ?? loadError}
       footer={
@@ -149,13 +178,20 @@ export function ExportForm({ id }: { id?: string }) {
           <FormSection title={t('secExportInfo')} subtitle={t('secExportInfoSub')}>
             {stock.isSuccess && finished.length === 0 && !id && <Notice>{t('noStock')}</Notice>}
             <DateField label={t('exportDate')} required value={form.exportDate} max={todayIso()} onChange={set('exportDate')} error={err('exportDate')} />
-            <Field label={t('lorryNumber')} required value={form.lorryNumber} onChangeText={set('lorryNumber')} autoCapitalize="characters" error={err('lorryNumber')} hint={t('lorryNumberHint')} />
+            <LorryPicker
+              required
+              value={form.lorryNumber}
+              error={err('lorryNumber')}
+              hint={t('lorryNumberHint')}
+              // a lorry seen before brings its driver and owner, where those are still empty
+              onChange={(lorryNumber, known) => setForm((f) => f && fillFromLorry({ ...f, lorryNumber }, known))}
+            />
             <SelectField
               label={t('woodType')}
               required
               value={form.woodType}
               options={woods}
-              hint={t('exportWoodHint')}
+              hint={finished.length || !stock.isSuccess ? t('exportWoodHint') : t('noSawnStock')}
               error={err('woodType')}
               onChange={(v) => setForm((f) => f && { ...f, woodType: v, importLoadId: f.woodType === v ? f.importLoadId : '' })}
             />
@@ -169,10 +205,26 @@ export function ExportForm({ id }: { id?: string }) {
               hint={t('defaultLoadHint')}
               onChange={set('importLoadId')}
             />
+            {/* what the chosen load holds, so there is no guessing */}
+            {chosenLoad && (
+              <View className="gap-1.5 rounded-xl bg-background px-3 py-2.5">
+                <Text className="text-xs font-medium text-muted-foreground">{t('inThisLoad')}</Text>
+                <View className="flex-row flex-wrap gap-1.5">
+                  {chosenLoad.sizes.slice(0, 8).map((z) => (
+                    <View key={z.label} className="rounded-full border border-input bg-card px-2.5 py-1">
+                      <Text className="text-xs font-medium tabular-nums text-foreground">
+                        {z.label} · <Text className="font-bold">{int(z.pcs)}</Text>
+                      </Text>
+                    </View>
+                  ))}
+                  {chosenLoad.sizes.length > 8 && <Text className="px-1 py-1 text-xs text-muted-foreground">{t('moreSizes', { n: chosenLoad.sizes.length - 8 })}</Text>}
+                </View>
+              </View>
+            )}
             <RequiredNote />
           </FormSection>
 
-          <FormSection title={t('lorryAndDriver')} subtitle={t('secExportLorrySub')} collapsible initiallyOpen={!!(form.driverName || form.driverMobile)}>
+          <FormSection title={t('lorryAndDriver')} subtitle={t('secExportLorrySub')} collapsible initiallyOpen={!!(form.driverName || form.driverMobile)} forceOpen={!!(err('driverMobile') || err('lorryOwnerMobile'))}>
             <Field label={t('driverName')} value={form.driverName} onChangeText={set('driverName')} autoCapitalize="words" />
             <Field label={t('driverMobile')} value={form.driverMobile} onChangeText={set('driverMobile')} keyboardType="phone-pad" error={err('driverMobile')} />
             <Field label={t('lorryOwnerName')} value={form.lorryOwnerName} onChangeText={set('lorryOwnerName')} autoCapitalize="words" />

@@ -13,6 +13,7 @@ import { BarChart, Button, Card, Donut, ErrorBox, HeroCard, HeroStats, LegendDot
 import { dayNum, int, isoDay, num3, todayIso } from '../../../lib/format';
 import { useLang, useT } from '../../../lib/i18n';
 import { useApi } from '../../../lib/query';
+import { useSimple } from '../../../lib/session';
 import type { Paged, ProductionSummary, ReportData, Status } from '../../../lib/types';
 
 const WEEK = 7;
@@ -24,11 +25,12 @@ function lastDays(n: number) {
 
 export default function ProductionTab() {
   const t = useT();
+  const simple = useSimple();
   const router = useRouter();
   const add = () => router.push('/production/new');
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader title={t('production')} large right={<HeaderButton icon="plus" label={t('newProduction')} onPress={add} />} />
+      <ScreenHeader title={simple ? t('simpleCut') : t('production')} large right={<HeaderButton icon="plus" label={t('newProduction')} onPress={add} />} />
       <RecordList<ProductionSummary>
         path="/production"
         search={t('searchProduction')}

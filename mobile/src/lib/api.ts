@@ -7,7 +7,7 @@
  * refresh token in the secure store. A 401 triggers one shared refresh, then the request is
  * retried once; if the refresh fails the session is ended (onSessionLost → login screen).
  */
-import { apiErrorText, type Permission, type Role } from '@timbertrail/shared';
+import { apiErrorText, type Permission, type Role, type UiMode } from '@timbertrail/shared';
 import axios, { AxiosError, type AxiosRequestConfig, type Method } from 'axios';
 import { Directory, File, Paths } from 'expo-file-system';
 import { API_URL } from './env';
@@ -19,6 +19,8 @@ export interface Profile {
   username: string;
   role: Role;
   preferredLanguage: string;
+  /** Simple view (the default) or every feature; saved on the user, so it follows them to the web */
+  uiMode?: UiMode;
   mill: { id: string; name: string; code: string };
   permissions: Permission[];
 }
@@ -163,6 +165,8 @@ export const auth = {
   login: async (username: string, password: string) =>
     applyAuth((await http.post<AuthResponse>('/auth/login', { username, password }, { skipAuthRefresh: true })).data),
   restore: async (): Promise<Profile | null> => ((await tryRefresh()) ? api<Profile>('/auth/me') : null),
+  /** The signed-in user's own settings; returns the updated profile. */
+  savePreferences: (body: { uiMode?: UiMode; preferredLanguage?: 'en' | 'ta' }) => api<Profile>('/auth/me/preferences', { method: 'PATCH', body }),
   logout: async () => {
     const refreshToken = (await getStored(KEYS.refresh)) ?? undefined;
     try {

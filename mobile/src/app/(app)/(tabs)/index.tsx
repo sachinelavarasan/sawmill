@@ -77,8 +77,155 @@ import type {
 } from '../../../lib/types';
 
 export default function HomeScreen() {
-  const { can } = useSession();
+  const { can, simple } = useSession();
+  if (simple) return <SimpleHome />;
   return can(Permission.DASHBOARD_OWNER) ? <OwnerHome /> : <AccountantHome />;
+}
+
+// ───────── simple view ─────────
+
+/**
+ * Home in the simple view (the default for everyone; web: pages/SimpleHome.tsx): today in three
+ * numbers on the band, big picture tiles for the day's work ("What do you want to do?"), and up to
+ * three plain sentences of what is waiting on this person, each with Open ("Needs your action").
+ * It reuses the dashboards' endpoints; nothing else is fetched.
+ */
+function SimpleHome() {
+  const t = useT();
+  const router = useRouter();
+  const { can } = useSession();
+  const owner = can(Permission.DASHBOARD_OWNER);
+  const ownerQ = useApi<OwnerDashboard>(owner ? '/dashboard/owner' : null);
+  const openQ = useApi<Paged<ImportSummary>>(owner ? '/imports?take=1&skip=0&open=1' : null);
+  const accQ = useApi<AccountantDashboard>(owner ? null : '/dashboard/accountant');
+  const queries = owner ? [ownerQ, openQ] : [accQ];
+  const loaded = owner ? !!ownerQ.data && !!openQ.data : !!accQ.data;
+  const error = queries.map(errorOf).find(Boolean) ?? null;
+
+  const ok = ownerQ.data?.kpis;
+  const ak = accQ.data?.kpis;
+  const open = accQ.data?.measurementProgress ?? [];
+  const today = {
+    loadsIn: owner ? ok?.todayImports : ak?.todayImports,
+    loadsOut: owner ? ok?.todayExports : ak?.todayExports,
+    stockCft: ok ? ok.rawStockCft + ok.finishedStockCft : null,
+    pending: owner ? (ok?.pendingApprovals ?? 0) : 0,
+    rejected: owner ? 0 : (ak?.rejectedEntries ?? 0),
+    toMeasure: owner ? (openQ.data?.total ?? 0) : open.length,
+  };
+  // with exactly one load to measure, its measuring screen opens directly
+  const measureTo = !owner && open.length === 1 ? `/imports/${open[0].id}/measure` : '/more/measurement';
+
+  const todo: { key: string; icon: IconName; text: string; to: string }[] = loaded
+    ? [
+        ...(today.pending > 0 ? [{ key: 'approve', icon: 'check-circle' as IconName, text: t('nWaitingApproval', { n: today.pending }), to: '/more/approvals' }] : []),
+        ...(today.rejected > 0 ? [{ key: 'rejected', icon: 'repeat' as IconName, text: t('rejectedToFix', { n: today.rejected }), to: '/loads-in' }] : []),
+        ...(today.toMeasure > 0 ? [{ key: 'measure', icon: 'ruler' as IconName, text: t('loadsToMeasure', { n: today.toMeasure }), to: measureTo }] : []),
+      ]
+    : [];
+
+  const tiles: { key: string; to: string; label: string; icon: IconName; badge?: number }[] = can(Permission.OPERATIONS_CREATE)
+    ? [
+        { key: 'in', to: '/imports/new', label: t('simpleLoadIn'), icon: 'download' },
+        { key: 'measure', to: '/more/measurement', label: t('simpleMeasure'), icon: 'ruler' },
+        { key: 'cut', to: '/production/new', label: t('simpleCut'), icon: 'factory' },
+        { key: 'out', to: '/exports/new', label: t('simpleLoadOut'), icon: 'upload' },
+        { key: 'stock', to: '/inventory', label: t('simpleStock'), icon: 'boxes' },
+        ...(can(Permission.OPERATIONS_APPROVE) ? [{ key: 'approve', to: '/more/approvals', label: t('simpleApprove'), icon: 'check-circle' as IconName, badge: today.pending }] : []),
+        ...(can(Permission.CLIENTS_MANAGE) ? [{ key: 'dues', to: '/more/clients', label: t('simpleDues'), icon: 'wallet' as IconName }] : []),
+      ]
+    : [];
+
+  const n = (v: number | undefined) => (v == null ? '–' : int(v));
+  return (
+    <Body
+      refreshing={queries.some((q) => q.isRefetching)}
+      onRefresh={() => refetchAll(queries)}
+      hero={
+        <HomeHero>
+          {/* today, in three numbers */}
+          <View className="flex-row flex-wrap gap-3">
+            <TodayFigure icon="download" label={t('loadsInToday')} value={n(today.loadsIn)} />
+            <TodayFigure icon="upload" label={t('loadsOutToday')} value={n(today.loadsOut)} />
+            {owner && <TodayFigure wide icon="boxes" label={t('totalStock')} value={today.stockCft != null ? num3(today.stockCft) : '–'} unit="CFT" />}
+          </View>
+        </HomeHero>
+      }
+    >
+      {error && <ErrorBox message={error} onRetry={() => refetchAll(queries)} />}
+
+      {tiles.length > 0 && (
+        <Appear index={0} className="gap-3">
+          <Text className="text-base font-semibold text-muted-foreground">{t('whatToDo')}</Text>
+          <View className="flex-row flex-wrap gap-3">
+            {tiles.map((a) => (
+              <Tap
+                key={a.key}
+                onPress={() => router.push(a.to as never)}
+                accessibilityRole="button"
+                accessibilityLabel={a.badge ? `${a.label}, ${a.badge}` : a.label}
+                className="min-h-[112px] grow basis-[45%] items-center justify-center gap-2.5 rounded-2xl border border-border bg-card p-4"
+              >
+                <View className="h-[52px] w-[52px] items-center justify-center rounded-xl bg-primary-soft">
+                  <Icon name={a.icon} size={26} strokeWidth={1.75} colorClassName="accent-primary" />
+                </View>
+                <Text className="text-center text-[15px] font-medium leading-5 text-foreground">{a.label}</Text>
+                {!!a.badge && <CountBadge n={a.badge} className="absolute right-3 top-3" />}
+              </Tap>
+            ))}
+          </View>
+        </Appear>
+      )}
+
+      <Appear index={1} className="gap-3 pt-2">
+        <Text className="text-base font-semibold text-muted-foreground">{t('needsAction')}</Text>
+        {!loaded && !error ? (
+          <SkeletonList rows={2} />
+        ) : todo.length === 0 ? (
+          <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-card p-5">
+            <Icon name="check-circle" size={26} colorClassName="accent-success" />
+            <Text className="flex-1 text-base text-foreground">{t('allDone')}</Text>
+          </View>
+        ) : (
+          todo.map((x) => (
+            <Tap
+              key={x.key}
+              onPress={() => router.push(x.to as never)}
+              accessibilityRole="button"
+              accessibilityLabel={`${x.text}. ${t('open')}`}
+              className="min-h-16 flex-row items-center gap-3.5 rounded-2xl border border-border bg-card px-4 py-3"
+            >
+              <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary-soft">
+                <Icon name={x.icon} size={20} strokeWidth={1.75} colorClassName="accent-primary" />
+              </View>
+              <Text className="flex-1 text-base font-medium leading-snug text-foreground">{x.text}</Text>
+              <View className="flex-row items-center gap-1 rounded-full bg-primary px-3.5 py-2">
+                <Text className="text-sm font-medium text-primary-foreground">{t('open')}</Text>
+                <Icon name="chevron-right" size={15} colorClassName="accent-primary-foreground" />
+              </View>
+            </Tap>
+          ))
+        )}
+      </Appear>
+    </Body>
+  );
+}
+
+function TodayFigure({ icon, label, value, unit, wide }: { icon: IconName; label: string; value: string; unit?: string; /** a full row */ wide?: boolean }) {
+  return (
+    <View className={cn('gap-1.5 rounded-2xl bg-hero-chip p-4', wide ? 'basis-full' : 'flex-1')}>
+      <View className="flex-row items-center gap-2">
+        <Icon name={icon} size={15} colorClassName="accent-hero-muted" />
+        <Text className="shrink text-[13px] text-hero-muted" numberOfLines={1}>
+          {label}
+        </Text>
+      </View>
+      <Text className="text-[28px] font-semibold leading-8 tabular-nums text-hero-foreground font-display">
+        {value}
+        {!!unit && <Text className="text-sm font-medium text-hero-muted"> {unit}</Text>}
+      </Text>
+    </View>
+  );
 }
 
 // ───────── figures ─────────
@@ -171,6 +318,9 @@ function Body({ hero, children, refreshing, onRefresh }: { hero: ReactNode; chil
     <View className="flex-1 overflow-hidden bg-hero">
       {/* orange melting into warm black behind the band; the white sheet rises over it */}
       <Glow />
+      {/* the lower half is white behind the scroll view, so a short first frame (before the sheet
+          has stretched to the bottom) never flashes the dark band colour underneath */}
+      <View pointerEvents="none" className="absolute inset-x-0 bottom-0 h-1/2 bg-card" />
       <View style={{ height: insets.top }} />
       <ScrollView className="flex-1" contentContainerClassName="grow" refreshControl={refresher(refreshing, onRefresh)}>
         {hero}

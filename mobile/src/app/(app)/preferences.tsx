@@ -17,7 +17,7 @@ import { useConfirm } from '../../components/confirm';
 import { ScreenHeader } from '../../components/header';
 import { Text } from '../../components/text';
 import { toast } from '../../components/toast';
-import { Button, Chip, cn, Icon, IconTile, MenuGroup, MenuRow, Muted, Overline, Pill, Segmented, Toggle } from '../../components/ui';
+import { Button, Chip, cn, Icon, type IconName, IconTile, MenuGroup, MenuRow, Muted, Overline, Pill, Segmented, Toggle } from '../../components/ui';
 import { isoDay } from '../../lib/format';
 import { useT } from '../../lib/i18n';
 import { applyReminder, DEFAULT_REMINDER, loadReminder, type ReminderSetting, useNotifications } from '../../lib/notifications';
@@ -35,7 +35,7 @@ import {
   type WidgetInfo,
 } from '../../services/preferences';
 
-type SectionId = 'language' | 'appearance' | 'dashboard' | 'navigation' | 'display' | 'notifications';
+type SectionId = 'view' | 'language' | 'appearance' | 'dashboard' | 'navigation' | 'display' | 'notifications';
 
 function Section({ title, sub, onLayout, children }: { title: string; sub?: string; onLayout: (e: LayoutChangeEvent) => void; children: ReactNode }) {
   return (
@@ -65,7 +65,7 @@ export default function PreferencesScreen() {
   const t = useT();
   const { section } = useLocalSearchParams<{ section?: SectionId }>();
   const { prefs, language, theme, update, setLanguage, setTheme, reset } = usePreferences();
-  const { can } = useSession();
+  const { can, simple, setUiMode } = useSession();
   const confirm = useConfirm();
   const insets = useSafeAreaInsets();
 
@@ -117,6 +117,14 @@ export default function PreferencesScreen() {
     <View className="flex-1 bg-card">
       <ScreenHeader compact back title={t('preferences')} subtitle={t('preferencesNote')} />
       <ScrollView ref={scroll} className="flex-1 bg-card" contentContainerClassName="gap-3 px-4 pt-2" contentContainerStyle={{ paddingBottom: 32 + insets.bottom }}>
+        <Section title={t('secMyPreferences')} sub={t('secMyPreferencesSub')} onLayout={at('view')}>
+          <Text className="px-1 text-[13px] font-semibold text-foreground">{t('viewMode')}</Text>
+          <View className="gap-2.5">
+            <ViewChoice icon="square" title={t('simpleView')} sub={t('simpleViewSub')} on={simple} onPress={() => void setUiMode('simple')} />
+            <ViewChoice icon="grid" title={t('fullView')} sub={t('fullViewSub')} on={!simple} onPress={() => void setUiMode('full')} />
+          </View>
+        </Section>
+
         <Section title={t('language')} onLayout={at('language')}>
           <Segmented<Language>
             value={language}
@@ -140,6 +148,8 @@ export default function PreferencesScreen() {
           />
         </Section>
 
+        {/* the dashboard layout belongs to the full Home; the simple Home has a fixed, plain layout */}
+        {!simple && (
         <Section title={t('dashboardLayout')} sub={t('dashboardLayoutSub')} onLayout={at('dashboard')}>
           <MenuGroup inset>
             {ordered.map((w, i) => {
@@ -161,6 +171,7 @@ export default function PreferencesScreen() {
           </MenuGroup>
           <Button kind="ghost" size="md" icon="refresh-cw" title={t('restoreDefaultLayout')} onPress={restoreLayout} className="self-start" />
         </Section>
+        )}
 
         <Section title={t('navigationPref')} sub={`${t('landingScreen')} · ${t('landingScreenSub')}`} onLayout={at('navigation')}>
           <MenuGroup inset>
@@ -213,6 +224,31 @@ export default function PreferencesScreen() {
         </View>
       </ScrollView>
     </View>
+  );
+}
+
+/** One big "screen view" card (Simple / All features). Applies at once; there is no Save button. */
+function ViewChoice({ icon, title, sub, on, onPress }: { icon: IconName; title: string; sub: string; on: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: on }}
+      accessibilityLabel={`${title}. ${sub}`}
+      className={cn(
+        'min-h-[76px] flex-row items-center gap-3.5 rounded-2xl border-2 px-4 py-3.5 active:opacity-85',
+        on ? 'border-saffron bg-saffron-soft' : 'border-border bg-background',
+      )}
+    >
+      <IconTile icon={icon} tone={on ? 'saffron' : 'neutral'} />
+      <View className="flex-1 gap-0.5">
+        <Text className="text-base font-bold text-foreground">{title}</Text>
+        <Text className="text-[13px] leading-[18px] text-muted-foreground">{sub}</Text>
+      </View>
+      <View className={cn('h-6 w-6 items-center justify-center rounded-full border-2', on ? 'border-saffron bg-saffron' : 'border-border')}>
+        {on && <Icon name="check" size={14} colorClassName="accent-saffron-foreground" />}
+      </View>
+    </Pressable>
   );
 }
 

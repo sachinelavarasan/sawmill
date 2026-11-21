@@ -63,8 +63,11 @@ const PrefsCtx = createContext<PreferencesValue | null>(null);
 const isLanguage = (v: unknown): v is Language => v === 'en' || v === 'ta';
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
-  const { user } = useSession();
+  const { user, saveLanguage } = useSession();
   const userId = user?.id ?? null;
+  /** the account's language at the moment this user's record loads (the server wins on open) */
+  const accountLangRef = useRef<Language | null>(null);
+  accountLangRef.current = isLanguage(user?.preferredLanguage) ? user.preferredLanguage : null;
   const [device, setDevice] = useState<DevicePreferences | null>(null);
   const [loaded, setLoaded] = useState<{ userId: string; prefs: UserPreferences } | null>(null);
   /** what was picked on the login screen since the last sign-out — given to a first-time user */
@@ -93,6 +96,8 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         if (loginPick.current.theme) prefs.theme = loginPick.current.theme;
       }
       loginPick.current = {};
+      // the language saved on the user (set on the web or another phone) wins over this phone's copy
+      if (accountLangRef.current) prefs.language = accountLangRef.current;
       setLoaded({ userId, prefs });
     });
     return () => {
@@ -139,13 +144,15 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const signedIn = !!current;
   const setLanguage = useCallback(
     (l: Language) => {
-      if (signedIn) update((p) => (p.language === l ? p : { ...p, language: l }));
-      else {
+      if (signedIn) {
+        update((p) => (p.language === l ? p : { ...p, language: l }));
+        saveLanguage(l); // follows the user to the web and other phones
+      } else {
         loginPick.current.language = l;
         setDevice((d) => d && { ...d, language: l });
       }
     },
-    [signedIn, update],
+    [signedIn, update, saveLanguage],
   );
   const setTheme = useCallback(
     (t: ThemePreference) => {

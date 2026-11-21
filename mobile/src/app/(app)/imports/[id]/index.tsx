@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { Text } from '../../../../components/text';
 import { useConfirm } from '../../../../components/confirm';
+import { Fold } from '../../../../components/fold';
 import { NumberField, Field } from '../../../../components/form';
 import { HeaderButton, Page, ScreenHeader } from '../../../../components/header';
 import { PurchaseDetails } from '../../../../components/PurchaseDetails';
@@ -23,9 +24,12 @@ import {
   StatPair,
   StatusPill,
 } from '../../../../components/ui';
+import { toast } from '../../../../components/toast';
 import { WorkflowBar } from '../../../../components/workflow';
+import { BackToSawingBar } from '../../../../components/way-back-bar';
+import { param, sawingLink } from '../../../../lib/ways-back';
 import { dateTime, inr, int, num3, parseNum, timeOnly } from '../../../../lib/format';
-import { useSubmit } from '../../../../lib/hooks';
+import { useLocked, useSubmit } from '../../../../lib/hooks';
 import { useT } from '../../../../lib/i18n';
 import { type ImportDetail, importsApi, type Unloading } from '../../../../lib/imports-api';
 import { usePendingLogs } from '../../../../lib/offline-logs';
@@ -33,10 +37,11 @@ import { invalidateOperations, useApi } from '../../../../lib/query';
 import { useSession } from '../../../../lib/session';
 
 export default function ImportDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, back } = useLocalSearchParams<{ id: string; back?: string }>();
   const t = useT();
   const router = useRouter();
-  const { can, user } = useSession();
+  const { can, user, simple } = useSession();
+  const forSawing = sawingLink(param(back));
   const q = useApi<ImportDetail>(`/imports/${id}`);
   const load = q.data;
   /** logs measured offline for this load that the server hasn't got yet */
@@ -58,6 +63,22 @@ export default function ImportDetailScreen() {
       ]
     : [];
 
+  const moreDetails = load && (
+    <>
+      <SectionTitle>{t('unloading')}</SectionTitle>
+      <UnloadingSection load={load} onChanged={() => void q.refetch()} />
+
+      <SectionTitle>{t('importDetails')}</SectionTitle>
+      <Card>
+        {details
+          .filter((d): d is [string, string] => !!d[1])
+          .map(([k, v]) => (
+            <KV key={k} label={k} value={v} />
+          ))}
+      </Card>
+    </>
+  );
+
   return (
     <View className="flex-1 bg-background">
       <ScreenHeader compact
@@ -72,6 +93,7 @@ export default function ImportDetailScreen() {
 
         {load && (
           <>
+            {forSawing && <BackToSawingBar back={forSawing} loadId={load.id} />}
             <View className="flex-row items-center gap-2">
               <StatusPill status={load.status} />
               <Muted>{dateTime(load.arrivalAt)}</Muted>
@@ -85,7 +107,7 @@ export default function ImportDetailScreen() {
               kind={load.editable ? 'primary' : 'secondary'}
               icon={load.editable ? 'edit-3' : 'list'}
               title={load.editable ? t('measure') : t('measurementHistory')}
-              onPress={() => router.push(`/imports/${id}/measure`)}
+              onPress={() => router.push({ pathname: '/imports/[id]/measure', params: { id, ...(forSawing && { back: forSawing }) } })}
             />
 
             <WorkflowBar
@@ -100,19 +122,20 @@ export default function ImportDetailScreen() {
               onDone={() => void q.refetch()}
             />
 
-            <SectionTitle>{t('unloading')}</SectionTitle>
-            <UnloadingSection load={load} onChanged={() => void q.refetch()} />
-
-            <SectionTitle>{t('importDetails')}</SectionTitle>
-            <Card>
-              {details
-                .filter((d): d is [string, string] => !!d[1])
-                .map(([k, v]) => (
-                  <KV key={k} label={k} value={v} />
-                ))}
-            </Card>
-
-            {can(Permission.FINANCE_VIEW) && <PurchaseDetails importId={load.id} totalCft={load.totalCft} />}
+            {simple ? (
+              // simple view: the daily work up front (measure, send), the purchase, then the rest folded away
+              <>
+                {can(Permission.FINANCE_VIEW) && <PurchaseDetails importId={load.id} totalCft={load.totalCft} />}
+                <Fold title={t('moreDetails')}>
+                  {moreDetails}
+                </Fold>
+              </>
+            ) : (
+              <>
+                {moreDetails}
+                {can(Permission.FINANCE_VIEW) && <PurchaseDetails importId={load.id} totalCft={load.totalCft} />}
+              </>
+            )}
           </>
         )}
       </Page>
@@ -138,16 +161,19 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
     sheet.close();
     setVehicle('');
     setDriver('');
+    toast(t('unloadingAddedToast'), 'success', vehicle.trim());
     onChanged();
   });
 
-  async function run(u: Unloading, fn: () => Promise<unknown>) {
-    if (busyId) return;
+  // End / Delete: one at a time, locked on the tap (a busy state alone lets a double tap through)
+  const locked = useLocked();
+  async function run(u: Unloading, fn: () => Promise<unknown>, done: string) {
     setBusyId(u.id);
     setRowError(null);
     try {
       await fn();
       await invalidateOperations();
+      toast(done, 'success', u.vehicleNumber);
       onChanged();
     } catch (e) {
       setRowError((e as Error).message);
@@ -156,11 +182,12 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
     }
   }
 
-  async function remove(u: Unloading) {
+  const end = locked((u: Unloading) => run(u, () => importsApi.endUnloading(load.id, u.id), t('unloadingEndedToast')));
+  const remove = locked(async (u: Unloading) => {
     if (await confirm({ title: u.vehicleNumber, message: t('confirmDelete'), confirmText: t('delete'), cancelText: t('cancel'), destructive: true })) {
-      await run(u, () => importsApi.removeUnloading(load.id, u.id));
+      await run(u, () => importsApi.removeUnloading(load.id, u.id), t('unloadingDeletedToast'));
     }
-  }
+  });
 
   const total = load.unloadings.reduce((sum, u) => sum + (u.totalCharges ?? 0), 0);
 
@@ -186,7 +213,7 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
           {load.editable && (
             <View className="flex-row items-center gap-2.5">
               {!u.endAt && (
-                <Button className="flex-1" size="md" icon="square" title={t('endNow')} busy={busyId === u.id} onPress={() => void run(u, () => importsApi.endUnloading(load.id, u.id))} />
+                <Button className="flex-1" size="md" icon="square" title={t('endNow')} busy={busyId === u.id} onPress={() => void end(u)} />
               )}
               <View className="flex-1" />
               <IconButton icon="trash-2" tone="bad" label={t('delete')} onPress={() => void remove(u)} />
