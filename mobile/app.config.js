@@ -31,7 +31,10 @@ const withIncreasedMetaspace = (config) =>
  * next to this file (git-ignored), or point GOOGLE_SERVICES_JSON at it (an EAS file secret).
  * Without it the app still builds; only remote push is off on Android.
  */
-const projectId = process.env.EAS_PROJECT_ID;
+// The EAS project (from `eas init`). Not a secret. Kept here, not only in .env: eas-cli doesn't read
+// .env, and .env (git-ignored) never reaches the build — the app would ship without a project id
+// (no OTA updates, no push token). EAS_PROJECT_ID still overrides it, e.g. for a second project.
+const projectId = process.env.EAS_PROJECT_ID || '23c86d2c-7be8-4aac-b3bf-e2f9edb57bcd';
 
 const googleServicesFile =
   process.env.GOOGLE_SERVICES_JSON || (fs.existsSync(path.join(__dirname, 'google-services.json')) ? './google-services.json' : undefined);
