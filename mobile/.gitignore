@@ -30,3 +30,4 @@ play-console-services.json
 
 # Firebase (Android push) — keep out of git
 google-services.json
+*.apk
