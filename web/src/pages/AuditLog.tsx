@@ -2,7 +2,6 @@ import { ChevronRightIcon, ScrollTextIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { dateTime, useApi } from '../components/common';
@@ -10,6 +9,7 @@ import { type Column, DataTable } from '../components/data-table';
 import { ALL, LoadState, Page, PageHeader, usePaging } from '../components/page';
 import { Box, Boxes, QuickPanel, Tag } from '../components/quick-panel';
 import { TKey, useI18n } from '../i18n';
+import { DatePicker } from '../components/date-picker';
 
 type Json = Record<string, unknown> | null;
 interface AuditRow {
@@ -252,9 +252,9 @@ export function AuditLogPage() {
           </SelectContent>
         </Select>
         <div className="flex items-center gap-1.5">
-          <Input type="date" aria-label={t('from')} title={t('from')} value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} className="h-10 w-[9.5rem]" />
+          <DatePicker aria-label={t('from')} placeholder={t('from')} value={from} max={to || undefined} onChange={setFrom} clearable className="w-[10rem] [&_button]:h-10" />
           <span className="text-muted-foreground">–</span>
-          <Input type="date" aria-label={t('to')} title={t('to')} value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} className="h-10 w-[9.5rem]" />
+          <DatePicker aria-label={t('to')} placeholder={t('to')} value={to} min={from || undefined} onChange={setTo} clearable className="w-[10rem] [&_button]:h-10" />
         </div>
         {anyFilter && (
           <Button variant="ghost" className="h-10" onClick={clear}>

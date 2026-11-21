@@ -1,8 +1,7 @@
-import { CalendarRangeIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useI18n } from '../i18n';
+import { DatePicker } from './date-picker';
 
 export interface PeriodValue {
   from: string;
@@ -32,7 +31,7 @@ export function PeriodPicker({ value, onChange, className }: { value: PeriodValu
   const p = presets();
   const same = (a: PeriodValue) => a.from === value.from && a.to === value.to;
   return (
-    <div className={cn('flex flex-wrap items-center gap-2', className)}>
+    <div data-tour="period" className={cn('flex flex-wrap items-center gap-2', className)}>
       <div role="group" aria-label={t('period')} className="flex flex-wrap items-center gap-1.5">
         {(['thisMonth', 'lastMonth', 'thisQuarter', 'thisYear', 'lastYear'] as const).map((k) => (
           <Button key={k} type="button" size="sm" variant={same(p[k]) ? 'default' : 'outline'} className="h-10 px-3.5" aria-pressed={same(p[k])} onClick={() => onChange(p[k])}>
@@ -40,25 +39,10 @@ export function PeriodPicker({ value, onChange, className }: { value: PeriodValu
           </Button>
         ))}
       </div>
-      <div className="flex h-10 items-center gap-1.5 rounded-lg border border-transparent bg-control pr-2 pl-3 sm:ml-auto transition-colors hover:bg-control-hover focus-within:border-ring focus-within:bg-card focus-within:ring-[3px] focus-within:ring-ring/50">
-        <CalendarRangeIcon className="size-4 text-muted-foreground" />
-        <Input
-          type="date"
-          aria-label={t('from')}
-          value={value.from}
-          max={value.to}
-          onChange={(e) => e.target.value && onChange({ ...value, from: e.target.value })}
-          className="h-8 w-[8.5rem] border-0 bg-transparent px-1 shadow-none hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0"
-        />
+      <div className="flex items-center gap-1.5 sm:ml-auto">
+        <DatePicker aria-label={t('from')} value={value.from} max={value.to} required onChange={(v) => v && onChange({ ...value, from: v })} className="w-[9.5rem] [&_button]:h-10" />
         <span className="text-muted-foreground">–</span>
-        <Input
-          type="date"
-          aria-label={t('to')}
-          value={value.to}
-          min={value.from}
-          onChange={(e) => e.target.value && onChange({ ...value, to: e.target.value })}
-          className="h-8 w-[8.5rem] border-0 bg-transparent px-1 shadow-none hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0"
-        />
+        <DatePicker aria-label={t('to')} value={value.to} min={value.from} required onChange={(v) => v && onChange({ ...value, to: v })} className="w-[9.5rem] [&_button]:h-10" />
       </div>
     </div>
   );

@@ -139,7 +139,7 @@ export class ProductionService {
         .from(importLoads)
         .where(eq(importLoads.id, run.importLoadId)),
       this.db.select().from(productionOutputs).where(eq(productionOutputs.productionRunId, id)).orderBy(asc(productionOutputs.thicknessIn), asc(productionOutputs.widthIn), asc(productionOutputs.lengthFt)),
-      rawBalance(this.db, run.importLoadId),
+      this.sourceAvailable(this.db, run.importLoadId),
     ]);
     const inputCft = num(run.inputCft);
     const outputCft = Number(run.outputCft);
@@ -261,7 +261,7 @@ export class ProductionService {
       if (inputCft == null) throw new BadRequestException('Enter the raw CFT used before submitting');
       const [{ outputs }] = await tx.select({ outputs: count() }).from(productionOutputs).where(eq(productionOutputs.productionRunId, id));
       if (outputs === 0) throw new BadRequestException('Add at least one finished size before submitting');
-      const available = await rawBalance(tx, before.importLoadId);
+      const available = await this.sourceAvailable(tx, before.importLoadId);
       if (inputCft > available + 0.0005) {
         throw new ConflictException(`Only ${formatCft(available)} CFT of raw stock is left in this import load`);
       }
@@ -281,6 +281,11 @@ export class ProductionService {
     await this.db.transaction(async (tx) => {
       const before = await this.findRun(tx, actor, id, true);
       if (before.status !== 'SUBMITTED') throw new ConflictException('Only submitted production runs can be approved');
+      // the logs being sawn must be approved stock first
+      const [source] = await tx.select({ code: importLoads.code, status: importLoads.status }).from(importLoads).where(eq(importLoads.id, before.importLoadId));
+      if (source && source.status !== 'APPROVED') {
+        throw new ConflictException(`Approve load in ${source.code} first — this sawing uses its logs`);
+      }
       const [after] = await tx
         .update(productionRuns)
         .set({ status: 'APPROVED', reviewedById: actor.id, reviewedAt: new Date(), updatedAt: new Date() })
@@ -384,15 +389,28 @@ export class ProductionService {
     await assertStockNotNegative(tx, loads);
   }
 
-  /** Production draws only on approved import loads in the same mill (any accountant's). */
+  /**
+   * Any import load in the same mill (any accountant's). Sawing may start on a load that is
+   * measured but not approved yet — e.g. one just loaded in for this sawing — but the run can only
+   * be approved once the load is (see approve), so stock is only ever posted from approved logs.
+   */
   private async findSourceLoad(tx: DbOrTx, actor: AuthUser, id: string) {
     const [load] = await tx
       .select({ id: importLoads.id, woodType: importLoads.woodType, status: importLoads.status })
       .from(importLoads)
       .where(and(eq(importLoads.id, id), eq(importLoads.millId, actor.millId)));
     if (!load) throw new BadRequestException('Import load not found');
-    if (load.status !== 'APPROVED') throw new BadRequestException('Only approved import loads have raw stock to saw');
     return load;
+  }
+
+  /**
+   * Raw CFT the run may take from its load: what is left in stock for an approved load, or what
+   * has been measured so far for one still waiting for approval.
+   */
+  private async sourceAvailable(tx: DbOrTx, importLoadId: string): Promise<number> {
+    const [load] = await tx.select({ status: importLoads.status, totalCft: importLoads.totalCft }).from(importLoads).where(eq(importLoads.id, importLoadId));
+    if (load && load.status !== 'APPROVED') return Number(load.totalCft ?? 0);
+    return rawBalance(tx, importLoadId);
   }
 
   private checkTimes(startAt: Date | null, endAt: Date | null) {

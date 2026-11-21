@@ -1,6 +1,7 @@
+import { sizeLabel } from '@timbertrail/shared';
 import { PlusIcon, RulerIcon } from 'lucide-react';
 import { FormEvent, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,6 +18,8 @@ import { useI18n } from '../i18n';
 import { fromLocalInput } from './Imports';
 import { dateOnly, todayLocal } from './Production';
 import { ExportQuickView } from './QuickViews';
+import { asEvent, DatePicker, DateTimePicker } from '../components/date-picker';
+import { LorryPicker } from '../components/lorry-picker';
 
 export interface ExportSummary {
   id: string;
@@ -79,11 +82,14 @@ export const exportBody = (f: ExportForm) =>
   });
 
 
+/** The few columns the simple view keeps: what it is, when, and where it stands. */
+const SIMPLE_COLUMNS = ['code', 'date', 'lorry', 'cft', 'status', 'open'];
+
 export function ExportsPage() {
   const { t } = useI18n();
   const { user } = useAuth();
   const isOwner = user?.role === 'OWNER';
-  const list = useRecordList<ExportSummary>({ path: '/exports', name: 'exports' });
+  const list = useRecordList<ExportSummary>({ path: '/exports', name: 'exports', simpleColumns: SIMPLE_COLUMNS });
   const { data, loading, error, reload } = list;
   /** the export shown in the side panel, if any */
   const [peek, setPeek] = useState<ExportSummary | null>(null);
@@ -124,7 +130,7 @@ export function ExportsPage() {
     );
     return cols;
   }, [t, isOwner]);
-  const columns = useMemo(() => allColumns.filter((c) => !list.hidden.includes(c.id)), [allColumns, list.hidden]);
+  const columns = useMemo(() => list.shown(allColumns), [allColumns, list.hidden, list.simple]);
 
   return (
     <Page>
@@ -173,54 +179,122 @@ export function ExportsPage() {
 export function ExportFields({ form, onChange, finished }: { form: ExportForm; onChange: (f: ExportForm) => void; finished: FinishedStockRow[] }) {
   const { t } = useI18n();
   const set = (k: keyof ExportForm) => (e: { target: { value: string } }) => onChange({ ...form, [k]: e.target.value });
-  const woods = [...new Set(finished.map((f) => f.woodType))];
-  // loads holding finished stock of the chosen wood type (all of them if none chosen yet)
-  const loads = new Map<string, string>();
-  finished.filter((f) => !form.woodType || f.woodType === form.woodType).forEach((f) => loads.set(f.importLoadId, f.importCode));
-  if (form.importLoadId && !loads.has(form.importLoadId)) loads.set(form.importLoadId, '…');
+  // every wood with sawn pieces in stock, with what it holds
+  const byWood = new Map<string, { sizes: Set<string>; pcs: number; cft: number }>();
+  for (const f of finished) {
+    const w = byWood.get(f.woodType) ?? { sizes: new Set<string>(), pcs: 0, cft: 0 };
+    w.sizes.add(sizeLabel(f.thicknessIn, f.widthIn, f.lengthFt));
+    w.pcs += f.pieces;
+    w.cft += f.cft;
+    byWood.set(f.woodType, w);
+  }
+  const woods = [...byWood.keys()].sort();
+  // an older load out may carry a wood no longer in stock: keep it pickable
+  if (form.woodType && !byWood.has(form.woodType)) woods.unshift(form.woodType);
+
+  // loads holding sawn pieces of the chosen wood, each with its sizes and totals
+  const loads = new Map<string, { code: string; wood: string; sizes: { label: string; pcs: number }[]; pcs: number; cft: number }>();
+  for (const f of finished.filter((x) => !form.woodType || x.woodType === form.woodType)) {
+    const l = loads.get(f.importLoadId) ?? { code: f.importCode, wood: f.woodType, sizes: [], pcs: 0, cft: 0 };
+    l.sizes.push({ label: sizeLabel(f.thicknessIn, f.widthIn, f.lengthFt), pcs: f.pieces });
+    l.pcs += f.pieces;
+    l.cft += f.cft;
+    loads.set(f.importLoadId, l);
+  }
+  const chosenLoad = form.importLoadId ? loads.get(form.importLoadId) : undefined;
+  const summary = (x: { sizes: { length: number } | Set<string>; pcs: number; cft: number }) =>
+    t('stockSummaryLine', { sizes: 'size' in x.sizes ? x.sizes.size : x.sizes.length, pcs: x.pcs.toLocaleString('en-IN'), cft: num3(x.cft) });
 
   return (
     <>
       <FormSection step={1} title={t('secExportInfo')} description={t('secExportInfoSub')}>
         <Field id="exp-date" label={t('exportDate')} required>
-          <Input id="exp-date" type="date" value={form.exportDate} onChange={set('exportDate')} required />
+          <DatePicker id="exp-date" value={form.exportDate} onChange={asEvent(set('exportDate'))} required />
         </Field>
-        <Field id="exp-wood" label={t('woodType')} required hint={t('exportWoodHint')}>
-          <Input id="exp-wood" value={form.woodType} onChange={set('woodType')} required minLength={2} maxLength={60} list="finished-woods" />
-          <datalist id="finished-woods">
-            {woods.map((w) => (
-              <option key={w} value={w} />
-            ))}
-          </datalist>
+        <Field id="exp-wood" label={t('woodType')} required hint={finished.length ? t('exportWoodHint') : t('noSawnStock')}>
+          {/* only woods with sawn pieces in stock; the line under each says what it holds */}
+          <Select
+            value={form.woodType}
+            onValueChange={(woodType) =>
+              // a load of another wood no longer fits: let it go
+              onChange({ ...form, woodType, importLoadId: loads.get(form.importLoadId)?.wood === woodType ? form.importLoadId : '' })
+            }
+            required
+          >
+            <SelectTrigger id="exp-wood" className="h-auto! min-h-11 w-full py-2">
+              <SelectValue placeholder={t('pickWoodType')} />
+            </SelectTrigger>
+            <SelectContent>
+              {woods.map((w) => {
+                const info = byWood.get(w);
+                return (
+                  <SelectItem key={w} value={w} className="py-2">
+                    <span className="flex flex-col items-start">
+                      <span className="font-semibold">{w}</span>
+                      {info && <span className="text-xs text-muted-foreground tabular-nums">{summary(info)}</span>}
+                    </span>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+          {/* keeps the browser's "please fill in" check */}
+          <input tabIndex={-1} aria-hidden required value={form.woodType} onChange={() => undefined} className="sr-only" />
         </Field>
         <Field id="exp-load" label={t('defaultLoad')} hint={t('defaultLoadHint')} className="sm:col-span-2">
-          <Select value={form.importLoadId || ALL} onValueChange={(v) => onChange({ ...form, importLoadId: v === ALL ? '' : v })}>
-            <SelectTrigger id="exp-load" className="w-full">
-              <SelectValue />
+          <Select value={form.importLoadId || ALL} onValueChange={(v) => onChange({ ...form, importLoadId: v === ALL ? '' : v })} disabled={!form.woodType}>
+            <SelectTrigger id="exp-load" className="h-auto! min-h-11 w-full py-2">
+              <SelectValue placeholder={t('pickWoodType')} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>{t('notSet')}</SelectItem>
-              {[...loads].map(([id, code]) => (
-                <SelectItem key={id} value={id}>
-                  {code}
+              {[...loads].map(([id, l]) => (
+                <SelectItem key={id} value={id} className="py-2">
+                  <span className="flex flex-col items-start">
+                    <span className="font-semibold">
+                      {l.code} · {l.wood}
+                    </span>
+                    <span className="text-xs text-muted-foreground tabular-nums">{summary(l)}</span>
+                  </span>
                 </SelectItem>
               ))}
+              {form.importLoadId && !loads.has(form.importLoadId) && <SelectItem value={form.importLoadId}>…</SelectItem>}
             </SelectContent>
           </Select>
+          {/* what the chosen load holds, so there is no guessing */}
+          {chosenLoad && (
+            <div className="mt-2 rounded-lg bg-muted/60 px-3 py-2.5">
+              <div className="mb-1.5 text-xs font-medium text-muted-foreground">{t('inThisLoad')}</div>
+              <div className="flex flex-wrap gap-1.5">
+                {chosenLoad.sizes.slice(0, 8).map((z) => (
+                  <span key={z.label} className="rounded-full bg-card px-2.5 py-1 text-xs font-medium tabular-nums shadow-xs">
+                    {z.label} · <span className="font-bold">{z.pcs}</span>
+                  </span>
+                ))}
+                {chosenLoad.sizes.length > 8 && <span className="px-1 py-1 text-xs text-muted-foreground">{t('moreSizes', { n: chosenLoad.sizes.length - 8 })}</span>}
+              </div>
+            </div>
+          )}
         </Field>
       </FormSection>
 
       <FormSection step={2} title={t('secLorry')} description={t('secExportLorrySub')}>
         <Field id="exp-lorry" label={t('lorryNumber')} required hint={t('lorryNumberHint')} className="sm:col-span-2">
-          <Input
+          <LorryPicker
             id="exp-lorry"
             value={form.lorryNumber}
-            onChange={set('lorryNumber')}
             required
-            minLength={4}
-            maxLength={20}
-            autoCapitalize="characters"
-            placeholder="TN 45 AB 1234"
+            onChange={(lorryNumber, known) =>
+              onChange({
+                ...form,
+                lorryNumber,
+                // a lorry seen before brings its driver and owner, where those are still empty
+                driverName: form.driverName || known?.driverName || '',
+                driverMobile: form.driverMobile || known?.driverMobile || '',
+                lorryOwnerName: form.lorryOwnerName || known?.lorryOwnerName || '',
+                lorryOwnerMobile: form.lorryOwnerMobile || known?.lorryOwnerMobile || '',
+              })
+            }
           />
         </Field>
         <Field id="exp-driver" label={t('driverName')}>
@@ -237,16 +311,16 @@ export function ExportFields({ form, onChange, finished }: { form: ExportForm; o
         </Field>
       </FormSection>
 
-      <FormSection step={3} title={t('secLoading')} description={t('secLoadingSub')}>
+      <FormSection step={3} title={t('secLoading')} description={t('secLoadingSub')} optional>
         <Field id="exp-start" label={t('startTime')}>
-          <Input id="exp-start" type="datetime-local" value={form.startAt} onChange={set('startAt')} />
+          <DateTimePicker id="exp-start" value={form.startAt} onChange={asEvent(set('startAt'))} />
         </Field>
         <Field id="exp-end" label={t('endTime')}>
-          <Input id="exp-end" type="datetime-local" value={form.endAt} onChange={set('endAt')} min={form.startAt || undefined} />
+          <DateTimePicker id="exp-end" value={form.endAt} onChange={asEvent(set('endAt'))} min={form.startAt || undefined} />
         </Field>
       </FormSection>
 
-      <FormSection step={4} title={t('secAdditional')} description={t('secAdditionalSub')}>
+      <FormSection step={4} title={t('secAdditional')} description={t('secAdditionalSub')} optional>
         <Field id="exp-notes" label={t('notes')} hint={t('notesHint')} className="sm:col-span-2">
           <Textarea id="exp-notes" value={form.notes} onChange={set('notes')} maxLength={1000} rows={3} />
         </Field>
@@ -257,9 +331,12 @@ export function ExportFields({ form, onChange, finished }: { form: ExportForm; o
 
 export function NewExportPage() {
   const { t } = useI18n();
+  const { simple } = useAuth();
   const navigate = useNavigate();
   const stock = useLoad(() => api<{ finished: FinishedStockRow[] }>('/stock'), []);
-  const [form, setForm] = useState(emptyExportForm);
+  // opened from a stock card ("Load out"): its wood is already chosen
+  const [params] = useSearchParams();
+  const [form, setForm] = useState(() => ({ ...emptyExportForm(), woodType: params.get('wood') ?? '' }));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // anything typed or picked since the page opened counts as unsaved
@@ -281,7 +358,11 @@ export function NewExportPage() {
 
   return (
     <Page className="max-w-5xl">
-      <PageHeader title={t('newExport')} subtitle={t('requiredNote')} back={{ to: '/exports', label: t('exports') }} />
+      <PageHeader
+        title={simple ? t('simpleLoadOut') : t('newExport')}
+        subtitle={simple ? undefined : t('requiredNote')}
+        back={{ to: '/exports', label: t(simple ? 'simpleLoadOut' : 'exports') }}
+      />
       <LoadState shape="form" loading={stock.loading && !stock.data} error={stock.error} onRetry={stock.reload} />
       <FormCard onSubmit={submit} className="py-7 [&_form]:gap-7">
         <ExportFields form={form} onChange={setForm} finished={stock.data?.finished ?? []} />

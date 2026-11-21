@@ -37,6 +37,12 @@ export class ImportsController {
     return this.imports.create(user, dto);
   }
 
+  /** lorries seen before, for the lorry-number picker (loads in and out) */
+  @Get('lorries')
+  lorries(@CurrentUser() user: AuthUser) {
+    return this.imports.lorries(user);
+  }
+
   @Get(':id')
   detail(@CurrentUser() user: AuthUser, @Id('id') id: string) {
     return this.imports.detail(user, id);

@@ -103,6 +103,12 @@ export const users = pgTable(
     role: roleEnum('role').notNull(),
     isActive: boolean('is_active').notNull().default(true),
     preferredLanguage: text('preferred_language').notNull().default('en'),
+    /** 'simple' (core features only, big tiles) or 'full' (every feature) — the web app's view */
+    uiMode: text('ui_mode').notNull().default('simple'),
+    /** when the user finished or dismissed the web app's guided tour; null = show it on next login */
+    tourCompletedAt: ts('tour_completed_at'),
+    /** the per-page tours (PAGE_TOURS in @timbertrail/shared) this user has already seen */
+    toursSeen: text('tours_seen').array().notNull().default(sql`'{}'::text[]`),
     lastLoginAt: ts('last_login_at'),
     /** bumped to end every session at once (password reset, disable, role change) — checked on each request */
     tokenVersion: integer('token_version').notNull().default(0),

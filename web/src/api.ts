@@ -5,7 +5,7 @@
  * injected into the page) can never read the tokens. A 401 triggers one shared refresh, then the
  * request is retried once; if the refresh fails the session is ended (onSessionLost → login).
  */
-import { apiErrorText, type Permission, type Role } from '@timbertrail/shared';
+import { apiErrorText, type Permission, type Role, type UiMode } from '@timbertrail/shared';
 import axios, { AxiosError, type AxiosResponse, type Method } from 'axios';
 
 export interface Profile {
@@ -14,6 +14,11 @@ export interface Profile {
   username: string;
   role: Role;
   preferredLanguage: string;
+  uiMode: UiMode;
+  /** when the guided tour was finished or dismissed; null = not yet */
+  tourCompletedAt: string | null;
+  /** the per-page tours already seen (PAGE_TOURS) */
+  toursSeen: string[];
   mill: { id: string; name: string; code: string };
   permissions: Permission[];
 }

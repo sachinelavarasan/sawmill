@@ -81,10 +81,11 @@
   --border: #ebebed;
   --input: #e1e1e5;
 
-  /* the fill of a control (input, select, search, segmented track, secondary button): a step darker
-     than --surface-2, so it reads clearly on a white panel */
-  --control: #ebebee;
-  --control-hover: #e2e2e6;
+  /* a control (input, select, search, chip, secondary button): white with a clear edge, so it reads
+     on a white panel AND on the grey page behind the panels (a grey fill vanished there) */
+  --control: #ffffff;
+  --control-hover: #f5f5f7;
+  --control-border: #d6d6dd;
 
   --topbar: #ffffff;
   --content-bg: #eeeef0;
@@ -125,8 +126,8 @@
   /* behind a dialog or drawer: dims and (with backdrop blur) softens the page */
   --scrim: rgb(17 17 19 / 0.28);
 
-  --warning: #a16207;
-  --warning-soft: #fef8e1;
+  --warning: #b45309;
+  --warning-soft: #fdf0e2;
 
   --info: #4f46e5;
   --info-soft: #eef0fe;
@@ -172,6 +173,7 @@
 
   --control: #2a2a30;
   --control-hover: #34343b;
+  --control-border: #3d3d45;
 
   --topbar: #161619;
   --content-bg: #0b0b0d;
@@ -208,8 +210,8 @@
 
   --scrim: rgb(0 0 0 / 0.55);
 
-  --warning: #facc15;
-  --warning-soft: #2a2410;
+  --warning: #f8b55c;
+  --warning-soft: #2c1f12;
 
   --info: #a5b4fc;
   --info-soft: #1b1d3a;
@@ -250,6 +252,7 @@
 
   --control: #2a2a30;
   --control-hover: #34343b;
+  --control-border: #3d3d45;
 
     --topbar: #161619;
     --content-bg: #0b0b0d;
@@ -286,8 +289,8 @@
 
   --scrim: rgb(0 0 0 / 0.55);
 
-    --warning: #facc15;
-    --warning-soft: #2a2410;
+    --warning: #f8b55c;
+    --warning-soft: #2c1f12;
 
     --info: #a5b4fc;
     --info-soft: #1b1d3a;
@@ -353,10 +356,11 @@ body {
     --border: #ebebed;
     --input: #e1e1e5;
 
-  /* the fill of a control (input, select, search, segmented track, secondary button): a step darker
-     than --surface-2, so it reads clearly on a white panel */
-  --control: #ebebee;
-  --control-hover: #e2e2e6;
+  /* a control (input, select, search, chip, secondary button): white with a clear edge, so it reads
+     on a white panel AND on the grey page behind the panels (a grey fill vanished there) */
+  --control: #ffffff;
+  --control-hover: #f5f5f7;
+  --control-border: #d6d6dd;
 
     --topbar: #ffffff;
     --content-bg: #eeeef0;
@@ -397,8 +401,8 @@ body {
   /* behind a dialog or drawer: dims and (with backdrop blur) softens the page */
   --scrim: rgb(17 17 19 / 0.28);
 
-    --warning: #a16207;
-    --warning-soft: #fef8e1;
+    --warning: #b45309;
+    --warning-soft: #fdf0e2;
 
     --info: #4f46e5;
     --info-soft: #eef0fe;

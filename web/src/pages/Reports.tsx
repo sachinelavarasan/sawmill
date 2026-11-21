@@ -147,7 +147,7 @@ export function ReportsPage() {
         <LoadState shape="list" loading={list.loading && !list.data} error={list.error} onRetry={list.reload} />
         {list.data &&
           shownGroups.map(([g, label]) => (
-            <section key={g} className="flex flex-col gap-4">
+            <section key={g} data-tour={`reports-${g}`} className="flex flex-col gap-4">
               <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
                 {label}
                 {g === 'financial' && <OwnerOnly />}
@@ -223,7 +223,7 @@ export function ReportsPage() {
         />
 
         {/* which report, for what period, and which entries */}
-        <Card className="gap-0 py-5">
+        <Card data-tour="report-controls" className="gap-0 py-5">
           <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-4 px-5 sm:px-6">
             {list.data && (
               <Select value={key} onValueChange={(v) => update({ r: v })}>

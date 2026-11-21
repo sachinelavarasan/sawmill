@@ -48,7 +48,7 @@ export function QuickPanel({
       >
         <div className="flex min-h-16 items-center border-b border-border px-6 py-4 pr-16 text-base font-semibold tracking-tight font-display">{title}</div>
         <div className="scroll-quiet flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-6">
-          <div className="flex items-center gap-4 rounded-2xl bg-control p-4">
+          <div className="flex items-center gap-4 rounded-2xl bg-muted p-4">
             <span className="grid size-16 shrink-0 place-items-center rounded-2xl bg-card text-saffron [&_svg]:size-7 [&_svg]:stroke-[1.75]">{icon}</span>
             <div className="min-w-0 flex-1">
               <SheetTitle className="text-xl leading-tight">{code}</SheetTitle>
@@ -90,7 +90,7 @@ export function Box({ label, children, wide }: { label: string; children: ReactN
   return (
     <div className={cn('min-w-0', wide && 'col-span-2')}>
       <div className="mb-1.5 text-xs font-medium text-muted-foreground">{label}</div>
-      <div className="flex min-h-11 items-center rounded-lg bg-control px-3.5 py-2.5 text-sm font-medium break-words">{children || <span className="text-muted-foreground">—</span>}</div>
+      <div className="flex min-h-11 items-center rounded-lg bg-muted px-3.5 py-2.5 text-sm font-medium break-words">{children || <span className="text-muted-foreground">—</span>}</div>
     </div>
   );
 }

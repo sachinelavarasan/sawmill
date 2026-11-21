@@ -18,6 +18,7 @@ import { PeriodPicker, periodQuery, PeriodValue, presets } from '../components/p
 import { useToast } from '../components/toast';
 import { useI18n } from '../i18n';
 import { dateOnly } from './Production';
+import { asEvent, DatePicker } from '../components/date-picker';
 
 interface Balance {
   id: string | null;
@@ -139,7 +140,7 @@ export function AccountsPage() {
           </StatGrid>
 
           <div className="grid items-start gap-5 lg:grid-cols-5">
-            <Section title={t('reportPnl')} className="lg:col-span-3">
+            <Section title={t('reportPnl')} className="lg:col-span-3" tour="sec-pnl">
               <Card className="gap-0 overflow-hidden py-0">
                 <CardContent className="px-0">
                   <PnlGroup title={t('income')} />
@@ -186,7 +187,7 @@ export function AccountsPage() {
       />
 
       {s && (
-        <Section title={t('outstandingBalances')}>
+        <Section title={t('outstandingBalances')} tour="sec-balances">
           <p className="-mt-2 text-sm text-muted-foreground">{t('outstandingNote')}</p>
           <div className="grid grid-cols-1 items-start gap-5 min-[1400px]:grid-cols-2">
             <BalanceTable
@@ -522,7 +523,7 @@ function ExpensesSection({
               </DialogHeader>
               <FormGrid className="sm:grid-cols-2 lg:grid-cols-2">
                 <Field id="exp-date" label={t('date')} required>
-                  <Input id="exp-date" type="date" value={form.date} onChange={set('date')} required />
+                  <DatePicker id="exp-date" value={form.date} onChange={asEvent(set('date'))} required />
                 </Field>
                 <Field id="exp-amount" label={t('amount')} required>
                   <Input id="exp-amount" type="number" min={0.01} step="0.01" inputMode="decimal" value={form.amount} onChange={set('amount')} required className="text-right font-semibold tabular-nums" />

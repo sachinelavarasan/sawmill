@@ -524,7 +524,7 @@ export function OwnerDashboard() {
         <>
           {/* ── what needs the owner, from the data ── */}
           {alerts.length > 0 ? (
-            <Section title={t('secAttention')}>
+            <Section title={t('secAttention')} tour="sec-attention">
               <div className="stagger grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
                 {alerts.map((a) => (
                   // the figure leads, large; what it counts and why it matters follow
@@ -648,7 +648,7 @@ export function OwnerDashboard() {
 
           {/* ── analytics ── */}
           <Reveal>
-            <Section title={t('secAnalytics')}>
+            <Section title={t('secAnalytics')} tour="sec-analytics">
               <div className="grid gap-5 lg:grid-cols-2">
                 {canFinance && (
                   <ChartCard

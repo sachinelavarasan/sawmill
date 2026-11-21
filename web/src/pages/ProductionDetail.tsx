@@ -1,23 +1,26 @@
 import { exportPieceCft, productionWaste, sizeLabel, totalCft } from '@timbertrail/shared';
-import { ArrowUpRightIcon, CheckIcon, EqualIcon, MinusIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { ArrowLeftIcon, ArrowUpRightIcon, CheckIcon, EqualIcon, MinusIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { ReactNode } from 'react';
 import { FormEvent, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { api } from '../api';
+import { useAuth } from '../auth';
 import { dateTime, num3, useLoad } from '../components/common';
 import { StatusBadge } from '../components/status-badge';
 import { useEditGuard } from '../components/leave-guard';
-import { FormActions, FormCard, LoadState, Notice, numCell, Page, PageHeader, Section, TableCard, useClientPaging } from '../components/page';
+import { FormActions, FormCard, LoadState, MoreDetails, Notice, numCell, Page, PageHeader, Section, TableCard, useClientPaging } from '../components/page';
 import { WorkflowBar } from '../components/workflow';
 import { useConfirmDelete } from '../components/confirm';
 import { useI18n } from '../i18n';
 import { toLocalInput } from './Imports';
-import { dateOnly, ProductionFields, ProductionForm, productionBody } from './Production';
+import { dateOnly, loadOutLink, ProductionFields, ProductionForm, productionBody } from './Production';
+import { CalcModeSwitch, CalcPad, useCalcMode } from '../components/calc-pad';
+import { useToast } from '../components/toast';
 
 export interface Output {
   id: string;
@@ -70,16 +73,36 @@ const errorText = (e: unknown) => (e as Error).message;
 
 export function ProductionDetailPage() {
   const { id } = useParams();
+  const [params] = useSearchParams();
+  // started from a load out: the size it needs, and the way back to it
+  const forLoadOut = loadOutLink(params);
+  const wanted: SizeForm | null = params.get('t')
+    ? { thickness: params.get('t') ?? '', width: params.get('w') ?? '', length: params.get('l') ?? '', pieces: params.get('pcs') ?? '' }
+    : null;
   const { t } = useI18n();
+  const { simple } = useAuth();
   const { data: run, loading, error, reload } = useLoad(() => api<ProductionDetail>(`/production/${id}`), [id]);
 
   const blocked = run && (run.inputCft == null || run.outputs.length === 0) ? t('needInputAndOutput') : null;
+  // send for approval / approve: above the record normally, after the sizes in the simple view
+  const workflow = run && (
+    <WorkflowBar
+      base={`/production/${run.id}`}
+      status={run.status}
+      canSubmit={run.canSubmit}
+      canReview={run.canReview}
+      submitBlocked={blocked}
+      confirmApprove={t('confirmApproveProduction', { code: run.code, input: num3(run.inputCft ?? 0), output: num3(run.outputCft) })}
+      approvedNote={run.editable ? t('approvedProductionNote') : undefined}
+      onDone={reload}
+    />
+  );
 
   return (
     <Page>
       <PageHeader
         title={run?.code ?? t('productionDetails')}
-        back={{ to: '/production', label: t('production') }}
+        back={{ to: '/production', label: t(simple ? 'simpleCut' : 'production') }}
         badge={run && <StatusBadge status={run.status} />}
         subtitle={
           run && (
@@ -97,10 +120,23 @@ export function ProductionDetailPage() {
 
       {run && (
         <>
+          {forLoadOut && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-primary-soft px-5 py-3">
+              <span className="text-sm font-medium">{t('sawingForLoadOut', { code: forLoadOut.code })}</span>
+              <Button asChild size="lg" className="h-12">
+                <Link to={forLoadOut.to}>
+                  <ArrowLeftIcon /> {t('backToLoadOut', { code: forLoadOut.code })}
+                </Link>
+              </Button>
+            </div>
+          )}
           {!run.editable && run.status !== 'SUBMITTED' && <Notice>{t('lockedRecord')}</Notice>}
           {run.rejectionReason && <Notice tone="error">{run.rejectionReason}</Notice>}
 
+          {simple && <SimpleRunStrip run={run} onSaved={reload} />}
+
           {/* the run as a sum: raw wood in, finished wood out, and what was lost between them */}
+          {!simple && (
           <div className="grid items-stretch gap-3 sm:gap-5 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
             <Figure label={t('inputCft')} value={run.inputCft != null ? num3(run.inputCft) : '—'} sub={`${run.importCode} · ${run.woodType}`} />
             <Sign>
@@ -128,24 +164,105 @@ export function ProductionDetailPage() {
               </div>
             </Figure>
           </div>
+          )}
           {run.wasteCft != null && run.wasteCft < 0 && <Notice tone="error">{t('outputExceedsInput')}</Notice>}
 
-          <WorkflowBar
-            base={`/production/${run.id}`}
-            status={run.status}
-            canSubmit={run.canSubmit}
-            canReview={run.canReview}
-            submitBlocked={blocked}
-            confirmApprove={t('confirmApproveProduction', { code: run.code, input: num3(run.inputCft ?? 0), output: num3(run.outputCft) })}
-            approvedNote={run.editable ? t('approvedProductionNote') : undefined}
-            onDone={reload}
-          />
-
-          <DetailsSection run={run} onSaved={reload} />
-          <OutputsSection run={run} onChanged={reload} />
+          {!simple && workflow}
+          {simple ? (
+            // the simple view: the sizes cut, then send it (or approve it); the run's details folded away
+            <>
+              <OutputsSection run={run} onChanged={reload} start={wanted} />
+              {workflow}
+              <MoreDetails>
+                <DetailsSection run={run} onSaved={reload} />
+              </MoreDetails>
+            </>
+          ) : (
+            <>
+              <DetailsSection run={run} onSaved={reload} />
+              <OutputsSection run={run} onChanged={reload} start={wanted} />
+            </>
+          )}
         </>
       )}
     </Page>
+  );
+}
+
+/**
+ * The simple view's top of a sawing run: raw used, finished, waste — three plain numbers. The raw
+ * CFT used (needed before sending) is typed right here instead of under "More details".
+ */
+function SimpleRunStrip({ run, onSaved }: { run: ProductionDetail; onSaved: () => void }) {
+  const { t } = useI18n();
+  const toast = useToast();
+  const [raw, setRaw] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const editingRaw = raw != null || (run.editable && run.inputCft == null);
+  const value = raw ?? (run.inputCft != null ? String(run.inputCft) : '');
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    const n = Number(value);
+    if (!(n > 0)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/production/${run.id}`, { method: 'PATCH', body: JSON.stringify({ inputCft: n }) });
+      setRaw(null);
+      toast(t('saved'), 'ok');
+      onSaved();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const cell = 'flex min-w-0 flex-col gap-1 bg-card px-5 py-4';
+  const big = 'text-3xl leading-tight font-bold tabular-nums font-display';
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl bg-border shadow-card sm:grid-cols-3">
+        <div className={cell}>
+          <span className="text-sm text-muted-foreground">{t('inputCft')}</span>
+          {editingRaw && run.editable ? (
+            <form onSubmit={save} className="flex gap-2">
+              <Input
+                type="number"
+                value={value}
+                onChange={(e) => setRaw(e.target.value)}
+                min={0.001}
+                step="0.001"
+                inputMode="decimal"
+                required
+                aria-label={t('inputCft')}
+                className="h-12 text-xl font-bold tabular-nums md:text-xl"
+              />
+              <Button type="submit" className="h-12" disabled={busy || !(Number(value) > 0)}>
+                {t('save')}
+              </Button>
+            </form>
+          ) : (
+            <button type="button" disabled={!run.editable} onClick={() => setRaw(value)} className={cn(big, 'flex items-baseline gap-2 text-left enabled:hover:text-primary')}>
+              {run.inputCft != null ? num3(run.inputCft) : '—'}
+              {run.editable && <PencilIcon className="size-4 self-center text-muted-foreground" aria-label={t('edit')} />}
+            </button>
+          )}
+        </div>
+        <div className={cn(cell, 'bg-primary-soft')}>
+          <span className="text-sm text-muted-foreground">{t('outputCft')}</span>
+          <span className={cn(big, 'text-primary')}>{num3(run.outputCft)}</span>
+        </div>
+        <div className={cell}>
+          <span className="text-sm text-muted-foreground">{t('wasteCft')}</span>
+          <span className={cn(big, run.wasteCft != null && run.wasteCft < 0 && 'text-destructive')}>
+            {run.wasteCft != null ? num3(run.wasteCft) : '—'}
+            {run.recoveryPercent != null && <span className="ml-2 text-sm font-medium text-muted-foreground">({t('recoveryLine', { n: run.recoveryPercent })})</span>}
+          </span>
+        </div>
+      </div>
+      {error && <Notice tone="error">{error}</Notice>}
+    </div>
   );
 }
 
@@ -187,6 +304,7 @@ function Facts({ items, className }: { items: [string, ReactNode][]; className?:
 
 function DetailsSection({ run, onSaved }: { run: ProductionDetail; onSaved: () => void }) {
   const { t } = useI18n();
+  const toast = useToast();
   const [form, setForm] = useState<ProductionForm | null>(null);
   // ask before leaving with unsaved edits
   useEditGuard(form);
@@ -213,6 +331,7 @@ function DetailsSection({ run, onSaved }: { run: ProductionDetail; onSaved: () =
     try {
       await api(`/production/${run.id}`, { method: 'PATCH', body: JSON.stringify(productionBody(form)) });
       setForm(null);
+      toast(t('saved'), 'ok');
       onSaved();
     } catch (err) {
       setError(errorText(err));
@@ -322,10 +441,11 @@ function sizeCft(f: SizeForm) {
   return { cft: exportPieceCft(tIn, wIn, lFt, pcs), body: { thicknessIn: tIn, widthIn: wIn, lengthFt: lFt, pieces: pcs } };
 }
 
-function OutputsSection({ run, onChanged }: { run: ProductionDetail; onChanged: () => void }) {
+function OutputsSection({ run, onChanged, start }: { run: ProductionDetail; onChanged: () => void; /** a size to start from (sent from a load out) */ start?: SizeForm | null }) {
   const { t } = useI18n();
+  const toast = useToast();
   const confirmDelete = useConfirmDelete();
-  const [entry, setEntry] = useState<SizeForm>(emptySize);
+  const [entry, setEntry] = useState<SizeForm>(() => start ?? emptySize);
   const [editing, setEditing] = useState<(SizeForm & { id: string }) | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -334,11 +454,12 @@ function OutputsSection({ run, onChanged }: { run: ProductionDetail; onChanged: 
   const live = sizeCft(entry);
   const set = (k: keyof SizeForm) => (e: { target: { value: string } }) => setEntry({ ...entry, [k]: e.target.value });
 
-  async function act(action: () => Promise<unknown>) {
+  async function act(action: () => Promise<unknown>, ok?: string) {
     setBusy(true);
     setError(null);
     try {
       await action();
+      if (ok) toast(ok, 'ok'); // every change says it happened
       onChanged();
     } catch (err) {
       setError(errorText(err));
@@ -347,15 +468,43 @@ function OutputsSection({ run, onChanged }: { run: ProductionDetail; onChanged: 
     }
   }
 
+  const [calc, setCalc] = useCalcMode();
+  // a size sent from a load out is already typed: only the pieces may need changing
+  const [calcField, setCalcField] = useState(start ? 3 : 0);
+
   function add(e: FormEvent) {
     e.preventDefault();
+    void saveSize();
+  }
+  /** a saved size loaded into the calculator to be corrected */
+  const [calcEdit, setCalcEdit] = useState<Output | null>(null);
+  const editOutput = (o: Output) => {
+    setCalcEdit(o);
+    setEntry({ thickness: String(o.thicknessIn), width: String(o.widthIn), length: String(o.lengthFt), pieces: String(o.pieces) });
+    setCalcField(3);
+  };
+  const cancelEdit = () => {
+    setCalcEdit(null);
+    setEntry(emptySize);
+    setCalcField(0);
+  };
+
+  function saveSize() {
     if (!live) return;
-    act(async () => {
+    if (calcEdit) {
+      const id = calcEdit.id;
+      return act(async () => {
+        await api(`/production/${run.id}/outputs/${id}`, { method: 'PATCH', body: JSON.stringify(live.body) });
+        setCalcEdit(null);
+        setEntry({ ...entry, length: '', pieces: '' });
+      }, t('sizeUpdatedToast'));
+    }
+    return act(async () => {
       await api(`/production/${run.id}/outputs`, { method: 'POST', body: JSON.stringify(live.body) });
       // the next size usually shares thickness × width; keep them, clear the rest
       setEntry({ ...entry, length: '', pieces: '' });
       firstRef.current?.focus();
-    });
+    }, t('sizeAddedToast', { size: sizeLabel(live.body.thicknessIn, live.body.widthIn, live.body.lengthFt), pcs: live.body.pieces, cft: num3(live.cft) }));
   }
 
   function saveEdit(e: FormEvent) {
@@ -365,12 +514,12 @@ function OutputsSection({ run, onChanged }: { run: ProductionDetail; onChanged: 
     act(async () => {
       await api(`/production/${run.id}/outputs/${editing.id}`, { method: 'PATCH', body: JSON.stringify(calc.body) });
       setEditing(null);
-    });
+    }, t('sizeUpdatedToast'));
   }
 
   const remove = (o: Output) => {
     confirmDelete().then((ok) => {
-      if (ok) act(() => api(`/production/${run.id}/outputs/${o.id}`, { method: 'DELETE' }));
+      if (ok) act(() => api(`/production/${run.id}/outputs/${o.id}`, { method: 'DELETE' }), t('sizeDeletedToast'));
     });
   };
 
@@ -403,8 +552,49 @@ function OutputsSection({ run, onChanged }: { run: ProductionDetail; onChanged: 
           <span className="min-w-6 rounded-full bg-muted px-2 text-center text-xs leading-6 font-bold text-muted-foreground tabular-nums">{run.outputs.length}</span>
         </>
       }
+      tools={run.editable && <CalcModeSwitch calc={calc} onChange={setCalc} />}
     >
-      {run.editable && (
+      {run.editable && calc && (
+        // the calculator view; the next size usually shares thickness × width, so the length is typed next
+        <CalcPad
+          title={t('size')}
+          fields={[
+            { key: 'thickness', label: t('thickness'), unit: 'in', value: entry.thickness },
+            { key: 'width', label: t('width'), unit: 'in', value: entry.width },
+            { key: 'length', label: t('lengthFt'), unit: 'ft', value: entry.length },
+            { key: 'pieces', label: t('pieces'), value: entry.pieces, integer: true },
+          ]}
+          onChange={(k, v) => setEntry((e) => ({ ...e, [k]: v }))}
+          active={calcField}
+          setActive={setCalcField}
+          result={live?.cft ?? null}
+          formula={
+            live
+              ? `${live.body.thicknessIn} × ${live.body.widthIn} × ${live.body.lengthFt} × ${live.body.pieces} ÷ 144`
+              : `${t('thickness')} × ${t('width')} × ${t('lengthFt')} × ${t('pieces')} ÷ 144`
+          }
+          total={live ? totalCft([calcEdit ? run.outputCft - calcEdit.cft : run.outputCft, live.cft]) : run.outputCft}
+          totalLabel={t('outputCft')}
+          problem={afterWaste != null && afterWaste < 0 ? t('outputExceedsInput') : null}
+          canSave={!!live}
+          busy={busy}
+          onSave={saveSize}
+          saveLabel={calcEdit ? t('save') : t('addSize')}
+          afterSave={2}
+          editing={calcEdit && { key: calcEdit.id, label: `${t('edit')} · ${sizeLabel(calcEdit.thicknessIn, calcEdit.widthIn, calcEdit.lengthFt)}`, onCancel: cancelEdit }}
+          entriesTitle={t('secFinishedOutput')}
+          entries={[...run.outputs].reverse().map((o, i, all) => ({
+            key: o.id,
+            no: all.length - i,
+            label: `${sizeLabel(o.thicknessIn, o.widthIn, o.lengthFt)}  × ${o.pieces}`,
+            cft: o.cft,
+            onEdit: () => editOutput(o),
+            onDelete: () => remove(o),
+          }))}
+          entriesTotal={run.outputCft}
+        />
+      )}
+      {run.editable && !calc && (
         <Card className="py-6">
           <CardContent className="px-5 sm:px-6">
             <form onSubmit={add} className="grid gap-5">
@@ -478,6 +668,8 @@ function OutputsSection({ run, onChanged }: { run: ProductionDetail; onChanged: 
       )}
       {error && <Notice tone="error">{error}</Notice>}
 
+      {/* in the calculator view the list beside the keys is the list */}
+      {!(calc && run.editable) && (
       <TableCard compactEmpty empty={run.outputs.length === 0} emptyText={t('noOutputs')} pager={outputs.pager}>
         <form onSubmit={saveEdit}>
           <Table>
@@ -558,6 +750,7 @@ function OutputsSection({ run, onChanged }: { run: ProductionDetail; onChanged: 
           </Table>
         </form>
       </TableCard>
+      )}
     </Section>
   );
 }

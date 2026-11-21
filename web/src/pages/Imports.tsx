@@ -6,7 +6,7 @@ import {
 } from "@timbertrail/shared";
 import { PlusIcon, RulerIcon, SaveIcon } from "lucide-react";
 import { FormEvent, ReactNode, useId, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,6 +33,7 @@ import {
 } from "../components/party-picker";
 import {
   Field,
+  Fold,
   FormActions,
   FormCard,
   FormSection,
@@ -43,6 +44,8 @@ import {
 } from "../components/page";
 import { useI18n } from "../i18n";
 import { ImportQuickView } from "./QuickViews";
+import { asEvent, DateTimePicker } from "../components/date-picker";
+import { LorryPicker } from "../components/lorry-picker";
 
 export interface ImportSummary {
   id: string;
@@ -122,15 +125,19 @@ const arrivalTime = (iso: string) =>
     minute: "2-digit",
   });
 
+/** The few columns the simple view keeps: what it is, when, and where it stands. */
+const SIMPLE_COLUMNS = ["code", "arrival", "lorry", "supplier", "cft", "status", "open"];
+
 /** `/imports` lists every load; `/measurement` (openOnly) lists the ones still being measured. */
 export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
   const { t } = useI18n();
-  const { user } = useAuth();
+  const { user, simple } = useAuth();
   const isOwner = user?.role === "OWNER";
   const list = useRecordList<ImportSummary>({
     path: "/imports",
     name: "imports",
     hiddenByDefault: ["driver", "origin"],
+    simpleColumns: SIMPLE_COLUMNS,
     fixedQuery: openOnly ? "open=1" : undefined,
   });
   const { data, loading, error, reload } = list;
@@ -255,7 +262,7 @@ export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
             className: "w-px text-right",
             cell: (l) => (
               <Button asChild variant="outline" size="sm">
-                <Link to={`/imports/${l.id}#logs`} aria-label={t("measure")}>
+                <Link to={`/imports/${l.id}?from=measure#logs`} aria-label={t("measure")}>
                   <RulerIcon />
                   <span className="max-md:sr-only">{t("measure")}</span>
                 </Link>
@@ -271,19 +278,23 @@ export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
     return cols;
   }, [t, isOwner, openOnly]);
   const columns = useMemo(
-    () => allColumns.filter((c) => !list.hidden.includes(c.id)),
-    [allColumns, list.hidden],
+    () => list.shown(allColumns),
+    [allColumns, list.hidden, list.simple],
   );
 
   return (
     <Page>
       <PageHeader
-        title={t(openOnly ? "measurement" : "imports")}
-        subtitle={t(openOnly ? "measurementSub" : "importsSub")}
+        title={
+          simple
+            ? t(openOnly ? "simpleMeasure" : "simpleLoadIn")
+            : t(openOnly ? "measurement" : "imports")
+        }
+        subtitle={simple ? undefined : t(openOnly ? "measurementSub" : "importsSub")}
         actions={
-          <Button asChild>
+          <Button asChild size={simple ? "lg" : undefined} className={simple ? "h-12 text-base" : undefined}>
             <Link to="/imports/new">
-              <PlusIcon /> {t("newImport")}
+              <PlusIcon /> {t(simple ? "simpleLoadIn" : "newImport")}
             </Link>
           </Button>
         }
@@ -296,14 +307,17 @@ export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
 
       <LoadState shape="list" loading={loading && !data} error={error} onRetry={reload} />
 
-      {data && (
+      {/* the simple view's measuring list: one big card per lorry, one big button each */}
+      {data && openOnly && simple && <MeasureCards loads={data.items} />}
+
+      {data && !(openOnly && simple) && (
         <DataTable
           grid
           data={data.items}
           columns={columns}
           rowKey={(l) => l.id}
           // the measurement list goes straight to log entry; the full list opens a quick view first
-          rowTo={openOnly ? (l) => `/imports/${l.id}#logs` : undefined}
+          rowTo={openOnly ? (l) => `/imports/${l.id}?from=measure#logs` : undefined}
           onRowClick={openOnly ? undefined : setPeek}
           selectedKey={peek?.id}
           empty={
@@ -335,6 +349,56 @@ export function ImportsPage({ openOnly = false }: { openOnly?: boolean }) {
         onChanged={list.refresh}
       />
     </Page>
+  );
+}
+
+/** Loads still being measured, as big cards: lorry, wood, how far along, and one Measure button. */
+function MeasureCards({ loads }: { loads: ImportSummary[] }) {
+  const { t } = useI18n();
+  if (loads.length === 0)
+    return (
+      <div className="flex flex-col items-center gap-4 rounded-2xl bg-card p-10 text-center shadow-card">
+        <p className="text-base text-muted-foreground">{t("noOpenLoads")}</p>
+        <Button asChild size="lg" className="h-14 text-base">
+          <Link to="/imports/new">
+            <PlusIcon /> {t("simpleLoadIn")}
+          </Link>
+        </Button>
+      </div>
+    );
+  return (
+    <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {loads.map((l) => (
+        <Link
+          key={l.id}
+          to={`/imports/${l.id}?from=measure#logs`}
+          className="flex flex-col gap-4 rounded-2xl bg-card p-5 shadow-card hover-lift outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="truncate text-xl font-bold tracking-wide font-display">{l.lorryNumber}</div>
+              <div className="mt-0.5 truncate text-sm text-muted-foreground">
+                {l.woodType} · {l.code}
+              </div>
+            </div>
+            <StatusBadge status={l.status} />
+          </div>
+          <div className="grid grid-cols-2 gap-3 rounded-xl bg-muted/60 px-4 py-3">
+            <div>
+              <div className="text-xs text-muted-foreground">{t("logs")}</div>
+              <div className="text-2xl leading-tight font-bold tabular-nums font-display">{l.totalLogs}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">CFT</div>
+              <div className="text-2xl leading-tight font-bold tabular-nums font-display">{num3(l.totalCft)}</div>
+            </div>
+          </div>
+          <span className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-primary text-base font-semibold text-primary-foreground">
+            <RulerIcon className="size-5" aria-hidden /> {t("measureNow")}
+          </span>
+        </Link>
+      ))}
+    </div>
   );
 }
 
@@ -442,10 +506,177 @@ export function ImportFields({
   unloading?: ReactNode;
 }) {
   const { t } = useI18n();
+  const { simple } = useAuth();
   const uid = useId();
   const id = (k: keyof ImportForm) => `${uid}-${k}`;
   const set = (k: keyof ImportForm) => (e: { target: { value: string } }) =>
     onChange({ ...form, [k]: e.target.value });
+
+  // every field once; the two views below only arrange them
+  const lorry = (
+    <Field
+      key="lorry"
+      id={id("lorryNumber")}
+      label={t("lorryNumber")}
+      required
+      hint={simple ? undefined : t("lorryNumberHint")}
+      className={supplier && !simple ? undefined : "sm:col-span-2"}
+    >
+      <LorryPicker
+        id={id("lorryNumber")}
+        value={form.lorryNumber}
+        required
+        onChange={(lorryNumber, known) =>
+          onChange({
+            ...form,
+            lorryNumber,
+            // a lorry seen before brings its driver and owner, where those are still empty
+            driverName: form.driverName || known?.driverName || "",
+            driverMobile: form.driverMobile || known?.driverMobile || "",
+            lorryOwnerName: form.lorryOwnerName || known?.lorryOwnerName || "",
+            lorryOwnerMobile: form.lorryOwnerMobile || known?.lorryOwnerMobile || "",
+          })
+        }
+      />
+    </Field>
+  );
+  const arrival = (
+    <Field key="arrival" id={id("arrivalAt")} label={t("arrivalDateTime")} required>
+      <DateTimePicker
+        id={id("arrivalAt")}
+        value={form.arrivalAt}
+        onChange={asEvent(set("arrivalAt"))}
+        required
+      />
+    </Field>
+  );
+  const wood = (
+    <WoodTypeField
+      key="wood"
+      id={id("woodType")}
+      value={form.woodType}
+      onChange={(woodType) => onChange({ ...form, woodType })}
+    />
+  );
+  const category = (
+    <Field key="category" id={id("woodCategory")} label={t("woodCategory")}>
+      <Input
+        id={id("woodCategory")}
+        value={form.woodCategory}
+        onChange={set("woodCategory")}
+        maxLength={60}
+      />
+    </Field>
+  );
+  const origin = (
+    <Field key="origin" id={id("originLocation")} label={t("originLocation")}>
+      <Input
+        id={id("originLocation")}
+        value={form.originLocation}
+        onChange={set("originLocation")}
+        maxLength={120}
+      />
+    </Field>
+  );
+  const people = [
+    <Field key="driverName" id={id("driverName")} label={t("driverName")}>
+      <Input
+        id={id("driverName")}
+        value={form.driverName}
+        onChange={set("driverName")}
+        maxLength={100}
+        autoComplete="off"
+      />
+    </Field>,
+    <Field
+      key="driverMobile"
+      id={id("driverMobile")}
+      label={t("driverMobile")}
+      hint={t("mobileHint")}
+    >
+      <Input
+        id={id("driverMobile")}
+        type="tel"
+        value={form.driverMobile}
+        onChange={set("driverMobile")}
+        inputMode="tel"
+        maxLength={15}
+        pattern={MOBILE}
+        autoComplete="off"
+      />
+    </Field>,
+    <Field key="ownerName" id={id("lorryOwnerName")} label={t("lorryOwnerName")}>
+      <Input
+        id={id("lorryOwnerName")}
+        value={form.lorryOwnerName}
+        onChange={set("lorryOwnerName")}
+        maxLength={100}
+        autoComplete="off"
+      />
+    </Field>,
+    <Field
+      key="ownerMobile"
+      id={id("lorryOwnerMobile")}
+      label={t("lorryOwnerMobile")}
+      hint={t("mobileHint")}
+    >
+      <Input
+        id={id("lorryOwnerMobile")}
+        type="tel"
+        value={form.lorryOwnerMobile}
+        onChange={set("lorryOwnerMobile")}
+        inputMode="tel"
+        maxLength={15}
+        pattern={MOBILE}
+        autoComplete="off"
+      />
+    </Field>,
+  ];
+  const notes = (
+    <Field
+      key="notes"
+      id={id("notes")}
+      label={t("notes")}
+      hint={simple ? undefined : t("notesHint")}
+      className="sm:col-span-2"
+    >
+      <Textarea
+        id={id("notes")}
+        value={form.notes}
+        onChange={set("notes")}
+        maxLength={1000}
+        rows={3}
+      />
+    </Field>
+  );
+
+  // the simple view: the four things needed to start measuring, then everything else folded away
+  if (simple)
+    return (
+      <>
+        <section className="grid gap-5 sm:grid-cols-2">
+          {lorry}
+          {wood}
+          {arrival}
+          {supplier}
+        </section>
+        <Fold title={t("moreFields")} className="border-t border-border/70 pt-2">
+          <div className="grid gap-5 sm:grid-cols-2">
+            {category}
+            {origin}
+            {people}
+            {notes}
+          </div>
+          {unloading && (
+            <div className="mt-6 grid gap-5 border-t border-border/70 pt-5 sm:grid-cols-2">
+              <h3 className="text-[0.9375rem] font-semibold sm:col-span-2">{t("secUnloading")}</h3>
+              {unloading}
+            </div>
+          )}
+        </Fold>
+      </>
+    );
+
   let step = 0;
   return (
     <>
@@ -454,36 +685,10 @@ export function ImportFields({
         title={t("secImportInfo")}
         description={t("secImportInfoSub")}
       >
-        <Field id={id("arrivalAt")} label={t("arrivalDateTime")} required>
-          <Input
-            id={id("arrivalAt")}
-            type="datetime-local"
-            value={form.arrivalAt}
-            onChange={set("arrivalAt")}
-            required
-          />
-        </Field>
-        <WoodTypeField
-          id={id("woodType")}
-          value={form.woodType}
-          onChange={(woodType) => onChange({ ...form, woodType })}
-        />
-        <Field id={id("woodCategory")} label={t("woodCategory")}>
-          <Input
-            id={id("woodCategory")}
-            value={form.woodCategory}
-            onChange={set("woodCategory")}
-            maxLength={60}
-          />
-        </Field>
-        <Field id={id("originLocation")} label={t("originLocation")}>
-          <Input
-            id={id("originLocation")}
-            value={form.originLocation}
-            onChange={set("originLocation")}
-            maxLength={120}
-          />
-        </Field>
+        {arrival}
+        {wood}
+        {category}
+        {origin}
       </FormSection>
 
       <FormSection
@@ -492,75 +697,8 @@ export function ImportFields({
         description={t("secLorrySub")}
       >
         {supplier}
-        <Field
-          id={id("lorryNumber")}
-          label={t("lorryNumber")}
-          required
-          hint={t("lorryNumberHint")}
-          className={supplier ? undefined : "sm:col-span-2"}
-        >
-          <Input
-            id={id("lorryNumber")}
-            value={form.lorryNumber}
-            onChange={set("lorryNumber")}
-            required
-            minLength={4}
-            maxLength={20}
-            autoCapitalize="characters"
-            placeholder="TN 45 AB 1234"
-            className="uppercase placeholder:normal-case"
-          />
-        </Field>
-        <Field id={id("driverName")} label={t("driverName")}>
-          <Input
-            id={id("driverName")}
-            value={form.driverName}
-            onChange={set("driverName")}
-            maxLength={100}
-            autoComplete="off"
-          />
-        </Field>
-        <Field
-          id={id("driverMobile")}
-          label={t("driverMobile")}
-          hint={t("mobileHint")}
-        >
-          <Input
-            id={id("driverMobile")}
-            type="tel"
-            value={form.driverMobile}
-            onChange={set("driverMobile")}
-            inputMode="tel"
-            maxLength={15}
-            pattern={MOBILE}
-            autoComplete="off"
-          />
-        </Field>
-        <Field id={id("lorryOwnerName")} label={t("lorryOwnerName")}>
-          <Input
-            id={id("lorryOwnerName")}
-            value={form.lorryOwnerName}
-            onChange={set("lorryOwnerName")}
-            maxLength={100}
-            autoComplete="off"
-          />
-        </Field>
-        <Field
-          id={id("lorryOwnerMobile")}
-          label={t("lorryOwnerMobile")}
-          hint={t("mobileHint")}
-        >
-          <Input
-            id={id("lorryOwnerMobile")}
-            type="tel"
-            value={form.lorryOwnerMobile}
-            onChange={set("lorryOwnerMobile")}
-            inputMode="tel"
-            maxLength={15}
-            pattern={MOBILE}
-            autoComplete="off"
-          />
-        </Field>
+        {lorry}
+        {people}
       </FormSection>
 
       {unloading && (
@@ -578,20 +716,7 @@ export function ImportFields({
         title={t("secAdditional")}
         description={t("secAdditionalSub")}
       >
-        <Field
-          id={id("notes")}
-          label={t("notes")}
-          hint={t("notesHint")}
-          className="sm:col-span-2"
-        >
-          <Textarea
-            id={id("notes")}
-            value={form.notes}
-            onChange={set("notes")}
-            maxLength={1000}
-            rows={3}
-          />
-        </Field>
+        {notes}
       </FormSection>
     </>
   );
@@ -606,12 +731,21 @@ const emptyUnloading = () => ({
   ratePerHour: "",
 });
 
+/** The sawing a load in was started from (?back=/production/new…), only ever the New Sawing page. */
+export function sawingLink(params: URLSearchParams): string | null {
+  const back = params.get("back") ?? "";
+  return /^\/production\/new(\?|$)/.test(back) ? back : null;
+}
+
 export function NewImportPage() {
   const { t } = useI18n();
-  const { can } = useAuth();
+  const { can, simple } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
-  const [form, setForm] = useState(emptyImportForm);
+  // opened from a sawing ("Not in stock? Load in new logs"): its wood, and the way back
+  const [params] = useSearchParams();
+  const forSawing = sawingLink(params);
+  const [form, setForm] = useState(() => ({ ...emptyImportForm(), woodType: params.get("wood") ?? "" }));
   const [unl, setUnl] = useState(emptyUnloading);
   const [supplierId, setSupplierId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -687,7 +821,8 @@ export function NewImportPage() {
       if (missed.length)
         toast(t("savedButNot", { what: missed.join(", ") }), "warn");
       release();
-      navigate(`/imports/${created.id}${goTo === "logs" ? "#logs" : ""}`, {
+      const carry = forSawing ? `?${new URLSearchParams({ back: forSawing })}` : "";
+      navigate(`/imports/${created.id}${carry}${goTo === "logs" ? "#logs" : ""}`, {
         replace: true,
       });
     } catch (err) {
@@ -699,10 +834,11 @@ export function NewImportPage() {
   return (
     <Page className="max-w-5xl">
       <PageHeader
-        title={t("newImport")}
-        subtitle={t("requiredNote")}
-        back={{ to: "/imports", label: t("imports") }}
+        title={simple ? t("simpleLoadIn") : t("newImport")}
+        subtitle={simple ? undefined : t("requiredNote")}
+        back={{ to: "/imports", label: t(simple ? "simpleLoadIn" : "imports") }}
       />
+      {forSawing && <Notice>{t("loadInForSawing")}</Notice>}
       <FormCard onSubmit={submit} className="py-7 [&_form]:gap-7">
         <ImportFields
           form={form}
@@ -763,19 +899,17 @@ export function NewImportPage() {
                 />
               </Field>
               <Field id="imp-unl-start" label={t("startTime")}>
-                <Input
+                <DateTimePicker
                   id="imp-unl-start"
-                  type="datetime-local"
                   value={unl.startAt}
-                  onChange={setU("startAt")}
+                  onChange={asEvent(setU("startAt"))}
                 />
               </Field>
               <Field id="imp-unl-end" label={t("endTime")}>
-                <Input
+                <DateTimePicker
                   id="imp-unl-end"
-                  type="datetime-local"
                   value={unl.endAt}
-                  onChange={setU("endAt")}
+                  onChange={asEvent(setU("endAt"))}
                   min={unl.startAt || undefined}
                 />
               </Field>
@@ -800,6 +934,28 @@ export function NewImportPage() {
           }
         />
         {error && <Notice tone="error">{error}</Notice>}
+        {simple ? (
+          // the simple view: one big button that goes straight on to measuring
+          <div className="flex flex-col gap-2 border-t border-border/70 pt-5 sm:flex-row-reverse sm:items-center">
+            <Button
+              type="submit"
+              size="lg"
+              className="h-14 text-base sm:min-w-72"
+              disabled={busy}
+              onClick={() => (next.current = "logs")}
+            >
+              <RulerIcon className="size-5!" /> {t("startMeasuring")}
+            </Button>
+            <Button
+              type="submit"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => (next.current = "record")}
+            >
+              <SaveIcon /> {t("saveDraft")}
+            </Button>
+          </div>
+        ) : (
         <div className="border-t border-border/70 pt-5">
           <FormActions summary={t("draftHint")}>
             <Button asChild variant="ghost">
@@ -822,6 +978,7 @@ export function NewImportPage() {
             </Button>
           </FormActions>
         </div>
+        )}
       </FormCard>
     </Page>
   );

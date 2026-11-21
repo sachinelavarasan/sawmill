@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "ui_mode" text DEFAULT 'simple' NOT NULL;

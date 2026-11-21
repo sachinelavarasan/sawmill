@@ -213,7 +213,7 @@ export function MyEntriesPage() {
       )}
 
       <Tabs value={tab} onValueChange={(v) => go(v as Kind)} className="gap-5">
-        <TabsList variant="line" className="scroll-quiet h-auto! w-full justify-start gap-1 overflow-x-auto overflow-y-hidden">
+        <TabsList data-tour="tabs" variant="line" className="scroll-quiet h-auto! w-full justify-start gap-1 overflow-x-auto overflow-y-hidden">
           {KINDS.map((k) => {
             const KIcon = KIND_ICON[k];
             const n = lists[k].counts[status];

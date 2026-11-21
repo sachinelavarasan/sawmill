@@ -1,5 +1,5 @@
-import { balanceDue, exportPieceCft, Permission, sizeLabel } from '@timbertrail/shared';
-import { AlertTriangleIcon, CheckIcon, PackageIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { balanceDue, exportPieceCft, Permission, sizeLabel, totalCft } from '@timbertrail/shared';
+import { AlertTriangleIcon, CheckIcon, FactoryIcon, PackageIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { dateTime, money, num3, useLoad } from '../components/common';
 import { useEditGuard } from '../components/leave-guard';
-import { EntryField, Field, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging } from '../components/page';
+import { EntryField, Field, FormActions, FormCard, FormGrid, LoadState, MoreDetails, Notice, numCell, OwnerOnly, Page, PageHeader, Section, Stat, StatGrid, TableCard, useClientPaging } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
 import { PartyPicker, type PartyOption } from '../components/party-picker';
 import { PaymentsPanel, PayBadge } from '../components/payments';
@@ -23,6 +23,7 @@ import { useI18n } from '../i18n';
 import { ExportFields, ExportForm, exportBody, FinishedStockRow } from './Exports';
 import { toLocalInput } from './Imports';
 import { dateOnly } from './Production';
+import { CalcModeSwitch, CalcPad, useCalcMode } from '../components/calc-pad';
 
 export interface Line {
   id: string;
@@ -77,19 +78,33 @@ const positionKey = (l: { importLoadId: string | null; thicknessIn: number; widt
 export function ExportDetailPage() {
   const { id } = useParams();
   const { t } = useI18n();
-  const { can } = useAuth();
+  const { can, simple } = useAuth();
   const { data: exp, loading, error, reload } = useLoad(() => api<ExportDetail>(`/exports/${id}`), [id]);
-  const stock = useLoad(() => api<{ finished: FinishedStockRow[] }>('/stock'), []);
+  const stock = useLoad(() => api<{ finished: FinishedStockRow[]; pendingFinished: PendingStockRow[] }>('/stock'), []);
   const refresh = () => {
     reload();
     stock.reload();
   };
 
+  // send for approval / approve: above the record normally, after the lines in the simple view
+  const workflow = exp && (
+    <WorkflowBar
+      base={`/exports/${exp.id}`}
+      status={exp.status}
+      canSubmit={exp.canSubmit}
+      canReview={exp.canReview}
+      submitBlocked={exp.lines.length === 0 ? t('needLinesToSubmit') : null}
+      confirmApprove={t('confirmApproveExport', { code: exp.code, pieces: exp.totalPieces, cft: num3(exp.totalCft) })}
+      approvedNote={exp.editable ? t('approvedExportNote') : undefined}
+      onDone={refresh}
+    />
+  );
+
   return (
     <Page>
       <PageHeader
         title={exp?.code ?? t('exportDetails')}
-        back={{ to: '/exports', label: t('exports') }}
+        back={{ to: '/exports', label: t(simple ? 'simpleLoadOut' : 'exports') }}
         badge={exp && <StatusBadge status={exp.status} />}
         subtitle={
           exp && (
@@ -107,26 +122,32 @@ export function ExportDetailPage() {
           {!exp.editable && exp.status !== 'SUBMITTED' && <Notice>{t('lockedRecord')}</Notice>}
           {exp.rejectionReason && <Notice tone="error">{exp.rejectionReason}</Notice>}
 
-          {/* the load as it stands: the total CFT leads, lines and pieces beside it */}
-          <StatGrid className="lg:grid-cols-4">
-            <Stat hero label={t('totalCft')} value={num3(exp.totalCft)} unit="CFT" hint={`${exp.woodType} · ${t('lorry')} ${exp.lorryNumber}`} />
-            <Stat label={t('totalPieces')} value={exp.totalPieces.toLocaleString('en-IN')} />
-            <Stat label={t('measuredLines')} value={exp.lines.length} />
-          </StatGrid>
+          {/* the load as it stands: the total CFT leads, lines and pieces beside it (the calculator shows these in the simple view) */}
+          {!simple && (
+            <StatGrid className="lg:grid-cols-4">
+              <Stat hero label={t('totalCft')} value={num3(exp.totalCft)} unit="CFT" hint={`${exp.woodType} · ${t('lorry')} ${exp.lorryNumber}`} />
+              <Stat label={t('totalPieces')} value={exp.totalPieces.toLocaleString('en-IN')} />
+              <Stat label={t('measuredLines')} value={exp.lines.length} />
+            </StatGrid>
+          )}
 
-          <WorkflowBar
-            base={`/exports/${exp.id}`}
-            status={exp.status}
-            canSubmit={exp.canSubmit}
-            canReview={exp.canReview}
-            submitBlocked={exp.lines.length === 0 ? t('needLinesToSubmit') : null}
-            confirmApprove={t('confirmApproveExport', { code: exp.code, pieces: exp.totalPieces, cft: num3(exp.totalCft) })}
-            approvedNote={exp.editable ? t('approvedExportNote') : undefined}
-            onDone={refresh}
-          />
+          {!simple && workflow}
 
-          <DetailsSection exp={exp} finished={stock.data?.finished ?? []} onSaved={refresh} />
-          <LinesSection exp={exp} finished={stock.data?.finished ?? []} onChanged={refresh} />
+          {simple ? (
+            // the simple view: what was loaded first, the details folded away
+            <>
+              <LinesSection exp={exp} finished={stock.data?.finished ?? []} pending={stock.data?.pendingFinished ?? []} onChanged={refresh} />
+              {workflow}
+              <MoreDetails>
+                <DetailsSection exp={exp} finished={stock.data?.finished ?? []} onSaved={refresh} />
+              </MoreDetails>
+            </>
+          ) : (
+            <>
+              <DetailsSection exp={exp} finished={stock.data?.finished ?? []} onSaved={refresh} />
+              <LinesSection exp={exp} finished={stock.data?.finished ?? []} pending={stock.data?.pendingFinished ?? []} onChanged={refresh} />
+            </>
+          )}
           {/* the sale comes last: its amount is worked out from the measured CFT above */}
           {can(Permission.FINANCE_VIEW) && <SaleSection exp={exp} canPickClient={can(Permission.CLIENTS_MANAGE)} />}
         </>
@@ -137,6 +158,7 @@ export function ExportDetailPage() {
 
 function DetailsSection({ exp, finished, onSaved }: { exp: ExportDetail; finished: FinishedStockRow[]; onSaved: () => void }) {
   const { t } = useI18n();
+  const toast = useToast();
   const [form, setForm] = useState<ExportForm | null>(null);
   // ask before leaving with unsaved edits
   useEditGuard(form);
@@ -166,6 +188,7 @@ function DetailsSection({ exp, finished, onSaved }: { exp: ExportDetail; finishe
     try {
       await api(`/exports/${exp.id}`, { method: 'PATCH', body: exportBody(form) });
       setForm(null);
+      toast(t('saved'), 'ok');
       onSaved();
     } catch (err) {
       setError(errorText(err));
@@ -265,8 +288,16 @@ function DetailsSection({ exp, finished, onSaved }: { exp: ExportDetail; finishe
 
 type LineForm = { importLoadId: string; thickness: string; width: string; length: string; pieces: string };
 
-function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finished: FinishedStockRow[]; onChanged: () => void }) {
+/** A size from sawing that is saved but not approved yet (GET /stock → pendingFinished). */
+interface PendingStockRow extends FinishedStockRow {
+  runId: string;
+  runCode: string;
+}
+type StockChoice = FinishedStockRow & { pendingRun?: string };
+
+function LinesSection({ exp, finished, pending, onChanged }: { exp: ExportDetail; finished: FinishedStockRow[]; pending: PendingStockRow[]; onChanged: () => void }) {
   const { t } = useI18n();
+  const toast = useToast();
   const confirmDelete = useConfirmDelete();
   const blank = (): LineForm => ({ importLoadId: exp.importLoadId ?? '', thickness: '', width: '', length: '', pieces: '' });
   const [entry, setEntry] = useState<LineForm>(blank);
@@ -278,12 +309,18 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
   // a newly chosen default load becomes the default for the next line
   useEffect(() => setEntry((e) => (e.importLoadId ? e : { ...e, importLoadId: exp.importLoadId ?? '' })), [exp.importLoadId]);
 
-  const sameWood = finished.filter((f) => f.woodType === exp.woodType);
+  // approved stock first, then sizes sawn but still waiting for approval (they can be loaded out now)
+  const sameWood: StockChoice[] = [
+    ...finished.filter((f) => f.woodType === exp.woodType),
+    ...pending.filter((f) => f.woodType === exp.woodType).map((f) => ({ ...f, pendingRun: f.runCode })),
+  ];
   const loads = new Map<string, string>();
   sameWood.forEach((f) => loads.set(f.importLoadId, f.importCode));
   const chosenKey = `${entry.importLoadId}|${entry.thickness}|${entry.width}|${entry.length}`;
   const stockKey = (f: FinishedStockRow) => `${f.importLoadId}|${f.thicknessIn}|${f.widthIn}|${f.lengthFt}`;
   const picked = sameWood.find((f) => stockKey(f) === chosenKey);
+  // in stock + sawn and waiting approval, for the size and load chosen
+  const pickedPieces = picked ? sameWood.filter((f) => stockKey(f) === chosenKey).reduce((n, f) => n + f.pieces, 0) : 0;
 
   const tIn = positive(entry.thickness);
   const wIn = positive(entry.width);
@@ -292,11 +329,12 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
   const liveCft = tIn != null && wIn != null && lFt != null && pcs != null ? exportPieceCft(tIn, wIn, lFt, pcs) : null;
   const set = (k: keyof LineForm) => (e: { target: { value: string } }) => setEntry({ ...entry, [k]: e.target.value });
 
-  async function act(action: () => Promise<unknown>) {
+  async function act(action: () => Promise<unknown>, ok?: string) {
     setBusy(true);
     setError(null);
     try {
       await action();
+      if (ok) toast(ok, 'ok'); // every change says it happened
       onChanged();
     } catch (err) {
       setError(errorText(err));
@@ -305,17 +343,87 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
     }
   }
 
+  const [calc, setCalc] = useCalcMode();
+  const [calcField, setCalcField] = useState(0);
+
+  // ── calculator view: stock by size, and the loads holding the size being typed ──
+  const sizeKey = (f: { thicknessIn: number; widthIn: number; lengthFt: number }) => `${f.thicknessIn}|${f.widthIn}|${f.lengthFt}`;
+  const bySize = new Map<string, { key: string; f: StockChoice; pieces: number; pending: boolean }>();
+  for (const f of sameWood) {
+    const g = bySize.get(sizeKey(f)) ?? { key: sizeKey(f), f, pieces: 0, pending: true };
+    g.pieces += f.pieces;
+    g.pending &&= !!f.pendingRun; // dashed only when none of it is approved stock yet
+    bySize.set(sizeKey(f), g);
+  }
+  const typedSize = tIn != null && wIn != null && lFt != null ? `${tIn}|${wIn}|${lFt}` : null;
+  /** loads holding the typed size: approved stock first (oldest load first), then sawn and waiting */
+  const sources = (() => {
+    const m = new Map<string, { id: string; code: string; pieces: number; pending: boolean }>();
+    for (const f of sameWood.filter((x) => typedSize && sizeKey(x) === typedSize)) {
+      const s = m.get(f.importLoadId) ?? { id: f.importLoadId, code: f.importCode, pieces: 0, pending: true };
+      s.pieces += f.pieces;
+      s.pending &&= !!f.pendingRun;
+      m.set(f.importLoadId, s);
+    }
+    return [...m.values()].sort((a, b) => Number(a.pending) - Number(b.pending) || a.code.localeCompare(b.code));
+  })();
+  const sourceKey = sources.map((x) => `${x.id}:${x.pieces}`).join(',');
+  // the size (or the count) changed: choose its load — the oldest one with enough pieces, else the one
+  // with the most — unless the load already chosen holds enough of it
+  useEffect(() => {
+    if (!calc || !sourceKey) return;
+    const list = sourceKey.split(',').map((x) => ({ id: x.split(':')[0], pieces: Number(x.split(':')[1]) }));
+    const need = pcs ?? 0;
+    setEntry((e) => {
+      const current = list.find((x) => x.id === e.importLoadId);
+      if (current && current.pieces >= need) return e;
+      const best = list.find((x) => x.pieces >= need) ?? [...list].sort((a, b) => b.pieces - a.pieces)[0];
+      return best.id === e.importLoadId ? e : { ...e, importLoadId: best.id };
+    });
+  }, [calc, sourceKey, pcs]);
+  const pickSize = (g: { f: StockChoice }) => {
+    setEntry((e) => ({ ...e, thickness: String(g.f.thicknessIn), width: String(g.f.widthIn), length: String(g.f.lengthFt) }));
+    setCalcField(3); // the size is filled in: only the count is left to type
+  };
+
+  const tooMany = picked != null && pcs != null && pcs > pickedPieces;
+
   function add(e: FormEvent) {
     e.preventDefault();
-    if (liveCft == null) return;
-    act(async () => {
+    void saveLine();
+  }
+  /** a saved line loaded into the calculator to be corrected */
+  const [calcEdit, setCalcEdit] = useState<Line | null>(null);
+  const editLine = (l: Line) => {
+    setCalcEdit(l);
+    setEntry({ importLoadId: l.importLoadId ?? '', thickness: String(l.thicknessIn), width: String(l.widthIn), length: String(l.lengthFt), pieces: String(l.pieces) });
+    setCalcField(3);
+  };
+  const cancelEdit = () => {
+    setCalcEdit(null);
+    setEntry(blank());
+    setCalcField(0);
+  };
+
+  function saveLine() {
+    if (liveCft == null || !entry.importLoadId || tooMany) return;
+    const body = JSON.stringify({ importLoadId: entry.importLoadId || undefined, thicknessIn: tIn, widthIn: wIn, lengthFt: lFt, pieces: pcs });
+    if (calcEdit) {
+      const id = calcEdit.id;
+      return act(async () => {
+        await api(`/exports/${exp.id}/measurements/${id}`, { method: 'PATCH', body });
+        setCalcEdit(null);
+        setEntry({ ...entry, pieces: '' });
+      }, t('lineUpdatedToast', { n: calcEdit.lineNumber }));
+    }
+    return act(async () => {
       await api(`/exports/${exp.id}/measurements`, {
         method: 'POST',
         body: JSON.stringify({ importLoadId: entry.importLoadId || undefined, thicknessIn: tIn, widthIn: wIn, lengthFt: lFt, pieces: pcs }),
       });
       setEntry({ ...entry, pieces: '' }); // same size again is common; just clear the count
       piecesRef.current?.focus();
-    });
+    }, t('lineAddedToast', { cft: num3(liveCft) }));
   }
 
   function saveEdit(e: FormEvent, line: Line) {
@@ -328,86 +436,31 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
         body: JSON.stringify({ importLoadId: line.importLoadId ?? undefined, thicknessIn: line.thicknessIn, widthIn: line.widthIn, lengthFt: line.lengthFt, pieces: p }),
       });
       setEditing(null);
-    });
+    }, t('lineUpdatedToast', { n: line.lineNumber }));
   }
 
   const remove = (l: Line) => {
     confirmDelete().then((ok) => {
-      if (ok) act(() => api(`/exports/${exp.id}/measurements/${l.id}`, { method: 'DELETE' }));
+      if (ok) act(() => api(`/exports/${exp.id}/measurements/${l.id}`, { method: 'DELETE' }), t('lineDeletedToast', { n: l.lineNumber }));
     });
   };
 
   // Before approval, warn when the lines ask for more of a size than the load holds.
   const wanted = new Map<string, number>();
   exp.lines.forEach((l) => wanted.set(positionKey(l), (wanted.get(positionKey(l)) ?? 0) + l.pieces));
-  const short = (l: Line) => exp.status !== 'APPROVED' && (wanted.get(positionKey(l)) ?? 0) > l.availablePieces;
+  // pieces sawn but waiting for approval count towards what is there (they become stock on approval)
+  const pendingPieces = new Map<string, number>();
+  pending.forEach((p) => pendingPieces.set(positionKey(p), (pendingPieces.get(positionKey(p)) ?? 0) + p.pieces));
+  const short = (l: Line) => exp.status !== 'APPROVED' && (wanted.get(positionKey(l)) ?? 0) > l.availablePieces + (pendingPieces.get(positionKey(l)) ?? 0);
 
   const pickStock = (f: FinishedStockRow) => {
     setEntry({ ...entry, importLoadId: f.importLoadId, thickness: String(f.thicknessIn), width: String(f.widthIn), length: String(f.lengthFt) });
     piecesRef.current?.focus();
+    setCalcField(3); // the size is filled in: only the count is left to type
   };
 
   const lines = useClientPaging(exp.lines);
-  return (
-    <Section
-      id="lines"
-      title={t('exportMeasurement')}
-      tools={
-        exp.lines.length > 0 && (
-          <span className="text-sm text-muted-foreground tabular-nums">
-            {t('linesCount', { n: exp.lines.length })} · {t('piecesCount', { n: exp.totalPieces })} · <span className="font-semibold text-foreground">{num3(exp.totalCft)} CFT</span>
-          </span>
-        )
-      }
-    >
-      {exp.editable && (
-        <Card className="gap-0 py-0">
-          <CardContent className="px-0">
-            {/* 1 · what is in stock: one press fills the load and the size */}
-            <div className="border-b border-border/70 px-5 py-5 sm:px-6">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <h3 className="text-base font-semibold">{t('pickFromStock')}</h3>
-                <p className="text-xs text-muted-foreground">{t('pickFromStockHint')}</p>
-              </div>
-              {sameWood.length === 0 ? (
-                <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-                  <PackageIcon className="size-4 shrink-0" aria-hidden />
-                  {t('noFinishedOfWood', { wood: exp.woodType })}
-                </p>
-              ) : (
-                <ul className="scroll-quiet mt-4 grid max-h-60 gap-2.5 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label={t('fromStock')}>
-                  {sameWood.map((f) => {
-                    const on = picked === f;
-                    return (
-                      <li key={stockKey(f)}>
-                        <button
-                          type="button"
-                          aria-pressed={on}
-                          onClick={() => pickStock(f)}
-                          className={cn(
-                            'flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
-                            on ? 'border-primary bg-primary-soft' : 'bg-card hover:border-foreground/25 hover:bg-muted/50',
-                          )}
-                        >
-                          <span className="min-w-0">
-                            <span className="block font-semibold tabular-nums">{sizeLabel(f.thicknessIn, f.widthIn, f.lengthFt)}</span>
-                            <span className="block truncate text-xs text-muted-foreground">{f.importCode}</span>
-                          </span>
-                          <span className="shrink-0 text-right">
-                            <span className="block text-sm font-semibold tabular-nums">{f.pieces.toLocaleString('en-IN')}</span>
-                            <span className="block text-xs text-muted-foreground">{t('inStock')}</span>
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-
-            {/* 2 · the line itself: source load, size, pieces — and its CFT as it is typed */}
-            <form onSubmit={add} className="grid gap-5 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-stretch">
-              <div className="grid content-start gap-4">
+  const loadField = (
                 <Field id="line-load" label={t('sourceLoadShort')} required className="sm:max-w-xs">
                   <Select value={entry.importLoadId} onValueChange={(v) => setEntry({ ...entry, importLoadId: v })} required>
                     <SelectTrigger id="line-load" className="w-full">
@@ -423,6 +476,214 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
                     </SelectContent>
                   </Select>
                 </Field>
+  );
+  return (
+    <Section
+      id="lines"
+      title={t('exportMeasurement')}
+      tools={
+        <div className="flex flex-wrap items-center gap-3">
+          {exp.lines.length > 0 && (
+            <span className="text-sm text-muted-foreground tabular-nums">
+              {t('linesCount', { n: exp.lines.length })} · {t('piecesCount', { n: exp.totalPieces })} · <span className="font-semibold text-foreground">{num3(exp.totalCft)} CFT</span>
+            </span>
+          )}
+          {exp.editable && <CalcModeSwitch calc={calc} onChange={setCalc} />}
+        </div>
+      }
+    >
+      {exp.editable && (
+        <Card className="gap-0 py-0">
+          <CardContent className="px-0">
+            {/* 1 · what is in stock: one press fills the load and the size */}
+            <div className="border-b border-border/70 px-5 py-5 sm:px-6">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h3 className="text-base font-semibold">{t('pickFromStock')}</h3>
+                <p className="text-xs text-muted-foreground">{t('pickFromStockHint')}</p>
+              </div>
+              {/* the size isn't sawn yet: record the sawing on the Sawing screen (calculator and all), then come back */}
+              <Button asChild variant="outline" className="mt-3 h-11">
+                <Link
+                  to={`/production/new?${new URLSearchParams({
+                    wood: exp.woodType,
+                    ...(entry.thickness && { t: entry.thickness }),
+                    ...(entry.width && { w: entry.width }),
+                    ...(entry.length && { l: entry.length }),
+                    ...(entry.pieces && { pcs: entry.pieces }),
+                    back: `/exports/${exp.id}`,
+                    backCode: exp.code,
+                  })}`}
+                >
+                  <FactoryIcon /> {t('notInStockAddSawing')}
+                </Link>
+              </Button>
+              {calc && sameWood.length > 0 ? (
+                // the calculator view: one chip per size (all its loads together); the load is chosen in the calculator
+                <ul className="scroll-quiet mt-4 grid max-h-60 gap-2.5 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label={t('pickSize')}>
+                  {[...bySize.values()].map((g) => {
+                    const on = typedSize === g.key;
+                    return (
+                      <li key={g.key}>
+                        <button
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => pickSize(g)}
+                          className={cn(
+                            'flex min-h-14 w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                            on ? 'border-primary bg-primary-soft' : 'bg-card hover:border-foreground/25 hover:bg-muted/50',
+                            g.pending && !on && 'border-dashed border-warning/60',
+                          )}
+                        >
+                          <span className="font-semibold tabular-nums">{sizeLabel(g.f.thicknessIn, g.f.widthIn, g.f.lengthFt)}</span>
+                          <span className="shrink-0 text-right">
+                            <span className="block text-base font-bold tabular-nums">{g.pieces.toLocaleString('en-IN')}</span>
+                            <span className={cn('block text-xs', g.pending ? 'font-medium text-warning' : 'text-muted-foreground')}>
+                              {g.pending ? t('pendingApproval') : t('inStock')}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : sameWood.length === 0 ? (
+                <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                  <PackageIcon className="size-4 shrink-0" aria-hidden />
+                  {t('noFinishedOfWood', { wood: exp.woodType })}
+                </p>
+              ) : (
+                <ul className="scroll-quiet mt-4 grid max-h-60 gap-2.5 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label={t('fromStock')}>
+                  {sameWood.map((f) => {
+                    const on = picked != null && stockKey(picked) === stockKey(f);
+                    return (
+                      <li key={`${stockKey(f)}|${f.pendingRun ?? ''}`}>
+                        <button
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => pickStock(f)}
+                          className={cn(
+                            'flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                            on ? 'border-primary bg-primary-soft' : 'bg-card hover:border-foreground/25 hover:bg-muted/50',
+                            f.pendingRun && !on && 'border-dashed border-warning/60',
+                          )}
+                        >
+                          <span className="min-w-0">
+                            <span className="block font-semibold tabular-nums">{sizeLabel(f.thicknessIn, f.widthIn, f.lengthFt)}</span>
+                            <span className="block truncate text-xs text-muted-foreground">{f.importCode}</span>
+                          </span>
+                          <span className="shrink-0 text-right">
+                            <span className="block text-sm font-semibold tabular-nums">{f.pieces.toLocaleString('en-IN')}</span>
+                            {f.pendingRun ? (
+                              <span className="block text-xs font-medium text-warning" title={t('pendingStockHint')}>
+                                {t('pendingApproval')}
+                              </span>
+                            ) : (
+                              <span className="block text-xs text-muted-foreground">{t('inStock')}</span>
+                            )}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            {/* 2 · the line itself: source load, size, pieces — and its CFT as it is typed */}
+            {calc ? (
+              <div className="grid gap-4 px-3 py-5 sm:px-5">
+                <CalcPad
+                  extra={
+                    // which load the pieces come from: only the loads that hold this size
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <span className="font-semibold text-hero-muted">{t('fromLoad')}:</span>
+                      {!typedSize ? (
+                        <span className="text-hero-muted">{t('loadAutoHint')}</span>
+                      ) : sources.length === 0 ? (
+                        <>
+                          <span className="font-medium text-saffron">{t('sizeNotInStock')}</span>
+                          <Link
+                            to={`/production/new?${new URLSearchParams({
+                              wood: exp.woodType,
+                              t: entry.thickness,
+                              w: entry.width,
+                              l: entry.length,
+                              ...(entry.pieces && { pcs: entry.pieces }),
+                              back: `/exports/${exp.id}`,
+                              backCode: exp.code,
+                            })}`}
+                            className="inline-flex items-center gap-1 rounded-full bg-saffron px-3 py-1 text-xs font-semibold text-hero"
+                          >
+                            <FactoryIcon className="size-3.5" /> {t('addSawing')}
+                          </Link>
+                        </>
+                      ) : (
+                        sources.map((src) => {
+                          const on = src.id === entry.importLoadId;
+                          return (
+                            <button
+                              key={src.id}
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => setEntry((e) => ({ ...e, importLoadId: src.id }))}
+                              aria-pressed={on}
+                              className={cn(
+                                'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold tabular-nums transition-colors',
+                                on ? 'bg-hero-foreground text-hero' : 'bg-hero-chip text-hero-foreground hover:bg-hero-border',
+                                src.pending && 'border border-dashed border-saffron',
+                              )}
+                            >
+                              {src.code} · {src.pieces.toLocaleString('en-IN')}
+                              {src.pending && <span className="font-medium opacity-80">· {t('pendingApproval')}</span>}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  }
+                  title={`${t('lineNo')} ${exp.lines.length + 1}`}
+                  fields={[
+                    { key: 'thickness', label: t('thickness'), unit: 'in', value: entry.thickness },
+                    { key: 'width', label: t('width'), unit: 'in', value: entry.width },
+                    { key: 'length', label: t('lengthFt'), unit: 'ft', value: entry.length },
+                    { key: 'pieces', label: picked ? `${t('pieces')} / ${pickedPieces}` : t('pieces'), value: entry.pieces, integer: true },
+                  ]}
+                  onChange={(k, v) => setEntry((e) => ({ ...e, [k]: v }))}
+                  active={calcField}
+                  setActive={setCalcField}
+                  result={liveCft}
+                  formula={
+                    tIn != null && wIn != null && lFt != null && pcs != null
+                      ? `${tIn} × ${wIn} × ${lFt} × ${pcs} ÷ 144`
+                      : `${t('thickness')} × ${t('width')} × ${t('lengthFt')} × ${t('pieces')} ÷ 144`
+                  }
+                  total={liveCft != null ? totalCft([calcEdit ? exp.totalCft - calcEdit.cft : exp.totalCft, liveCft]) : exp.totalCft}
+                  totalLabel={t('loadTotal')}
+                  problem={tooMany ? t('moreThanInStock', { n: pickedPieces }) : null}
+                  canSave={liveCft != null && !!entry.importLoadId && !tooMany}
+                  busy={busy}
+                  onSave={saveLine}
+                  saveLabel={calcEdit ? t('save') : t('addLine')}
+                  afterSave={3}
+                  editing={calcEdit && { key: calcEdit.id, label: `${t('edit')} · ${t('lineNo')} ${calcEdit.lineNumber}`, onCancel: cancelEdit }}
+                  entriesTitle={t('measuredLines')}
+                  entries={[...exp.lines].reverse().map((x) => ({
+                    key: x.id,
+                    no: x.lineNumber,
+                    label: `${sizeLabel(x.thicknessIn, x.widthIn, x.lengthFt)}  × ${x.pieces}`,
+                    sub: x.importCode,
+                    cft: x.cft,
+                    warn: short(x),
+                    onEdit: () => editLine(x),
+                    onDelete: () => remove(x),
+                  }))}
+                  entriesTotal={exp.totalCft}
+                />
+              </div>
+            ) : (
+            <form onSubmit={add} className="grid gap-5 px-5 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-stretch">
+              <div className="grid content-start gap-4">
+                {loadField}
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <EntryField label={t('thickness')} value={entry.thickness} onChange={set('thickness')} min={0.01} max={999} step="0.01" inputMode="decimal" required />
                   <EntryField label={t('width')} value={entry.width} onChange={set('width')} min={0.01} max={999} step="0.01" inputMode="decimal" required />
@@ -431,14 +692,14 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
                     label={
                       <>
                         {t('pieces')}
-                        {picked && <span className="text-muted-foreground/80"> / {picked.pieces}</span>}
+                        {picked && <span className="text-muted-foreground/80"> / {pickedPieces}</span>}
                       </>
                     }
                     inputRef={piecesRef}
                     value={entry.pieces}
                     onChange={set('pieces')}
                     min={1}
-                    max={picked?.pieces}
+                    max={picked ? pickedPieces : undefined}
                     step="1"
                     inputMode="numeric"
                     required
@@ -461,11 +722,14 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
                 </Button>
               </div>
             </form>
+            )}
           </CardContent>
         </Card>
       )}
       {error && <Notice tone="error">{error}</Notice>}
 
+      {/* in the calculator view the list beside the keys is the list */}
+      {!(calc && exp.editable) && (
       <TableCard compactEmpty empty={exp.lines.length === 0} emptyText={t('noLines')} pager={lines.pager}>
         <Table>
           <TableHeader>
@@ -571,6 +835,7 @@ function LinesSection({ exp, finished, onChanged }: { exp: ExportDetail; finishe
           </TableFooter>
         </Table>
       </TableCard>
+      )}
     </Section>
   );
 }

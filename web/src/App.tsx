@@ -3,6 +3,7 @@ import { lazy, ReactNode, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth';
 import { Layout } from './components/Layout';
+import { TourProvider } from './tour/TourProvider';
 import { LoginPage } from './pages/Login';
 import { useI18n } from './i18n';
 
@@ -12,6 +13,7 @@ const AuditLogPage = lazy(() => import('./pages/AuditLog').then((m) => ({ defaul
 const ImportDetailPage = lazy(() => import('./pages/ImportDetail').then((m) => ({ default: m.ImportDetailPage })));
 const ImportsPage = lazy(() => import('./pages/Imports').then((m) => ({ default: m.ImportsPage })));
 const NewImportPage = lazy(() => import('./pages/Imports').then((m) => ({ default: m.NewImportPage })));
+const SimpleHome = lazy(() => import('./pages/SimpleHome').then((m) => ({ default: m.SimpleHome })));
 const OwnerDashboard = lazy(() => import('./pages/OwnerDashboard').then((m) => ({ default: m.OwnerDashboard })));
 const MyEntriesPage = lazy(() => import('./pages/MyEntries').then((m) => ({ default: m.MyEntriesPage })));
 const NewProductionPage = lazy(() => import('./pages/Production').then((m) => ({ default: m.NewProductionPage })));
@@ -36,17 +38,18 @@ function Guard({ permission, children }: { permission: Permission; children: Rea
 }
 
 export default function App() {
-  const { user, loading, can } = useAuth();
+  const { user, loading, can, simple } = useAuth();
   const { t } = useI18n();
 
   if (loading) return <div className="grid min-h-svh place-items-center bg-background text-sm text-muted-foreground">{t('loading')}</div>;
   if (!user) return <LoginPage />;
 
   return (
+    <TourProvider>
     <Layout>
       <Suspense fallback={<div className="py-10 text-center text-sm text-muted-foreground">{t('loading')}</div>}>
       <Routes>
-        <Route path="/" element={can(Permission.DASHBOARD_OWNER) ? <OwnerDashboard /> : <AccountantDashboard />} />
+        <Route path="/" element={simple ? <SimpleHome /> : can(Permission.DASHBOARD_OWNER) ? <OwnerDashboard /> : <AccountantDashboard />} />
         <Route
           path="/users"
           element={
@@ -78,7 +81,7 @@ export default function App() {
         <Route path="/exports/:id" element={<Guard permission={Permission.OPERATIONS_CREATE}><ExportDetailPage /></Guard>} />
         <Route path="/clients" element={<Guard permission={Permission.CLIENTS_MANAGE}><ClientsPage /></Guard>} />
         <Route path="/approvals" element={<Guard permission={Permission.OPERATIONS_APPROVE}><ApprovalsPage /></Guard>} />
-        <Route path="/settings" element={<Guard permission={Permission.SETTINGS_MANAGE}><SettingsPage /></Guard>} />
+        <Route path="/settings" element={<Guard permission={Permission.DASHBOARD_ACCOUNTANT}><SettingsPage /></Guard>} />
         <Route path="/reports" element={<Guard permission={Permission.REPORTS_OPERATIONAL}><ReportsPage /></Guard>} />
         <Route path="/accounts" element={<Guard permission={Permission.FINANCE_VIEW}><AccountsPage /></Guard>} />
         <Route path="/statement/:kind/:id" element={<Guard permission={Permission.FINANCE_VIEW}><StatementPage /></Guard>} />
@@ -86,5 +89,6 @@ export default function App() {
       </Routes>
       </Suspense>
     </Layout>
+    </TourProvider>
   );
 }

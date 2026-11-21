@@ -8,3 +8,4 @@ export * from './production';
 export * from './api-error';
 export * from './payments';
 export * from './wood-types';
+export * from './tours';

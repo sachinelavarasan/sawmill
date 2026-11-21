@@ -1,6 +1,6 @@
 import { recoveryPercent } from '@timbertrail/shared';
-import { PlusIcon } from 'lucide-react';
-import { FormEvent, ReactNode, useMemo, useState } from 'react';
+import { ArrowDownToLineIcon, PlusIcon } from 'lucide-react';
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,7 @@ import { Field, FormActions, FormCard, FormSection, LoadState, Notice, Page, Pag
 import { useI18n } from '../i18n';
 import { fromLocalInput, toLocalInput } from './Imports';
 import { ProductionQuickView } from './QuickViews';
+import { asEvent, DatePicker, DateTimePicker } from '../components/date-picker';
 
 export interface ProductionSummary {
   id: string;
@@ -72,11 +73,14 @@ export const productionBody = (f: ProductionForm) => ({
 });
 
 
+/** The few columns the simple view keeps: what it is, when, and where it stands. */
+const SIMPLE_COLUMNS = ['code', 'date', 'import', 'output', 'status', 'open'];
+
 export function ProductionPage() {
   const { t } = useI18n();
   const { user } = useAuth();
   const isOwner = user?.role === 'OWNER';
-  const list = useRecordList<ProductionSummary>({ path: '/production', name: 'production', hiddenByDefault: ['waste'] });
+  const list = useRecordList<ProductionSummary>({ path: '/production', name: 'production', hiddenByDefault: ['waste'], simpleColumns: SIMPLE_COLUMNS });
   const { data, loading, error, reload } = list;
   /** the run shown in the side panel, if any */
   const [peek, setPeek] = useState<ProductionSummary | null>(null);
@@ -152,7 +156,7 @@ export function ProductionPage() {
     );
     return cols;
   }, [t, isOwner]);
-  const columns = useMemo(() => allColumns.filter((c) => !list.hidden.includes(c.id)), [allColumns, list.hidden]);
+  const columns = useMemo(() => list.shown(allColumns), [allColumns, list.hidden, list.simple]);
 
   return (
     <Page>
@@ -216,7 +220,7 @@ export function ProductionFields({
       <FormSection step={1} title={t('secRawInput')}>
         {source}
         <Field id="prod-date" label={t('productionDate')} required>
-          <Input id="prod-date" type="date" value={form.productionDate} onChange={set('productionDate')} required />
+          <DatePicker id="prod-date" value={form.productionDate} onChange={asEvent(set('productionDate'))} required />
         </Field>
         <Field
           id="prod-input"
@@ -233,7 +237,7 @@ export function ProductionFields({
         </Field>
       </FormSection>
 
-      <FormSection step={2} title={t('runDetails')}>
+      <FormSection step={2} title={t('runDetails')} optional>
         <Field id="prod-machine" label={t('cuttingMachine')}>
           <Input id="prod-machine" value={form.cuttingMachine} onChange={set('cuttingMachine')} maxLength={100} />
         </Field>
@@ -241,10 +245,10 @@ export function ProductionFields({
           <Input id="prod-operator" value={form.machineOperator} onChange={set('machineOperator')} maxLength={100} />
         </Field>
         <Field id="prod-start" label={t('startTime')}>
-          <Input id="prod-start" type="datetime-local" value={form.startAt} onChange={set('startAt')} />
+          <DateTimePicker id="prod-start" value={form.startAt} onChange={asEvent(set('startAt'))} />
         </Field>
         <Field id="prod-end" label={t('endTime')}>
-          <Input id="prod-end" type="datetime-local" value={form.endAt} onChange={set('endAt')} min={form.startAt || undefined} />
+          <DateTimePicker id="prod-end" value={form.endAt} onChange={asEvent(set('endAt'))} min={form.startAt || undefined} />
         </Field>
         <Field id="prod-workers" label={t('workerDetails')} className="sm:col-span-2">
           <Input id="prod-workers" value={form.workerDetails} onChange={set('workerDetails')} maxLength={500} />
@@ -257,13 +261,37 @@ export function ProductionFields({
   );
 }
 
+/** The load out a sawing was started from (?back=/exports/…&backCode=EXP-…), only ever a load-out page. */
+export function loadOutLink(params: URLSearchParams): { to: string; code: string } | null {
+  const back = params.get('back') ?? '';
+  return /^\/exports\/[0-9a-f-]{36}$/i.test(back) ? { to: back, code: params.get('backCode') ?? '' } : null;
+}
+
 export function NewProductionPage() {
   const { t } = useI18n();
+  const { simple } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const stock = useLoad(() => api<{ raw: RawStockRow[] }>('/stock'), []);
-  const loads = stock.data?.raw.filter((r) => r.cft > 0) ?? [];
+  const stock = useLoad(() => api<{ raw: RawStockRow[]; pendingRaw: (RawStockRow & { status: string })[] }>('/stock'), []);
+  // opened from a load out ("Not in stock? Add sawing"): its wood, the size wanted, and the way back
+  const wood = params.get('wood')?.trim().toLowerCase() ?? '';
+  const forLoadOut = loadOutLink(params);
+  const sameWood = (r: RawStockRow) => !wood || r.woodType.trim().toLowerCase() === wood;
+  // approved raw stock, then loads measured but still waiting for approval (sawing may start on them)
+  const loads: (RawStockRow & { pending?: boolean })[] = [
+    ...(stock.data?.raw.filter((r) => r.cft > 0 && sameWood(r)) ?? []),
+    ...(stock.data?.pendingRaw.filter(sameWood).map((r) => ({ ...r, pending: true })) ?? []),
+  ];
+  // not there? load the logs in first, then come back here with that load chosen
+  const loadInLink = `/imports/new?${new URLSearchParams({
+    ...(params.get('wood') && { wood: params.get('wood')! }),
+    back: `/production/new?${params}`,
+  })}`;
   const [loadId, setLoadId] = useState(params.get('load') ?? '');
+  // only one raw load of that wood: it is the one
+  useEffect(() => {
+    if (!loadId && wood && loads.length === 1) setLoadId(loads[0].importLoadId);
+  }, [loadId, wood, loads]);
   const [form, setForm] = useState<ProductionForm>(() => ({
     productionDate: todayLocal(),
     cuttingMachine: '',
@@ -290,7 +318,13 @@ export function NewProductionPage() {
         body: JSON.stringify({ importLoadId: loadId, ...productionBody(form) }),
       });
       release();
-      navigate(`/production/${created.id}`, { replace: true });
+      // carry the wanted size and the way back on to the run, where the size is typed
+      const carry = new URLSearchParams();
+      for (const k of ['t', 'w', 'l', 'pcs', 'back', 'backCode']) {
+        const v = params.get(k);
+        if (v) carry.set(k, v);
+      }
+      navigate(`/production/${created.id}${carry.size ? `?${carry}` : ''}`, { replace: true });
     } catch (err) {
       setError((err as Error).message);
       setBusy(false);
@@ -299,9 +333,21 @@ export function NewProductionPage() {
 
   return (
     <Page className="max-w-5xl">
-      <PageHeader title={t('newProduction')} subtitle={t('requiredNote')} back={{ to: '/production', label: t('production') }} />
+      <PageHeader
+        title={simple ? t('simpleCut') : t('newProduction')}
+        subtitle={simple ? undefined : t('requiredNote')}
+        back={{ to: '/production', label: t(simple ? 'simpleCut' : 'production') }}
+      />
+      {forLoadOut && <Notice>{t('sawingForLoadOut', { code: forLoadOut.code })}</Notice>}
       <LoadState shape="form" loading={stock.loading && !stock.data} error={stock.error} onRetry={stock.reload} />
-      {stock.data && loads.length === 0 && <Notice>{t('noRawStock')}</Notice>}
+      {stock.data && loads.length === 0 && <Notice>{wood ? t('noRawOfWood', { wood: params.get('wood') ?? '' }) : t('noRawStock')}</Notice>}
+      {stock.data && loads.length === 0 && (
+        <Button asChild size="lg" className="h-12 w-fit">
+          <Link to={loadInLink}>
+            <ArrowDownToLineIcon /> {t('loadInNewLogs')}
+          </Link>
+        </Button>
+      )}
       {stock.data && loads.length > 0 && (
         <FormCard onSubmit={submit} className="[&_form]:gap-8">
           <ProductionFields
@@ -318,10 +364,17 @@ export function NewProductionPage() {
                     {loads.map((l) => (
                       <SelectItem key={l.importLoadId} value={l.importLoadId}>
                         {l.importCode} · {l.woodType} · {num3(l.cft)} CFT
+                        {l.pending && <span className="text-warning"> · {t('pendingApproval')}</span>}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {chosen?.pending && <p className="mt-1.5 text-xs text-warning">{t('pendingRawHint')}</p>}
+                <Button asChild variant="outline" className="mt-2 h-11 w-fit">
+                  <Link to={loadInLink}>
+                    <ArrowDownToLineIcon /> {t('loadInNewLogs')}
+                  </Link>
+                </Button>
               </Field>
             }
           />

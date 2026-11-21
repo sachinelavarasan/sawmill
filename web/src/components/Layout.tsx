@@ -1,4 +1,4 @@
-import { BellIcon, CheckCheckIcon, ChevronDownIcon, ChevronsUpDownIcon, LogOutIcon, MenuIcon, MonitorIcon, MoonIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, SunIcon, Undo2Icon } from 'lucide-react';
+import { BellIcon, CheckCheckIcon, ChevronDownIcon, ChevronsUpDownIcon, CircleHelpIcon, LogOutIcon, MenuIcon, MonitorIcon, MoonIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, SunIcon, Undo2Icon } from 'lucide-react';
 import { Permission } from '@timbertrail/shared';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
@@ -20,12 +20,13 @@ import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
 import { Lang, useI18n } from '../i18n';
-import { NAV_GROUPS, NAV_ITEMS, type NavGroup, navVisible } from '../nav';
+import { NAV_GROUPS, NAV_ITEMS, type NavGroup, navVisible, sectionPath, simpleNav } from '../nav';
 import { LogoMark } from './brand';
 import { CreateMenu } from './create-menu';
 import { QuickJump } from './quick-jump';
 import { type ThemeChoice, useTheme } from '../theme';
 import { dateTime } from './common';
+import { useTour } from '../tour/TourProvider';
 
 const SIDEBAR_KEY = 'timbertrail.sidebar';
 
@@ -70,9 +71,18 @@ function useMedia(query: string) {
  */
 export function Layout({ children }: { children: ReactNode }) {
   const { t } = useI18n();
-  const { user } = useAuth();
+  const { user, simple } = useAuth();
   const [open, setOpen] = useState(false);
   const { collapsed, toggle } = useSidebarCollapsed();
+  // the simple view's larger type and touch targets hang off this (index.css)
+  useEffect(() => {
+    const root = document.documentElement;
+    if (simple) root.dataset.simple = '';
+    else delete root.dataset.simple;
+    return () => {
+      delete root.dataset.simple;
+    };
+  }, [simple]);
   // the browser tab carries the company's name while signed in
   const mill = user?.mill.name;
   useEffect(() => {
@@ -99,7 +109,8 @@ export function Layout({ children }: { children: ReactNode }) {
           rail ? 'w-(--sidebar-rail)' : 'w-(--sidebar-width)',
         )}
       >
-        <SidebarNav collapsed={rail} />
+        {/* the collapse toggle sits in the sidebar itself; on a tablet the rail is fixed, so there is none */}
+        <SidebarNav collapsed={rail} onToggle={desktop ? toggle : undefined} />
       </aside>
 
       {/* on a phone the same sidebar slides in over the page, floating with the same inset */}
@@ -130,35 +141,58 @@ export function Layout({ children }: { children: ReactNode }) {
             scrolled ? 'shadow-lift' : 'shadow-card',
           )}
         >
-          <Button variant="ghost" size="icon" className="md:hidden" aria-label={t('menu')} onClick={() => setOpen(true)}>
+          <Button variant="ghost" size="icon" className="md:hidden" aria-label={t('menu')} onClick={() => setOpen(true)} data-tour="menu-button">
             <MenuIcon />
-          </Button>
-          {/* the sidebar's collapse toggle lives here, where it is always in the same place (desktop only) */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="-ml-1 text-muted-foreground max-lg:hidden"
-            aria-label={collapsed ? t('expandMenu') : t('collapseMenu')}
-            aria-expanded={!collapsed}
-            title={collapsed ? t('expandMenu') : t('collapseMenu')}
-            onClick={toggle}
-          >
-            {collapsed ? <PanelLeftOpenIcon /> : <PanelLeftCloseIcon />}
           </Button>
           <Crumbs />
           <div className="flex-1" />
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <QuickJump />
-            <CreateMenu />
-            <Notifications />
-            <ThemeToggle className="max-sm:hidden" />
-            <LangToggle className="max-md:hidden" />
+            {/* search and the create-anything menu are for whoever has turned on every feature */}
+            {/* data-tour wrappers: the guided tour's targets (tour/steps.ts) */}
+            {!simple && (
+              <div data-tour="search" className="flex">
+                <QuickJump />
+              </div>
+            )}
+            {!simple && (
+              <div data-tour="create" className="flex">
+                <CreateMenu />
+              </div>
+            )}
+            {/* the quiet tools share one grey pill: help, theme, the bell, and the language switch */}
+            <div className="flex items-center gap-0.5 rounded-full border border-control-border bg-muted p-1">
+              <HelpButton />
+              <div data-tour="theme" className="flex max-sm:hidden">
+                <ThemeToggle className={toolButton} />
+              </div>
+              <div data-tour="notifications" className="flex">
+                <Notifications />
+              </div>
+              <span className="mx-1 h-5 w-px bg-control-border max-md:hidden" aria-hidden />
+              <div data-tour="lang" className="flex max-md:hidden">
+                <LangToggle className="border-0 bg-transparent p-0" />
+              </div>
+            </div>
           </div>
         </header>
         </div>
         <main className="flex-1 px-3 pt-4 pb-12 sm:px-5 sm:pt-5 lg:px-6 lg:pt-6 print:p-0">{children}</main>
       </div>
     </div>
+  );
+}
+
+/** A round icon button inside the top bar's tool pill: no fill at rest, a white chip on hover. */
+const toolButton = 'size-9 rounded-full border-0 bg-transparent text-foreground/70 shadow-none hover:bg-card hover:text-foreground hover:shadow-xs aria-expanded:bg-card aria-expanded:text-foreground aria-expanded:shadow-xs';
+
+/** Replays the guided tour of the app. */
+function HelpButton() {
+  const { t } = useI18n();
+  const { start } = useTour();
+  return (
+    <Button variant="ghost" size="icon" className={toolButton} aria-label={t('tourStart')} title={t('tourStart')} onClick={start} data-tour="help">
+      <CircleHelpIcon />
+    </Button>
   );
 }
 
@@ -179,25 +213,33 @@ function useScrolled() {
  * The mill's name is not repeated here; the sidebar already leads with it.
  */
 function Crumbs() {
-  const { t } = useI18n();
-  const { pathname } = useLocation();
-  const item = NAV_ITEMS.find((n) => (n.path === '/' ? pathname === '/' : pathname === n.path || pathname.startsWith(`${n.path}/`)));
-  if (!item) return null;
+  const { t, lang } = useI18n();
+  const { simple } = useAuth();
+  const { pathname, search } = useLocation();
+  const here = sectionPath(pathname, search);
+  const found = NAV_ITEMS.find((n) => (n.path === '/' ? here === '/' : here === n.path || here.startsWith(`${n.path}/`)));
+  if (!found) return null;
+  // the simple view calls each place by its plain name, the same as its menu
+  const item = { ...found, labelKey: (simple && found.simple?.labelKey) || found.labelKey };
+  const today = new Date().toLocaleDateString(lang === 'ta' ? 'ta-IN' : 'en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
   return (
-    <nav aria-label={t('menu')} className="flex min-w-0 items-center gap-2 text-sm">
-      <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-muted text-foreground/80 shadow-xs max-sm:hidden [&_svg]:size-4" aria-hidden>
-        <item.icon strokeWidth={1.75} />
+    <nav aria-label={t('menu')} className="flex min-w-0 items-center gap-3">
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-gradient text-brand-foreground shadow-xs max-sm:hidden [&_svg]:size-[1.125rem]" aria-hidden>
+        <item.icon strokeWidth={2} />
       </span>
-      {/* on a record or form inside the section, the section name leads back to its list */}
-      {pathname === item.path ? (
-        <span className="truncate font-semibold" aria-current="page">
-          {t(item.labelKey)}
-        </span>
-      ) : (
-        <NavLink to={item.path} className="truncate rounded-sm font-semibold outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">
-          {t(item.labelKey)}
-        </NavLink>
-      )}
+      <span className="flex min-w-0 flex-col leading-tight">
+        {/* on a record or form inside the section, the section name leads back to its list */}
+        {pathname === item.path ? (
+          <span className="truncate text-[0.9375rem] font-semibold tracking-tight font-display" aria-current="page">
+            {t(item.labelKey)}
+          </span>
+        ) : (
+          <NavLink to={item.path} className="truncate rounded-sm text-[0.9375rem] font-semibold tracking-tight font-display outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">
+            {t(item.labelKey)}
+          </NavLink>
+        )}
+        <span className="mt-0.5 truncate text-xs text-muted-foreground max-sm:hidden">{today}</span>
+      </span>
     </nav>
   );
 }
@@ -273,17 +315,34 @@ const iconClass = (active: boolean) =>
  * and at the foot Settings, who is signed in, and sign-out. The same component fills the desktop
  * panel (full or as an icon rail) and the phone drawer.
  */
-function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNavigate?: () => void; collapsed?: boolean; /** the phone drawer: taller, touch-sized rows */ touch?: boolean }) {
-  const { user, can, logout } = useAuth();
+function SidebarNav({
+  onNavigate,
+  collapsed = false,
+  touch = false,
+  onToggle,
+}: {
+  onNavigate?: () => void;
+  collapsed?: boolean;
+  /** the phone drawer: taller, touch-sized rows */
+  touch?: boolean;
+  /** collapse to the icon rail / expand again (desktop only) */
+  onToggle?: () => void;
+}) {
+  const { user, can, logout, simple } = useAuth();
   const pending = usePendingApprovals();
   const { t } = useI18n();
   const { pathname, search } = useLocation();
   const { closed, toggle } = useClosedGroups();
   const subs = useSubmenus();
-  const items = NAV_ITEMS.filter((n) => navVisible(n, can));
+  // the simple view: one flat list, no headings, in the order the day's work is done
+  const items = simple ? simpleNav(can) : NAV_ITEMS.filter((n) => navVisible(n, can));
   const footer = items.filter((n) => n.footer);
-  const groups = NAV_GROUPS.map((g) => ({ ...g, items: items.filter((n) => n.group === g.id && !n.footer) })).filter((g) => g.items.length > 0);
-  const activeOf = (path: string) => (path === '/' ? pathname === '/' : pathname === path || pathname.startsWith(`${path}/`));
+  const groups = simple
+    ? [{ id: 'main' as NavGroup, labelKey: undefined, items: items.filter((n) => !n.footer) }]
+    : NAV_GROUPS.map((g) => ({ ...g, items: items.filter((n) => n.group === g.id && !n.footer) })).filter((g) => g.items.length > 0);
+  const big = touch || simple;
+  const here = sectionPath(pathname, search);
+  const activeOf = (path: string) => (path === '/' ? here === '/' : here === path || here.startsWith(`${path}/`));
   const tabNow = new URLSearchParams(search).get('tab');
 
   /** A tooltip naming the item, for the icon rail (where labels are hidden). */
@@ -315,9 +374,9 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
         end={n.path === '/'}
         onClick={onNavigate}
         aria-label={collapsed ? (badge ? `${label} (${badge})` : label) : undefined}
-        className={cn(rowClass(isActive, collapsed, touch), nested && 'pr-10')}
+        className={cn(rowClass(isActive, collapsed, big), simple && !collapsed && 'text-[0.9375rem]', nested && 'pr-10')}
       >
-        <n.icon className={iconClass(isActive)} strokeWidth={isActive ? 2 : 1.75} />
+        <n.icon className={cn(iconClass(isActive), simple && 'size-5')} strokeWidth={isActive ? 2 : 1.75} />
         {/* long labels (Tamil) wrap to a second line rather than being cut off */}
         {!collapsed && <span className="line-clamp-2 min-w-0 flex-1 animate-in py-2 leading-snug duration-300 fade-in-0">{label}</span>}
         {badge &&
@@ -374,7 +433,7 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
                     aria-current={on ? 'page' : undefined}
                     className={cn(
                       'relative flex items-center rounded-lg px-3 text-[0.8125rem] transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-accent',
-                      touch ? 'min-h-11' : 'min-h-9',
+                      big ? 'min-h-11' : 'min-h-9',
                       'before:absolute before:inset-y-2 before:-left-[calc(0.625rem+1.5px)] before:w-0.5 before:rounded-full before:transition-colors',
                       on ? 'font-semibold text-sidebar-selected-foreground before:bg-sidebar-accent' : 'text-sidebar-muted before:bg-transparent hover:bg-sidebar-hover hover:text-sidebar-foreground',
                     )}
@@ -399,7 +458,7 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
             <LogoMark variant="auto" className="size-full" />
           </span>
           {!collapsed && (
-            <div className="min-w-0 animate-in leading-tight duration-300 fade-in-0">
+            <div className="min-w-0 flex-1 animate-in leading-tight duration-300 fade-in-0">
               {/* inside the app the company's own name leads; the product is the small print */}
               <div className="truncate text-[0.9375rem] font-bold tracking-tight font-display" title={user?.mill.name}>
                 {user?.mill.name}
@@ -407,7 +466,14 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
               <div className="mt-0.5 truncate text-xs text-sidebar-muted">TimberTrail</div>
             </div>
           )}
+          {onToggle && !collapsed && <CollapseButton collapsed={false} onToggle={onToggle} />}
         </div>
+        {/* on the rail there is no room beside the logo: the expand button sits just under it */}
+        {onToggle && collapsed && (
+          <div className="flex shrink-0 justify-center pb-1">
+            {withTip('collapse', t('expandMenu'), <CollapseButton collapsed onToggle={onToggle} />)}
+          </div>
+        )}
 
         {/* navigation scrolls on its own; the brand and the footer stay put */}
         <nav aria-label={t('menu')} className={cn('scroll-quiet flex flex-1 flex-col overflow-x-hidden overflow-y-auto px-3', touch ? 'py-2' : 'py-1', collapsed && 'items-center')}>
@@ -416,7 +482,7 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
             // a group folds away only when expanded; the one holding the open page always stays open
             const open = collapsed || !g.labelKey || holdsActive || !closed.includes(g.id);
             return (
-              <div key={g.id} className={cn('flex flex-col', collapsed && 'items-center')}>
+              <div key={g.id} data-tour={`nav-${g.id}`} className={cn('flex flex-col', collapsed && 'items-center')}>
                 {g.labelKey && !collapsed ? (
                   <button
                     type="button"
@@ -436,7 +502,7 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
                 )}
                 {/* the group's items slide open and closed; folded items are out of the tab order */}
                 <div className={cn('grid w-full transition-[grid-template-rows] duration-300 ease-smooth', open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')} inert={!open}>
-                  <div className={cn('flex min-h-0 flex-col overflow-hidden', touch ? 'gap-1' : 'gap-0.5', collapsed && 'items-center')}>{g.items.map(link)}</div>
+                  <div className={cn('flex min-h-0 flex-col overflow-hidden', big ? 'gap-1' : 'gap-0.5', collapsed && 'items-center')}>{g.items.map(link)}</div>
                 </div>
               </div>
             );
@@ -444,7 +510,7 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
         </nav>
 
         {/* the foot: Settings, who is signed in, and the way out */}
-        <div className={cn('flex shrink-0 flex-col gap-0.5 border-t border-border/70 p-3', collapsed && 'items-center')}>
+        <div data-tour="account" className={cn('flex shrink-0 flex-col gap-0.5 border-t border-border/70 p-3', collapsed && 'items-center')}>
           {footer.map(link)}
           <div className={cn('flex items-center', collapsed ? 'mt-1 flex-col gap-1' : 'mt-1 gap-1')}>
             <ProfileMenu variant="sidebar" collapsed={collapsed} />
@@ -465,6 +531,24 @@ function SidebarNav({ onNavigate, collapsed = false, touch = false }: { onNaviga
         </div>
       </div>
     </TooltipProvider>
+  );
+}
+
+/** Folds the sidebar to its icon rail, or opens it again. */
+function CollapseButton({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+  const { t } = useI18n();
+  const label = collapsed ? t('expandMenu') : t('collapseMenu');
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={label}
+      aria-expanded={!collapsed}
+      title={collapsed ? undefined : label}
+      className="-mr-1 grid size-8 shrink-0 place-items-center rounded-lg text-sidebar-muted transition-colors duration-200 outline-none hover:bg-sidebar-hover hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-accent"
+    >
+      {collapsed ? <PanelLeftOpenIcon className="size-[1.125rem]" strokeWidth={1.75} /> : <PanelLeftCloseIcon className="size-[1.125rem]" strokeWidth={1.75} />}
+    </button>
   );
 }
 
@@ -631,10 +715,11 @@ function Notifications() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="icon" className="relative text-foreground/80" aria-label={total ? `${t('notifications')} (${total})` : t('notifications')} title={t('notifications')}>
+        <Button variant="ghost" size="icon" className={cn(toolButton, 'relative')} aria-label={total ? `${t('notifications')} (${total})` : t('notifications')} title={t('notifications')}>
           <BellIcon />
+          {/* the count sits on the corner, clear of the bell */}
           {total > 0 && (
-            <span key={total} className="absolute top-2 right-2 grid min-w-4 animate-in place-items-center rounded-full bg-brand px-1 text-[0.625rem] leading-4 font-bold text-brand-foreground tabular-nums ring-2 ring-secondary duration-300 zoom-in-50">
+            <span key={total} className="absolute -top-1 -right-1 grid h-[1.125rem] min-w-[1.125rem] animate-in place-items-center rounded-full bg-brand px-1 text-[0.625rem] leading-none font-bold text-brand-foreground tabular-nums ring-2 ring-muted duration-300 zoom-in-50">
               {total > 99 ? '99+' : total}
             </span>
           )}
@@ -697,7 +782,7 @@ export function LangToggle({ className }: { className?: string }) {
       value={lang}
       onValueChange={(v) => v && setLang(v as Lang)}
       aria-label="Language"
-      className={cn('rounded-full bg-control p-1', className)}
+      className={cn('rounded-full border border-control-border bg-muted p-1', className)}
     >
       {(
         [
@@ -723,6 +808,7 @@ export function LangToggle({ className }: { className?: string }) {
  */
 function ProfileMenu({ variant, collapsed = false }: { variant: 'sidebar' | 'header'; collapsed?: boolean }) {
   const { user, logout } = useAuth();
+  const { startApp } = useTour();
   const { t } = useI18n();
   const isOwner = user?.role === 'OWNER';
   const role = isOwner ? t('owner') : t('accountant');
@@ -783,6 +869,11 @@ function ProfileMenu({ variant, collapsed = false }: { variant: 'sidebar' | 'hea
         <div className="px-2 py-1.5 sm:hidden">
           <LangToggle className="w-full [&>*]:flex-1" />
         </div>
+        {/* after the menu has closed, so the tour isn't drawn under it */}
+        <DropdownMenuItem onSelect={() => setTimeout(startApp, 150)}>
+          <CircleHelpIcon />
+          {t('tourApp')}
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={logout} variant="destructive">
           <LogOutIcon />
           {t('logout')}

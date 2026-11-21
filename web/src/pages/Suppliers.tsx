@@ -114,7 +114,7 @@ function PartiesPage({
   balances,
 }: PartyPageProps) {
   const { t } = useI18n();
-  const { can } = useAuth();
+  const { can, simple } = useAuth();
   const { data, loading, error, reload } = useApi<Party[]>(path);
   // What each party still owes / is owed: the same figures the Accounts page shows, for whoever may see
   // finance. Outstanding balances cover every approved load to date, whatever period is asked for.
@@ -326,8 +326,9 @@ function PartiesPage({
         </div>
       ),
     });
-    return cols;
-  }, [t, Icon, canFinance, due, balances, path]);
+    // the simple view: who, their number, and what is owed — address and GST are in the record
+    return simple ? cols.filter((c) => c.id !== "address" && c.id !== "gst") : cols;
+  }, [t, Icon, canFinance, due, balances, path, simple]);
 
   return (
     <Page>

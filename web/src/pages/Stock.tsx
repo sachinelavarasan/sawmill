@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useAuth } from '../auth';
@@ -39,6 +40,10 @@ interface Balances {
   totals: { rawCft: number; rawLoads: number; finishedCft: number; finishedPieces: number };
   raw: RawStockRow[];
   finished: FinishedRow[];
+  /** sawn, waiting for approval: not stock yet */
+  pendingFinished: (FinishedRow & { runId: string; runCode: string })[];
+  /** loads in measured but waiting for approval: not stock yet, but sawing may start on them */
+  pendingRaw: (RawStockRow & { status: string })[];
 }
 interface Movement {
   id: string;
@@ -161,6 +166,7 @@ function StockSummary({ icon, label, cft, color, figure }: { icon: ReactNode; la
 
 export function StockPage() {
   const { t } = useI18n();
+  const { simple } = useAuth();
   const [params, setParams] = useSearchParams();
   const tab = (TABS.some(([k]) => k === params.get('tab')) ? params.get('tab') : 'raw') as Tab;
   const loadFilter = params.get('load') ?? '';
@@ -178,12 +184,23 @@ export function StockPage() {
 
   // the four views, and how much the two stock lists hold
   const sizeCount = data ? new Set(data.finished.map((f) => `${f.woodType}|${f.thicknessIn}|${f.widthIn}|${f.lengthFt}`)).size : 0;
-  const views: { key: Tab; icon: LucideIcon; title: string; count?: number }[] = [
+  const allViews: { key: Tab; icon: LucideIcon; title: string; count?: number }[] = [
     { key: 'raw', icon: LayersIcon, title: t('rawByLoad'), count: data?.totals.rawLoads },
     { key: 'finished', icon: PackageIcon, title: t('finishedBySize'), count: sizeCount },
     { key: 'movements', icon: HistoryIcon, title: t('movementHistory') },
     { key: 'adjustments', icon: SlidersHorizontalIcon, title: t('adjustments') },
   ];
+  const views = allViews;
+
+  // the simple view: two big switches, a wood filter and cards — see SimpleStock
+  if (simple)
+    return (
+      <Page>
+        <PageHeader title={t('stock')} />
+        <LoadState shape="list" loading={loading && !data} error={error} onRetry={reload} />
+        {data && <SimpleStock data={data} tab={tab === 'finished' ? 'finished' : 'raw'} onTab={(next) => go(next)} />}
+      </Page>
+    );
 
   return (
     <Page>
@@ -201,7 +218,7 @@ export function StockPage() {
 
       {data && (
         <>
-          <div className="grid gap-3 sm:gap-5 lg:grid-cols-2">
+          <div data-tour="stock-summary" className="grid gap-3 sm:gap-5 lg:grid-cols-2">
             <StockSummary
               icon={<LayersIcon />}
               label={t('rawStock')}
@@ -220,7 +237,7 @@ export function StockPage() {
 
           <Tabs value={tab} onValueChange={(v) => go(v as Tab)} className="gap-5">
             {/* the four views as one minimal tab strip (it scrolls sideways on a phone) */}
-            <TabsList variant="line" className="scroll-quiet h-auto! w-full justify-start gap-1 overflow-x-auto overflow-y-hidden">
+            <TabsList data-tour="tabs" variant="line" className="scroll-quiet h-auto! w-full justify-start gap-1 overflow-x-auto overflow-y-hidden">
               {views.map((v) => (
                 <TabsTrigger key={v.key} value={v.key} className="h-10 flex-none gap-2 rounded-lg px-3.5 transition-colors after:inset-x-3! after:bottom-0! hover:bg-muted/50 data-[state=active]:bg-muted/70! data-[state=active]:text-foreground">
                   <v.icon aria-hidden className={cn(tab === v.key ? 'text-foreground' : 'text-muted-foreground')} />
@@ -232,7 +249,8 @@ export function StockPage() {
             <TabsContent value="raw">
               <RawTab rows={data.raw} onHistory={(id) => go('movements', id)} />
             </TabsContent>
-            <TabsContent value="finished">
+            <TabsContent value="finished" className="flex flex-col gap-4">
+              {data.pendingFinished.length > 0 && <PendingSawn rows={data.pendingFinished} />}
               <FinishedTab rows={data.finished} />
             </TabsContent>
             <TabsContent value="adjustments">
@@ -245,6 +263,274 @@ export function StockPage() {
         </>
       )}
     </Page>
+  );
+}
+
+// ───────── simple view ─────────
+
+type RawItem = RawStockRow & { pending?: boolean };
+interface SizeItem {
+  key: string;
+  wood: string;
+  size: string;
+  pieces: number;
+  cft: number;
+  /** where the pieces came from: a load (in stock) or a sawing waiting for approval */
+  sources: { key: string; label: string; pieces: number; to?: string }[];
+  pending: boolean;
+}
+
+/**
+ * Stock for the simple view: "how much wood do I have, which sizes are ready, what can I saw next".
+ * Two big switch cards (logs / sawn pieces), one wood filter, and cards with one action each.
+ * Things waiting for approval sit in the same lists with a dashed border.
+ */
+function SimpleStock({ data, tab, onTab }: { data: Balances; tab: 'raw' | 'finished'; onTab: (t: Tab) => void }) {
+  const { t } = useI18n();
+  const [wood, setWood] = useState('');
+  const [q, setQ] = useState('');
+
+  const rawItems = useMemo<RawItem[]>(
+    () =>
+      [...data.raw.filter((r) => r.cft > 0), ...data.pendingRaw.map((r) => ({ ...r, pending: true }))].sort((a, b) =>
+        String(b.arrivalAt).localeCompare(String(a.arrivalAt)),
+      ),
+    [data],
+  );
+  const sizeItems = useMemo<SizeItem[]>(() => {
+    const m = new Map<string, SizeItem>();
+    const add = (f: FinishedRow, pending: boolean, source: SizeItem['sources'][number]) => {
+      const size = sizeLabel(f.thicknessIn, f.widthIn, f.lengthFt);
+      const key = `${f.woodType}|${size}|${pending ? 'p' : ''}`;
+      const g = m.get(key) ?? { key, wood: f.woodType, size, pieces: 0, cft: 0, sources: [], pending };
+      g.pieces += f.pieces;
+      g.cft += f.cft;
+      g.sources.push(source);
+      m.set(key, g);
+    };
+    data.finished.forEach((f) => add(f, false, { key: f.importLoadId, label: f.importCode, pieces: f.pieces }));
+    data.pendingFinished.forEach((f) => add(f, true, { key: f.runId, label: `${f.runCode} · ${f.importCode}`, pieces: f.pieces, to: `/production/${f.runId}` }));
+    // by wood, then the sizes in stock before the ones waiting
+    return [...m.values()].sort((a, b) => a.wood.localeCompare(b.wood) || Number(a.pending) - Number(b.pending) || a.size.localeCompare(b.size, undefined, { numeric: true }));
+  }, [data]);
+
+  const woodOf = (x: RawItem | SizeItem) => ('wood' in x ? x.wood : x.woodType);
+  const items: (RawItem | SizeItem)[] = tab === 'raw' ? rawItems : sizeItems;
+  const woods = [...new Set(items.map(woodOf))].sort();
+  const k = q.trim().toLowerCase();
+  const shown = items.filter(
+    (x) =>
+      (!wood || woodOf(x) === wood) &&
+      (!k || ('size' in x ? `${x.wood} ${x.size}` : `${x.woodType} ${x.importCode}`).toLowerCase().includes(k)),
+  );
+  const switchTo = (next: 'raw' | 'finished') => {
+    setWood('');
+    setQ('');
+    onTab(next);
+  };
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* the two kinds of stock, as two big switches */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-5">
+        <SwitchCard
+          on={tab === 'raw'}
+          onClick={() => switchTo('raw')}
+          icon={<LayersIcon />}
+          label={t('stockLogs')}
+          value={num3(data.totals.rawCft)}
+          unit="CFT"
+          sub={t('loadsCount', { n: data.totals.rawLoads })}
+        />
+        <SwitchCard
+          on={tab === 'finished'}
+          onClick={() => switchTo('finished')}
+          icon={<PackageIcon />}
+          label={t('stockSawn')}
+          value={data.totals.finishedPieces.toLocaleString('en-IN')}
+          unit={t('pieces')}
+          sub={`${num3(data.totals.finishedCft)} CFT`}
+        />
+      </div>
+
+      {/* one plain filter: the wood */}
+      {items.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <FilterChips
+            label={t('woodType')}
+            value={wood}
+            onChange={setWood}
+            className="flex-1"
+            options={[
+              { value: '', label: t('all'), count: items.length, quiet: true },
+              ...woods.map((w) => ({ value: w, label: w, count: items.filter((x) => woodOf(x) === w).length, quiet: true })),
+            ]}
+          />
+          {items.length > 12 && <SearchBox className={quietSearch} value={q} onChange={setQ} placeholder={t(tab === 'raw' ? 'searchLoads' : 'searchSizes')} />}
+        </div>
+      )}
+
+      {tab === 'raw' ? (
+        rawItems.length === 0 ? (
+          <EmptyStock text={t('noLogsInStock')} to="/imports/new" action={t('simpleLoadIn')} icon={<ArrowDownToLineIcon />} />
+        ) : (
+          <div className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {(shown as RawItem[]).map((r) => (
+              <RawCard key={r.importLoadId} r={r} />
+            ))}
+          </div>
+        )
+      ) : sizeItems.length === 0 ? (
+        <EmptyStock text={t('nothingSawn')} to="/production/new" action={t('simpleCut')} icon={<ScissorsIcon />} />
+      ) : (
+        // sawn pieces, under a heading per wood with its totals
+        <div className="flex flex-col gap-6">
+          {[...new Set((shown as SizeItem[]).map((s) => s.wood))].map((w) => {
+            const sizes = (shown as SizeItem[]).filter((s) => s.wood === w);
+            const ready = sizes.filter((s) => !s.pending);
+            return (
+              <section key={w} className="flex flex-col gap-3">
+                <h2 className="flex flex-wrap items-baseline gap-x-3 text-lg font-bold font-display">
+                  {w}
+                  <span className="text-sm font-medium text-muted-foreground tabular-nums">
+                    {ready.reduce((n, s) => n + s.pieces, 0).toLocaleString('en-IN')} {t('pieces').toLowerCase()} · {num3(ready.reduce((n, s) => n + s.cft, 0))} CFT
+                  </span>
+                </h2>
+                <div className="stagger grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {sizes.map((s) => (
+                    <SizeCard key={s.key} s={s} />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SwitchCard({ on, onClick, icon, label, value, unit, sub }: { on: boolean; onClick: () => void; icon: ReactNode; label: string; value: string; unit: string; sub: string }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onClick}
+      className={cn(
+        'flex min-w-0 flex-col gap-2 rounded-2xl bg-card p-4 text-left shadow-card hover-lift outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:p-5',
+        on && 'ring-2 ring-brand',
+      )}
+    >
+      <span className="flex items-center gap-2 text-sm font-semibold text-muted-foreground [&_svg]:size-5">
+        <span className={cn('grid size-9 place-items-center rounded-lg', on ? 'bg-primary text-primary-foreground' : 'bg-primary-soft text-primary')}>{icon}</span>
+        {label}
+      </span>
+      <span className="text-[1.75rem] leading-none font-bold tracking-tight tabular-nums font-display sm:text-4xl">
+        {value}
+        <span className="ml-1.5 text-sm font-medium tracking-normal text-muted-foreground">{unit}</span>
+      </span>
+      <span className="text-sm text-muted-foreground tabular-nums">{sub}</span>
+    </button>
+  );
+}
+
+function PendingTag() {
+  const { t } = useI18n();
+  return <span className="w-fit shrink-0 self-start rounded-full bg-warning-soft px-2.5 py-1 text-xs font-semibold text-warning">{t('pendingApproval')}</span>;
+}
+
+/** One load's raw logs: how much is left, and "Saw this". */
+function RawCard({ r }: { r: RawItem }) {
+  const { t } = useI18n();
+  const share = !r.pending && r.receivedCft > 0 ? Math.min(100, Math.max(0, (r.cft / r.receivedCft) * 100)) : 0;
+  return (
+    <div className={cn('flex flex-col gap-4 rounded-2xl bg-card p-5 shadow-card', r.pending && 'border-2 border-dashed border-warning/60')}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate text-xl font-bold font-display">{r.woodType}</div>
+          <div className="truncate text-sm text-muted-foreground">
+            {r.importCode} · {r.logs} {t('logs').toLowerCase()}
+          </div>
+        </div>
+        {r.pending && <PendingTag />}
+      </div>
+      <div>
+        <div className="flex items-baseline gap-2">
+          <span className="text-3xl leading-none font-bold tabular-nums font-display">{num3(r.cft)}</span>
+          <span className="text-sm text-muted-foreground">{t('cftLeft')}</span>
+        </div>
+        {!r.pending && (
+          <>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-chart-1" style={{ width: `${share}%` }} />
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground tabular-nums">{t('ofReceived', { n: num3(r.receivedCft) })}</div>
+          </>
+        )}
+      </div>
+      <Button asChild size="lg" className="mt-auto h-12 text-base">
+        <Link to={`/production/new?load=${r.importLoadId}`}>
+          <ScissorsIcon /> {t('sawThis')}
+        </Link>
+      </Button>
+    </div>
+  );
+}
+
+/** One sawn size: how many pieces; tap to see which loads they came from; "Load out". */
+function SizeCard({ s }: { s: SizeItem }) {
+  const { t } = useI18n();
+  return (
+    <Collapsible className={cn('group/size flex flex-col gap-3 rounded-2xl bg-card p-4 shadow-card', s.pending && 'border-2 border-dashed border-warning/60')}>
+      <CollapsibleTrigger className="flex w-full items-start justify-between gap-3 rounded-lg text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+        <span className="min-w-0">
+          <span className="block text-lg leading-tight font-bold tabular-nums">{s.size}</span>
+          <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+            <ChevronDownIcon className="size-3.5 transition-transform group-data-[state=open]/size:rotate-180" aria-hidden />
+            {t('fromLoads', { n: s.sources.length })}
+          </span>
+        </span>
+        <span className="shrink-0 text-right">
+          <span className="block text-2xl leading-none font-bold tabular-nums font-display">{s.pieces.toLocaleString('en-IN')}</span>
+          <span className="text-xs text-muted-foreground tabular-nums">{num3(s.cft)} CFT</span>
+        </span>
+      </CollapsibleTrigger>
+      {s.pending && <PendingTag />}
+      <CollapsibleContent>
+        <ul className="flex flex-col divide-y rounded-lg bg-muted/50 px-3 text-sm">
+          {s.sources.map((x) => (
+            <li key={x.key} className="flex items-center justify-between gap-3 py-2">
+              {x.to ? (
+                <Link to={x.to} className="truncate text-primary hover:underline">
+                  {x.label}
+                </Link>
+              ) : (
+                <span className="truncate">{x.label}</span>
+              )}
+              <span className="shrink-0 font-semibold tabular-nums">{x.pieces}</span>
+            </li>
+          ))}
+        </ul>
+      </CollapsibleContent>
+      <Button asChild variant="outline" className="h-11">
+        <Link to={`/exports/new?${new URLSearchParams({ wood: s.wood })}`}>
+          <ArrowUpFromLineIcon /> {t('loadOutThis')}
+        </Link>
+      </Button>
+    </Collapsible>
+  );
+}
+
+function EmptyStock({ text, to, action, icon }: { text: string; to: string; action: string; icon: ReactNode }) {
+  return (
+    <div className="flex flex-col items-center gap-4 rounded-2xl bg-card p-10 text-center shadow-card">
+      <p className="text-base text-muted-foreground">{text}</p>
+      <Button asChild size="lg" className="h-12 text-base">
+        <Link to={to}>
+          {icon} {action}
+        </Link>
+      </Button>
+    </div>
   );
 }
 
@@ -266,7 +552,7 @@ function TableTop({ title, count, q, onQ, placeholder, filter }: { title: string
   );
 }
 
-function RawTab({ rows, onHistory }: { rows: RawStockRow[]; onHistory: (loadId: string) => void }) {
+function RawTab({ rows, onHistory }: { rows: RawStockRow[]; onHistory?: (loadId: string) => void }) {
   const { t } = useI18n();
   const { can } = useAuth();
   const canOpenAll = can(Permission.OPERATIONS_VIEW_ALL);
@@ -355,10 +641,12 @@ function RawTab({ rows, onHistory }: { rows: RawStockRow[]; onHistory: (loadId: 
                         </Link>
                       </Button>
                     )}
-                    <Button variant="ghost" size="sm" className="max-md:size-9 max-md:px-0" onClick={() => onHistory(r.importLoadId)} aria-label={t('movements')} title={t('movements')}>
-                      <HistoryIcon />
-                      <span className="max-md:sr-only">{t('movements')}</span>
-                    </Button>
+                    {onHistory && (
+                      <Button variant="ghost" size="sm" className="max-md:size-9 max-md:px-0" onClick={() => onHistory(r.importLoadId)} aria-label={t('movements')} title={t('movements')}>
+                        <HistoryIcon />
+                        <span className="max-md:sr-only">{t('movements')}</span>
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
@@ -371,6 +659,36 @@ function RawTab({ rows, onHistory }: { rows: RawStockRow[]; onHistory: (loadId: 
 }
 
 /** Finished stock grouped by wood type and size, with the import loads it came from. */
+/** Sizes from sawing that is saved but not approved: they become stock when the owner approves the run. */
+function PendingSawn({ rows }: { rows: (FinishedRow & { runId: string; runCode: string })[] }) {
+  const { t } = useI18n();
+  return (
+    <div className="rounded-2xl border border-dashed border-warning/60 bg-warning-soft/40 p-4">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-sm font-semibold text-warning">{t('pendingApproval')}</h3>
+        <p className="text-xs text-muted-foreground">{t('pendingStockHint')}</p>
+      </div>
+      <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {rows.map((r) => (
+          <li key={`${r.runId}|${r.thicknessIn}|${r.widthIn}|${r.lengthFt}`}>
+            <Link to={`/production/${r.runId}`} className="flex items-center justify-between gap-3 rounded-lg bg-card px-3 py-2.5 shadow-card hover:bg-muted/50">
+              <span className="min-w-0">
+                <span className="block font-semibold tabular-nums">
+                  {r.woodType} · {sizeLabel(r.thicknessIn, r.widthIn, r.lengthFt)}
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {r.runCode} · {r.importCode}
+                </span>
+              </span>
+              <span className="shrink-0 text-sm font-semibold tabular-nums">{r.pieces.toLocaleString('en-IN')}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function FinishedTab({ rows }: { rows: FinishedRow[] }) {
   const { t } = useI18n();
   const [q, setQ] = useState('');

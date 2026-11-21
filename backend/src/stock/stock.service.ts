@@ -9,7 +9,7 @@ import { nextCode } from '../common/codes';
 import { assertEditable, assertVisible, canEdit } from '../common/editability';
 import type { AuthUser } from '../common/types';
 import { Database, DbOrTx, InjectDb } from '../db/db.module';
-import { exportLoads, importLoads, productionRuns, stockAdjustments, stockMovements, users } from '../db/schema';
+import { exportLoads, importLoads, productionOutputs, productionRuns, stockAdjustments, stockMovements, users } from '../db/schema';
 import { assertStockNotNegative, lockImportLoads, syncMovements } from './ledger';
 import { CreateAdjustmentDto, ListAdjustmentsQuery, MovementsQuery, UpdateAdjustmentDto } from './stock.dto';
 
@@ -57,7 +57,7 @@ export class StockService {
   async balances(actor: AuthUser) {
     const millId = actor.millId;
     const nonZero = sql`sum(${stockMovements.cftDelta}) <> 0 or sum(${stockMovements.piecesDelta}) <> 0`;
-    const [raw, finished] = await Promise.all([
+    const [raw, finished, pending, pendingRaw] = await Promise.all([
       this.db
         .select({
           importLoadId: importLoads.id,
@@ -92,6 +92,41 @@ export class StockService {
         .groupBy(stockMovements.woodType, stockMovements.thicknessIn, stockMovements.widthIn, stockMovements.lengthFt, importLoads.id)
         .having(nonZero)
         .orderBy(asc(stockMovements.woodType), asc(stockMovements.thicknessIn), asc(stockMovements.widthIn), asc(stockMovements.lengthFt), asc(importLoads.code)),
+      // sawn but not yet approved: shown as "waiting approval", never counted in the ledger until the owner approves
+      this.db
+        .select({
+          woodType: productionRuns.woodType,
+          thicknessIn: productionOutputs.thicknessIn,
+          widthIn: productionOutputs.widthIn,
+          lengthFt: productionOutputs.lengthFt,
+          importLoadId: importLoads.id,
+          importCode: importLoads.code,
+          runId: productionRuns.id,
+          runCode: productionRuns.code,
+          status: productionRuns.status,
+          pieces: sum(productionOutputs.pieces),
+          cft: sum(productionOutputs.cft),
+        })
+        .from(productionOutputs)
+        .innerJoin(productionRuns, eq(productionRuns.id, productionOutputs.productionRunId))
+        .innerJoin(importLoads, eq(importLoads.id, productionRuns.importLoadId))
+        .where(and(eq(productionRuns.millId, millId), inArray(productionRuns.status, ['DRAFT', 'SUBMITTED'])))
+        .groupBy(productionRuns.id, importLoads.id, productionOutputs.thicknessIn, productionOutputs.widthIn, productionOutputs.lengthFt)
+        .orderBy(asc(productionRuns.woodType), asc(productionOutputs.thicknessIn), asc(productionOutputs.widthIn), asc(productionOutputs.lengthFt)),
+      // loads in that are measured but not approved yet: sawing may start on them (it is approved after the load)
+      this.db
+        .select({
+          importLoadId: importLoads.id,
+          importCode: importLoads.code,
+          woodType: importLoads.woodType,
+          arrivalAt: importLoads.arrivalAt,
+          status: importLoads.status,
+          logs: importLoads.totalLogs,
+          cft: importLoads.totalCft,
+        })
+        .from(importLoads)
+        .where(and(eq(importLoads.millId, millId), inArray(importLoads.status, ['DRAFT', 'SUBMITTED']), sql`${importLoads.totalCft} > 0`))
+        .orderBy(desc(importLoads.arrivalAt)),
     ]);
 
     const rawRows = raw.map((r) => ({
@@ -123,6 +158,30 @@ export class StockService {
       },
       raw: rawRows,
       finished: finishedRows,
+      /** measured loads in waiting for approval — not stock yet, but sawing may start on them */
+      pendingRaw: pendingRaw.map((r) => ({
+        importLoadId: r.importLoadId,
+        importCode: r.importCode,
+        woodType: r.woodType,
+        arrivalAt: r.arrivalAt,
+        status: r.status,
+        logs: r.logs,
+        cft: roundTo(Number(r.cft ?? 0)),
+      })),
+      /** finished sizes from sawing that is saved but not approved yet — becomes stock on approval */
+      pendingFinished: pending.map((f) => ({
+        woodType: f.woodType,
+        thicknessIn: Number(f.thicknessIn),
+        widthIn: Number(f.widthIn),
+        lengthFt: Number(f.lengthFt),
+        importLoadId: f.importLoadId,
+        importCode: f.importCode,
+        runId: f.runId,
+        runCode: f.runCode,
+        status: f.status,
+        pieces: Number(f.pieces ?? 0),
+        cft: roundTo(Number(f.cft ?? 0)),
+      })),
     };
   }
 

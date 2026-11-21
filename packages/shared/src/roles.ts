@@ -17,3 +17,6 @@ export const ACCOUNTANT_EDITABLE_STATUSES: readonly ApprovalStatus[] = [
   ApprovalStatus.DRAFT,
   ApprovalStatus.REJECTED,
 ];
+
+/** The web app's view: 'simple' shows only the daily core work with big tiles; 'full' shows every feature. */
+export type UiMode = 'simple' | 'full';

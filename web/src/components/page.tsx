@@ -7,6 +7,7 @@ import { MouseEvent, ReactNode, useCallback, useEffect, useRef, useState } from 
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { useAuth } from '../auth';
 import { TKey, useI18n } from '../i18n';
 import { LogoMark } from './brand';
 
@@ -68,7 +70,11 @@ export function PageHeader({
         </div>
         {subtitle && <p className="mt-2 text-sm text-pretty text-muted-foreground">{subtitle}</p>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && (
+        <div data-tour="page-actions" className="flex flex-wrap items-center gap-2">
+          {actions}
+        </div>
+      )}
     </div>
   );
 }
@@ -88,7 +94,7 @@ const greetingKey = (): TKey => {
 export function HomeHero({ name, mill, actions, children }: { name: ReactNode; mill?: ReactNode; actions?: ReactNode; children?: ReactNode }) {
   const { t } = useI18n();
   return (
-    <section className="flex flex-col gap-6 rounded-3xl bg-hero p-5 text-hero-foreground shadow-card sm:p-7">
+    <section data-tour="home-hero" className="flex flex-col gap-6 rounded-3xl bg-hero p-5 text-hero-foreground shadow-card sm:p-7">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-4">
         <LogoMark variant="auto" className="size-11 rounded-xl" />
         <div className="min-w-0 flex-1">
@@ -281,15 +287,94 @@ export function TodayLoadsTile({ loadsIn, loadsOut, to = '/imports' }: { loadsIn
 }
 
 /** A titled block inside a page, with optional tools (buttons) on the right. */
-export function Section({ title, tools, children, id, className }: { title: ReactNode; tools?: ReactNode; children: ReactNode; id?: string; className?: string }) {
+export function Section({
+  title,
+  tools,
+  children,
+  id,
+  className,
+  tour,
+}: {
+  title: ReactNode;
+  tools?: ReactNode;
+  children: ReactNode;
+  id?: string;
+  className?: string;
+  /** a guided-tour target (tour/pages.ts) */
+  tour?: string;
+}) {
   return (
-    <section id={id} className={cn('flex scroll-mt-20 flex-col gap-4', className)}>
+    <section id={id} data-tour={tour} className={cn('flex scroll-mt-20 flex-col gap-4', className)}>
       <div className="flex min-h-9 flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">{title}</h2>
         {tools}
       </div>
       {children}
     </section>
+  );
+}
+
+/**
+ * The secondary sections of a record (its details, unloading): shown as they are, except in the
+ * simple view, where they fold away under one "More details" line so the main task comes first.
+ */
+export function MoreDetails({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
+  const { simple } = useAuth();
+  if (!simple) return <>{children}</>;
+  return (
+    <Fold title={t('moreDetails')} className="rounded-2xl bg-card px-5 shadow-card" contentClassName="flex flex-col gap-8 pb-5">
+      {children}
+    </Fold>
+  );
+}
+
+/**
+ * A heading that opens and closes what is under it (shadcn Collapsible). The content stays mounted
+ * while closed, so a half-filled form inside keeps what was typed.
+ */
+export function Fold({ title, hint, children, className, contentClassName, defaultOpen = false }: { title: ReactNode; hint?: ReactNode; children: ReactNode; className?: string; contentClassName?: string; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  /**
+   * A field inside failed the form's check while folded away: the browser can't show its message
+   * on a hidden field, so open the fold, then ask the browser again (it scrolls there and says why).
+   * Only the first failing field reports, so several bad fields don't fight over the message.
+   */
+  const root = useRef<HTMLDivElement>(null);
+  const openRef = useRef(open);
+  openRef.current = open;
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    let reporting = false;
+    // 'invalid' does not bubble, so listen in the capture phase on the fold itself
+    const onInvalid = (e: Event) => {
+      if (openRef.current || reporting) return;
+      const field = e.target as HTMLInputElement;
+      reporting = true;
+      setOpen(true);
+      // after React has shown the content
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          field.reportValidity();
+          reporting = false;
+        }),
+      );
+    };
+    el.addEventListener('invalid', onInvalid, true);
+    return () => el.removeEventListener('invalid', onInvalid, true);
+  }, []);
+  return (
+    <Collapsible ref={root} open={open} onOpenChange={setOpen} className={cn('group/fold', className)}>
+      <CollapsibleTrigger className="flex min-h-14 w-full items-center gap-3 rounded-lg text-left text-base font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+        <ChevronRightIcon className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]/fold:rotate-90" aria-hidden />
+        <span>{title}</span>
+        {hint && <span className="text-sm font-normal text-muted-foreground">· {hint}</span>}
+      </CollapsibleTrigger>
+      <CollapsibleContent forceMount className={cn('pt-3 data-[state=closed]:hidden', contentClassName)}>
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -311,7 +396,11 @@ const toneText: Record<Tone, string> = { good: 'text-success', warn: 'text-warni
 const toneTile: Record<Tone, string> = { good: 'bg-success-soft text-success', warn: 'bg-warning-soft text-warning', bad: 'bg-destructive-soft text-destructive' };
 
 export function StatGrid({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('stagger grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4', className)}>{children}</div>;
+  return (
+    <div data-tour="stats" className={cn('stagger grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4', className)}>
+      {children}
+    </div>
+  );
 }
 
 /** A KPI card. `hero` = wide, filled card for the one number that matters most. */
@@ -650,13 +739,17 @@ export function TableCard({
   toolbar?: ReactNode;
 }) {
   return (
-    <Card className={cn('relative gap-0 overflow-hidden py-0 shadow-table', className)} aria-busy={busy || undefined}>
+    <Card data-tour="table" className={cn('relative gap-0 overflow-hidden py-0 shadow-table', className)} aria-busy={busy || undefined}>
       {busy && (
         <div className="absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden print:hidden" aria-hidden>
           <div className="h-full w-full origin-left animate-progress bg-primary" />
         </div>
       )}
-      {toolbar && <div className="border-b border-border/70 px-4 py-3.5 sm:px-5 print:hidden">{toolbar}</div>}
+      {toolbar && (
+        <div data-tour="list-toolbar" className="border-b border-border/70 px-4 py-3.5 sm:px-5 print:hidden">
+          {toolbar}
+        </div>
+      )}
       {empty && compactEmpty ? (
         <div className="flex items-center gap-2.5 px-4 py-4 text-sm text-muted-foreground [&_svg]:size-4 [&_svg]:shrink-0">
           {emptyIcon ?? <InboxIcon />}
@@ -928,7 +1021,7 @@ export function FilterChips<V extends string>({
   className?: string;
 }) {
   return (
-    <div role="group" aria-label={label} className={cn('scroll-quiet -mx-1 flex max-w-full items-center gap-1.5 overflow-x-auto px-1 py-1', className)}>
+    <div role="group" aria-label={label} data-tour="filter-chips" className={cn('scroll-quiet -mx-1 flex max-w-full items-center gap-1.5 overflow-x-auto px-1 py-1', className)}>
       {options.map((o) => {
         const on = o.value === value;
         return (
@@ -939,7 +1032,7 @@ export function FilterChips<V extends string>({
             onClick={() => onChange(o.value)}
             className={cn(
               'inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-[0.8125rem] font-medium whitespace-nowrap transition-colors duration-150 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
-              on ? 'border-transparent bg-primary text-primary-foreground shadow-button' : 'border-transparent bg-control text-muted-foreground hover:bg-control-hover hover:text-foreground',
+              on ? 'border-transparent bg-primary text-primary-foreground shadow-button' : 'border-control-border bg-control text-foreground/80 hover:bg-control-hover hover:text-foreground',
             )}
           >
             {o.dot && <span className={cn('size-2 rounded-full', o.dot, on && 'ring-2 ring-primary-foreground/40')} />}
@@ -994,17 +1087,45 @@ export function Field({ id, label, hint, required, className, children }: { id?:
  * narrow screens), its Fields in two balanced columns on the right. Use `sm:col-span-2` on a
  * Field that needs the full width.
  */
-export function FormSection({ step, title, description, children }: { step?: number; title: ReactNode; description?: ReactNode; children: ReactNode }) {
+export function FormSection({
+  step,
+  title,
+  description,
+  optional = false,
+  children,
+}: {
+  step?: number;
+  title: ReactNode;
+  description?: ReactNode;
+  /** every field in it is optional: the simple view folds it away under "More fields" */
+  optional?: boolean;
+  children: ReactNode;
+}) {
+  const { t } = useI18n();
+  const { simple } = useAuth();
+  const heading = (
+    <h3 className="flex items-center gap-2.5 text-[0.9375rem] font-semibold">
+      {step != null && <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary-soft text-xs font-bold text-primary tabular-nums">{step}</span>}
+      {title}
+    </h3>
+  );
+  const fields = <div className="grid content-start gap-x-5 gap-y-5 sm:grid-cols-2">{children}</div>;
+
+  if (simple && optional)
+    return (
+      <Fold title={title} hint={t('moreFields')} className="border-t border-border/70 pt-4 first:border-0 first:pt-0">
+        {fields}
+      </Fold>
+    );
+
   return (
     <section className="grid gap-x-12 gap-y-5 border-t border-border/70 pt-8 first:border-0 first:pt-0 lg:grid-cols-[15rem_minmax(0,1fr)]">
       <div>
-        <h3 className="flex items-center gap-2.5 text-[0.9375rem] font-semibold">
-          {step != null && <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary-soft text-xs font-bold text-primary tabular-nums">{step}</span>}
-          {title}
-        </h3>
-        {description && <p className="mt-1.5 text-sm text-pretty text-muted-foreground">{description}</p>}
+        {heading}
+        {/* the simple view keeps to the fields themselves */}
+        {description && !simple && <p className="mt-1.5 text-sm text-pretty text-muted-foreground">{description}</p>}
       </div>
-      <div className="grid content-start gap-x-5 gap-y-5 sm:grid-cols-2">{children}</div>
+      {fields}
     </section>
   );
 }

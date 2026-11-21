@@ -37,6 +37,7 @@ import { useConfirm } from "./confirm";
 import { LoadState, Notice, numCell, TableCard, wide } from "./page";
 import { useToast } from "./toast";
 import { type TKey, useI18n } from "../i18n";
+import { DatePicker } from './date-picker';
 
 export interface Payment {
   id: string;
@@ -220,12 +221,11 @@ export function PaymentsPanel({
             onSubmit={add}
             className="grid gap-3 border-b border-border/70 p-4 sm:grid-cols-2 lg:grid-cols-[9.5rem_8.5rem_10rem_1fr_auto] sm:p-5"
           >
-            <Input
-              type="date"
+            <DatePicker
               aria-label={t("date")}
               value={form.date}
               max={todayLocal()}
-              onChange={(e) => setForm({ ...form, date: e.target.value })}
+              onChange={(date) => setForm({ ...form, date })}
               required
             />
             <Input

@@ -31,6 +31,7 @@ GET /imports                                     operations:create
 GET /imports/:id                                 operations:create
 GET /imports/:id/financials                      operations:create + finance:view   [owner only]
 GET /imports/:id/payments                        finance:view   [owner only]
+GET /imports/lorries                             operations:create
 GET /notifications                               login
 GET /notifications/unread-count                  login
 GET /production                                  operations:create
@@ -47,6 +48,7 @@ GET /suppliers                                   suppliers:manage   [owner only]
 GET /suppliers/:id/statement                     finance:view   [owner only]
 GET /users                                       users:manage   [owner only]
 GET /wood-types                                  operations:create
+PATCH /auth/me/preferences                       login
 PATCH /clients/:id                               clients:manage   [owner only]
 PATCH /expenses/:id                              finance:view   [owner only]
 PATCH /exports/:id                               operations:create

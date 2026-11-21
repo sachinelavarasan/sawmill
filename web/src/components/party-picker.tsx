@@ -96,7 +96,7 @@ export function SearchAddPicker({
           role="combobox"
           aria-expanded={open}
           className={cn(
-            'flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-transparent bg-control px-3.5 py-2 text-left text-sm font-medium transition-[color,background-color,border-color,box-shadow] duration-200 outline-none hover:bg-control-hover focus-visible:border-ring focus-visible:bg-card focus-visible:ring-[3px] focus-visible:ring-ring/25',
+            'flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-control-border bg-control px-3.5 py-2 text-left text-sm font-medium transition-[color,background-color,border-color,box-shadow] duration-200 outline-none hover:bg-control-hover focus-visible:border-ring focus-visible:bg-card focus-visible:ring-[3px] focus-visible:ring-ring/25',
             !selected && 'text-muted-foreground',
           )}
         >

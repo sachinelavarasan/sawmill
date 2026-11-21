@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { api } from '../api';
 import { useI18n } from '../i18n';
+import { useToast } from './toast';
 import { Notice } from './page';
 import { ReviewActions } from './review';
 
@@ -52,6 +53,7 @@ function Strip({ tone = 'neutral', icon, children, actions, stacked }: { tone?: 
  */
 export function WorkflowBar({ base, status, canSubmit, canReview, confirmApprove, submitBlocked, approvedNote, onDone, stacked }: Props) {
   const { t } = useI18n();
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,6 +62,7 @@ export function WorkflowBar({ base, status, canSubmit, canReview, confirmApprove
     setError(null);
     try {
       await api(`${base}/submit`, { method: 'POST' });
+      toast(t('sentForApprovalToast'), 'ok');
       onDone();
     } catch (err) {
       setError((err as Error).message);
@@ -73,7 +76,17 @@ export function WorkflowBar({ base, status, canSubmit, canReview, confirmApprove
   if (canReview) {
     return (
       <div className="flex flex-col gap-2">
-        <Strip stacked={stacked} tone="warn" icon={<ClockIcon />} actions={<ReviewActions base={base} confirmApprove={confirmApprove} onDone={onDone} onError={setError} />}>
+        <Strip stacked={stacked} tone="warn" icon={<ClockIcon />} actions={
+            <ReviewActions
+              base={base}
+              confirmApprove={confirmApprove}
+              onDone={(outcome) => {
+                toast(t(outcome === 'approved' ? 'approvedDoneToast' : 'sentBackToast'), outcome === 'approved' ? 'ok' : 'info');
+                onDone();
+              }}
+              onError={setError}
+            />
+          }>
           {t('ownerReviewing')}
         </Strip>
         {errorBox}

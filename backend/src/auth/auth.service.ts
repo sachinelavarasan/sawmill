@@ -33,6 +33,9 @@ const userWithMill = {
   passwordHash: users.passwordHash,
   tokenVersion: users.tokenVersion,
   preferredLanguage: users.preferredLanguage,
+  uiMode: users.uiMode,
+  tourCompletedAt: users.tourCompletedAt,
+  toursSeen: users.toursSeen,
   mill: { id: mills.id, name: mills.name, code: mills.code },
 };
 
@@ -42,6 +45,9 @@ interface ProfileSource {
   username: string;
   role: Role;
   preferredLanguage: string;
+  uiMode: string;
+  tourCompletedAt: Date | null;
+  toursSeen: string[];
   mill: { id: string; name: string; code: string };
 }
 
@@ -169,6 +175,24 @@ export class AuthService {
     return this.profile(user);
   }
 
+  /** A user's own view preferences — no permission needed, it only touches their own row. */
+  async setPreferences(
+    userId: string,
+    prefs: { uiMode?: 'simple' | 'full'; preferredLanguage?: 'en' | 'ta'; tourCompleted?: boolean; tourSeen?: string },
+  ) {
+    const set = {
+      ...(prefs.uiMode && { uiMode: prefs.uiMode }),
+      ...(prefs.preferredLanguage && { preferredLanguage: prefs.preferredLanguage }),
+      ...(prefs.tourCompleted !== undefined && { tourCompletedAt: prefs.tourCompleted ? new Date() : null }),
+      // resetting the tour brings every page's tour back too
+      ...(prefs.tourCompleted === false && { toursSeen: [] as string[] }),
+      // added once: drop it first so a replayed tour never doubles the entry
+      ...(prefs.tourSeen && { toursSeen: sql<string[]>`array_append(array_remove(${users.toursSeen}, ${prefs.tourSeen}), ${prefs.tourSeen})` }),
+    };
+    if (Object.keys(set).length) await this.db.update(users).set(set).where(eq(users.id, userId));
+    return this.me(userId);
+  }
+
   /**
    * Wrong passwords in the last LOCKOUT_MINUTES, counted from the last successful
    * login or owner password reset (either one clears the count). Uses the audit
@@ -222,6 +246,9 @@ export class AuthService {
       username: user.username,
       role: user.role,
       preferredLanguage: user.preferredLanguage,
+      uiMode: user.uiMode,
+      tourCompletedAt: user.tourCompletedAt,
+      toursSeen: user.toursSeen,
       mill: user.mill,
       permissions: ROLE_PERMISSIONS[user.role],
     };

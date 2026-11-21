@@ -36,6 +36,7 @@ export class UpdateUserDto {
   @IsOptional() @IsBoolean() isActive?: boolean;
   @IsOptional() @IsIn(Object.values(Role)) role?: Role;
   @IsOptional() @IsIn(['en', 'ta']) preferredLanguage?: string;
+  @IsOptional() @IsIn(['simple', 'full']) uiMode?: 'simple' | 'full';
 }
 
 export class ResetPasswordDto {

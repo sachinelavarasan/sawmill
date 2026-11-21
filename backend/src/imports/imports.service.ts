@@ -18,7 +18,7 @@ import { nextCode } from '../common/codes';
 import { textSearch } from '../common/search';
 import type { AuthUser } from '../common/types';
 import { Database, DbOrTx, InjectDb } from '../db/db.module';
-import { importFinancials, importLoads, logMeasurements, mills, stockMovements, suppliers, unloadingEntries, users } from '../db/schema';
+import { exportLoads, importFinancials, importLoads, logMeasurements, mills, stockMovements, suppliers, unloadingEntries, users } from '../db/schema';
 import { assertStockNotNegative, syncMovements } from '../stock/ledger';
 import {
   AddLogDto,
@@ -114,6 +114,41 @@ export class ImportsService {
   ) {}
 
   // ───────── loads ─────────
+
+  /**
+   * Every lorry the mill has seen (loads in and out), newest first, with the driver and owner it
+   * last came with — so a returning lorry is picked, not typed, and its details fill themselves.
+   */
+  async lorries(actor: AuthUser) {
+    const cols = (t: typeof importLoads | typeof exportLoads) => ({
+      lorryNumber: t.lorryNumber,
+      driverName: t.driverName,
+      driverMobile: t.driverMobile,
+      lorryOwnerName: t.lorryOwnerName,
+      lorryOwnerMobile: t.lorryOwnerMobile,
+      at: t.createdAt,
+    });
+    const [ins, outs] = await Promise.all([
+      this.db.select(cols(importLoads)).from(importLoads).where(eq(importLoads.millId, actor.millId)).orderBy(desc(importLoads.createdAt)).limit(2000),
+      this.db.select(cols(exportLoads)).from(exportLoads).where(eq(exportLoads.millId, actor.millId)).orderBy(desc(exportLoads.createdAt)).limit(2000),
+    ]);
+    const byNumber = new Map<string, (typeof ins)[number] & { trips: number }>();
+    for (const r of [...ins, ...outs].sort((a, b) => b.at.getTime() - a.at.getTime())) {
+      const key = r.lorryNumber.replace(/\s+/g, '').toUpperCase();
+      const seen = byNumber.get(key);
+      if (seen) {
+        seen.trips++;
+        // keep the latest details, but fill gaps from older trips
+        seen.driverName ??= r.driverName;
+        seen.driverMobile ??= r.driverMobile;
+        seen.lorryOwnerName ??= r.lorryOwnerName;
+        seen.lorryOwnerMobile ??= r.lorryOwnerMobile;
+      } else byNumber.set(key, { ...r, trips: 1 });
+    }
+    return {
+      items: [...byNumber.values()].map(({ at, ...r }) => ({ ...r, lastAt: at })),
+    };
+  }
 
   async list(actor: AuthUser, q: ListImportsQuery) {
     const conditions: SQL[] = [eq(importLoads.millId, actor.millId)];

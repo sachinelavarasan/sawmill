@@ -1,7 +1,8 @@
-import { cleanWoodTypeList, matchWoodType } from "@timbertrail/shared";
-import { PlusIcon, RotateCcwIcon, SaveIcon, XIcon } from "lucide-react";
+import { cleanWoodTypeList, matchWoodType, Permission } from "@timbertrail/shared";
+import { CheckCircle2Icon, LayoutDashboardIcon, LayoutGridIcon, PlusIcon, RotateCcwIcon, SaveIcon, XIcon } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -68,6 +69,41 @@ const toForm = (d: MillSettings): Form => ({
   woods: d.woodTypes.join("\n"),
 });
 
+/** Simple or every feature, as two big cards (shadcn ToggleGroup). */
+function ViewChoice({ simple, onChange }: { simple: boolean; onChange: (simple: boolean) => void }) {
+  const { t } = useI18n();
+  const options = [
+    { value: "simple", icon: LayoutGridIcon, title: t("simpleView"), sub: t("simpleViewSub") },
+    { value: "full", icon: LayoutDashboardIcon, title: t("fullView"), sub: t("fullViewSub") },
+  ];
+  return (
+    <ToggleGroup
+      type="single"
+      value={simple ? "simple" : "full"}
+      onValueChange={(v) => v && onChange(v === "simple")}
+      className="grid w-full gap-3 sm:grid-cols-2"
+      aria-label={t("viewMode")}
+    >
+      {options.map((o) => (
+        <ToggleGroupItem
+          key={o.value}
+          value={o.value}
+          className="h-auto! min-h-24 justify-start gap-4 rounded-xl! border-2 border-border bg-card px-4 py-4 text-left whitespace-normal hover:bg-muted/50 data-[state=on]:border-primary data-[state=on]:bg-primary-soft"
+        >
+          <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-muted text-foreground group-data-[state=on]:bg-primary [&_svg]:size-6!">
+            <o.icon aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-base font-bold">{o.title}</span>
+            <span className="mt-0.5 block text-sm leading-snug font-normal text-muted-foreground">{o.sub}</span>
+          </span>
+          <CheckCircle2Icon className="size-6! shrink-0 text-primary opacity-0 [[data-state=on]_&]:opacity-100" aria-hidden />
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  );
+}
+
 /** English / தமிழ், as two buttons. */
 function LanguageChoice({
   value,
@@ -103,14 +139,18 @@ function LanguageChoice({
   );
 }
 
-/** [OWNER-ONLY] Mill-wide defaults, in six plain sections with one Save for the lot. */
+/**
+ * Settings. Everyone: their own preferences (screen view, language), saved on their user at once.
+ * The owner, below that: the mill-wide defaults, in six plain sections with one Save for the lot.
+ */
 export function SettingsPage() {
   const { t, lang, setLang } = useI18n();
-  const { refreshProfile } = useAuth();
+  const { refreshProfile, can, simple, setUiMode } = useAuth();
+  const owner = can(Permission.SETTINGS_MANAGE);
   const toast = useToast();
   const { data, loading, error, reload } = useLoad(
-    () => api<MillSettings>("/settings"),
-    [],
+    () => (owner ? api<MillSettings>("/settings") : Promise.resolve(null)),
+    [owner],
   );
   const [form, setForm] = useState<Form | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -168,14 +208,34 @@ export function SettingsPage() {
 
   return (
     <Page className="max-w-5xl">
-      <PageHeader
-        title={t("settings")}
-        badge={<OwnerOnly />}
-        subtitle={t("settingsSubtitle")}
-      />
-      <LoadState shape="form" loading={loading && !data} error={error} onRetry={reload} />
+      <PageHeader title={t("settings")} />
 
-      {data && form && (
+      {/* the person's own preferences: one tap each, saved on their user straight away */}
+      <Card className="py-7">
+        <CardContent className="flex flex-col gap-7 px-5 sm:px-7">
+          <div>
+            <h2 className="text-lg font-semibold">{t("secMyPreferences")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t("secMyPreferencesSub")}</p>
+          </div>
+          <Field label={t("viewMode")}>
+            <div data-tour="view-mode">
+              <ViewChoice simple={simple} onChange={(s) => void setUiMode(s ? "simple" : "full")} />
+            </div>
+          </Field>
+          <Field label={t("myLanguage")}>
+            <LanguageChoice value={lang} onChange={setLang} label={t("myLanguage")} />
+          </Field>
+        </CardContent>
+      </Card>
+
+      {owner && (
+        <h2 className="-mb-2 flex items-center gap-2 text-lg font-semibold">
+          {t("millSettings")} <OwnerOnly />
+        </h2>
+      )}
+      {owner && <LoadState shape="form" loading={loading && !data} error={error} onRetry={reload} />}
+
+      {owner && data && form && (
         <FormCard onSubmit={save} className="py-7 [&_form]:gap-7">
           <FormSection
             step={1}
@@ -243,20 +303,6 @@ export function SettingsPage() {
 
           <FormSection
             step={4}
-            title={t("secMyLanguage")}
-            description={t("secMyLanguageSub")}
-          >
-            <Field label={t("myLanguage")} className="sm:col-span-2">
-              <LanguageChoice
-                value={lang}
-                onChange={setLang}
-                label={t("myLanguage")}
-              />
-            </Field>
-          </FormSection>
-
-          <FormSection
-            step={5}
             title={t("secTimeZone")}
             description={t("secTimeZoneSub")}
           >
@@ -287,7 +333,7 @@ export function SettingsPage() {
           </FormSection>
 
           <FormSection
-            step={6}
+            step={5}
             title={t("secNewUserLanguage")}
             description={t("secNewUserLanguageSub")}
           >
@@ -301,7 +347,7 @@ export function SettingsPage() {
           </FormSection>
 
           <FormSection
-            step={7}
+            step={6}
             title={t("woodTypes")}
             description={t("woodTypesSub")}
           >
@@ -313,7 +359,7 @@ export function SettingsPage() {
 
           {saveError && <Notice tone="error">{saveError}</Notice>}
 
-          {/* one Save for sections 1, 2, 5, 6 and 7; it stays in view while there is something to save */}
+          {/* one Save for sections 1, 2, 4, 5 and 6; it stays in view while there is something to save */}
           <div
             className={cn(
               "flex flex-col-reverse gap-2 border-t border-border/70 pt-5 sm:flex-row sm:items-center",

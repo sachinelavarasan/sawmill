@@ -53,6 +53,7 @@
   --color-input: var(--input);
   --color-control: var(--control);
   --color-control-hover: var(--control-hover);
+  --color-control-border: var(--control-border);
   --color-ring: var(--saffron);
 
   /* brand extras */
@@ -197,6 +198,31 @@
   }
   ::selection {
     background: color-mix(in oklab, var(--primary) 22%, transparent);
+  }
+
+  /*
+   * The simple view (html[data-simple], set by Layout): a step larger everywhere — 16px body,
+   * roomier table rows, taller inputs, and no small buttons — for people new to computers.
+   */
+  html[data-simple] body {
+    font-size: 1rem;
+  }
+  html[data-simple] [data-slot='table-cell'] {
+    padding-block: 0.875rem;
+    font-size: 0.9375rem;
+  }
+  html[data-simple] [data-slot='input'],
+  html[data-simple] [data-slot='select-trigger'] {
+    min-height: 3rem;
+    font-size: 1rem;
+  }
+  html[data-simple] [data-slot='button'][data-size='sm'] {
+    height: 2.75rem;
+    font-size: 0.875rem;
+  }
+  html[data-simple] [data-slot='button'][data-size='icon-sm'] {
+    width: 2.75rem;
+    height: 2.75rem;
   }
 }
 

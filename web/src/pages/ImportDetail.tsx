@@ -1,7 +1,7 @@
 import { formatDuration, importLogCft, Permission, totalCft } from '@timbertrail/shared';
-import { CheckCircle2Icon, CheckIcon, ClockIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { ArrowLeftIcon, CheckCircle2Icon, CheckIcon, ClockIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,14 +13,16 @@ import { useAuth } from '../auth';
 import { dateTime, money, num3, useLoad } from '../components/common';
 import { useConfirmDelete } from '../components/confirm';
 import { useEditGuard } from '../components/leave-guard';
-import { Field, FigureStrip, FormActions, FormCard, FormGrid, LoadState, Notice, numCell, OwnerOnly, Page, PageHeader, Section, TableCard, useClientPaging, wide } from '../components/page';
+import { Field, FigureStrip, FormActions, FormCard, FormGrid, LoadState, MoreDetails, Notice, numCell, OwnerOnly, Page, PageHeader, Section, TableCard, useClientPaging, wide } from '../components/page';
 import { StatusBadge } from '../components/status-badge';
 import { PartyPicker, type PartyOption } from '../components/party-picker';
 import { PaymentsPanel } from '../components/payments';
 import { WorkflowBar } from '../components/workflow';
 import { useToast } from '../components/toast';
 import { type TKey, useI18n } from '../i18n';
-import { fromLocalInput, ImportFields, ImportForm, importFormBody, ImportSummary, toLocalInput } from './Imports';
+import { fromLocalInput, ImportFields, ImportForm, importFormBody, ImportSummary, sawingLink, toLocalInput } from './Imports';
+import { asEvent, DateTimePicker } from '../components/date-picker';
+import { CalcModeSwitch, CalcPad, useCalcMode } from '../components/calc-pad';
 
 export interface Unloading {
   id: string;
@@ -77,8 +79,17 @@ const measureProblem = (v: string): TKey | null => {
 export function ImportDetailPage() {
   const { id } = useParams();
   const { t } = useI18n();
-  const { can } = useAuth();
+  const { can, simple } = useAuth();
   const { hash } = useLocation();
+  // loaded in for a sawing: the way back, with this load chosen as its raw wood
+  const [params] = useSearchParams();
+  const sawing = sawingLink(params);
+  const backToSawing = sawing && (() => {
+    const [path, query = ''] = sawing.split('?');
+    const q = new URLSearchParams(query);
+    q.set('load', id ?? '');
+    return `${path}?${q}`;
+  })();
   const { data: load, loading, error, reload } = useLoad(() => api<ImportDetail>(`/imports/${id}`), [id]);
 
   // Arriving from the Measurement list: jump straight to log entry.
@@ -89,11 +100,30 @@ export function ImportDetailPage() {
 
   const unloadingTotal = load?.unloadings.reduce((sum, u) => sum + (u.totalCharges ?? 0), 0) ?? 0;
 
+  // send for approval / approve: above the record normally, after the measuring in the simple view
+  const workflow = load && (
+    <WorkflowBar
+      base={`/imports/${load.id}`}
+      status={load.status}
+      canSubmit={load.canSubmit}
+      canReview={load.canReview}
+      submitBlocked={load.totalLogs === 0 ? t('needLogsToSubmit') : null}
+      confirmApprove={t('confirmApprove', { code: load.code, cft: num3(load.totalCft) })}
+      approvedNote={load.editable ? t('approvedStockNote') : undefined}
+      onDone={reload}
+    />
+  );
+
   return (
     <Page>
       <PageHeader
         title={load?.code ?? t('importDetails')}
-        back={{ to: '/imports', label: t('imports') }}
+        back={
+          // opened from Measure Logs: back goes there, not to Load In
+          params.get('from') === 'measure'
+            ? { to: '/measurement', label: t(simple ? 'simpleMeasure' : 'measurement') }
+            : { to: '/imports', label: t(simple ? 'simpleLoadIn' : 'imports') }
+        }
         badge={load && <StatusBadge status={load.status} />}
         subtitle={
           load && (
@@ -108,33 +138,52 @@ export function ImportDetailPage() {
 
       {load && (
         <>
+          {backToSawing && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-primary-soft px-5 py-3">
+              <span className="text-sm font-medium">{t('loadInForSawing')}</span>
+              <Button asChild size="lg" className="h-12">
+                <Link to={backToSawing}>
+                  <ArrowLeftIcon /> {t('backToSawing')}
+                </Link>
+              </Button>
+            </div>
+          )}
           {!load.editable && load.status !== 'SUBMITTED' && <Notice>{t('lockedRecord')}</Notice>}
           {load.rejectionReason && <Notice tone="error">{load.rejectionReason}</Notice>}
 
-          <FigureStrip
-            className="grid-cols-1 sm:grid-cols-3 lg:grid-cols-3"
-            items={[
-              { label: t('logsMeasured'), value: load.totalLogs },
-              { label: t('totalCft'), value: `${num3(load.totalCft)} CFT` },
-              { label: t('totalUnloadingCharges'), value: money(unloadingTotal) },
-            ]}
-          />
+          {/* the simple view leaves the figures to the measuring panel, which shows them large */}
+          {!simple && (
+            <FigureStrip
+              className="grid-cols-1 sm:grid-cols-3 lg:grid-cols-3"
+              items={[
+                { label: t('logsMeasured'), value: load.totalLogs },
+                { label: t('totalCft'), value: `${num3(load.totalCft)} CFT` },
+                { label: t('totalUnloadingCharges'), value: money(unloadingTotal) },
+              ]}
+            />
+          )}
 
-          <WorkflowBar
-            base={`/imports/${load.id}`}
-            status={load.status}
-            canSubmit={load.canSubmit}
-            canReview={load.canReview}
-            submitBlocked={load.totalLogs === 0 ? t('needLogsToSubmit') : null}
-            confirmApprove={t('confirmApprove', { code: load.code, cft: num3(load.totalCft) })}
-            approvedNote={load.editable ? t('approvedStockNote') : undefined}
-            onDone={reload}
-          />
+          {!simple && workflow}
 
-          <DetailsSection load={load} onSaved={reload} />
-          <UnloadingSection load={load} onChanged={reload} />
-          {can(Permission.FINANCE_VIEW) && <PurchaseSection load={load} canPickSupplier={can(Permission.SUPPLIERS_MANAGE)} />}
-          <LogsSection load={load} onChanged={reload} />
+          {simple ? (
+            // the simple view: measure, then send it (or approve it), then the money; everything else folded away
+            <>
+              <LogsSection load={load} onChanged={reload} />
+              {workflow}
+              {can(Permission.FINANCE_VIEW) && <PurchaseSection load={load} canPickSupplier={can(Permission.SUPPLIERS_MANAGE)} />}
+              <MoreDetails>
+                <DetailsSection load={load} onSaved={reload} />
+                <UnloadingSection load={load} onChanged={reload} />
+              </MoreDetails>
+            </>
+          ) : (
+            <>
+              <DetailsSection load={load} onSaved={reload} />
+              <UnloadingSection load={load} onChanged={reload} />
+              {can(Permission.FINANCE_VIEW) && <PurchaseSection load={load} canPickSupplier={can(Permission.SUPPLIERS_MANAGE)} />}
+              <LogsSection load={load} onChanged={reload} />
+            </>
+          )}
         </>
       )}
     </Page>
@@ -145,6 +194,7 @@ export function ImportDetailPage() {
 
 function DetailsSection({ load, onSaved }: { load: ImportDetail; onSaved: () => void }) {
   const { t } = useI18n();
+  const toast = useToast();
   const [form, setForm] = useState<ImportForm | null>(null);
   // ask before leaving with unsaved edits
   useEditGuard(form);
@@ -173,6 +223,7 @@ function DetailsSection({ load, onSaved }: { load: ImportDetail; onSaved: () => 
     try {
       await api(`/imports/${load.id}`, { method: 'PATCH', body: importFormBody(form) });
       setForm(null);
+      toast(t('saved'), 'ok');
       onSaved();
     } catch (err) {
       setError(errorText(err));
@@ -254,6 +305,7 @@ function DetailsSection({ load, onSaved }: { load: ImportDetail; onSaved: () => 
 
 function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: () => void }) {
   const { t } = useI18n();
+  const toast = useToast();
   const confirmDelete = useConfirmDelete();
   const blank = () => ({
     vehicleNumber: '',
@@ -267,10 +319,11 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
   const set = (k: keyof ReturnType<typeof blank>) => (e: { target: { value: string } }) =>
     setForm((f) => (f ? { ...f, [k]: e.target.value } : f));
 
-  async function run(action: () => Promise<unknown>) {
+  async function run(action: () => Promise<unknown>, ok?: string) {
     setError(null);
     try {
       await action();
+      if (ok) toast(ok, 'ok'); // every change says it happened
       onChanged();
     } catch (err) {
       setError(errorText(err));
@@ -292,14 +345,14 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
         }),
       });
       setForm(null);
-    });
+    }, t('unloadingAddedToast'));
   }
 
   const endNow = (u: Unloading) =>
-    run(() => api(`/imports/${load.id}/unloading/${u.id}`, { method: 'PATCH', body: JSON.stringify({ endAt: new Date().toISOString() }) }));
+    run(() => api(`/imports/${load.id}/unloading/${u.id}`, { method: 'PATCH', body: JSON.stringify({ endAt: new Date().toISOString() }) }), t('unloadingEndedToast'));
   const remove = (u: Unloading) => {
     confirmDelete().then((ok) => {
-      if (ok) run(() => api(`/imports/${load.id}/unloading/${u.id}`, { method: 'DELETE' }));
+      if (ok) run(() => api(`/imports/${load.id}/unloading/${u.id}`, { method: 'DELETE' }), t('unloadingDeletedToast'));
     });
   };
 
@@ -328,10 +381,10 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
               <Input id="unl-driver" value={form.driverName} onChange={set('driverName')} maxLength={100} />
             </Field>
             <Field id="unl-start" label={t('startTime')}>
-              <Input id="unl-start" type="datetime-local" value={form.startAt} onChange={set('startAt')} required />
+              <DateTimePicker id="unl-start" value={form.startAt} onChange={asEvent(set('startAt'))} required />
             </Field>
             <Field id="unl-end" label={t('endTime')}>
-              <Input id="unl-end" type="datetime-local" value={form.endAt} onChange={set('endAt')} min={form.startAt} />
+              <DateTimePicker id="unl-end" value={form.endAt} onChange={asEvent(set('endAt'))} min={form.startAt} />
             </Field>
             <Field id="unl-rate" label={t('ratePerHour')} hint={t('calcFromRate')}>
               <Input id="unl-rate" type="number" value={form.ratePerHour} onChange={set('ratePerHour')} min={0} step="0.01" inputMode="decimal" />
@@ -533,6 +586,7 @@ function PurchaseSection({ load, canPickSupplier }: { load: ImportDetail; canPic
 
 function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () => void }) {
   const { t } = useI18n();
+  const toast = useToast();
   const confirmDelete = useConfirmDelete();
   const [girth, setGirth] = useState('');
   const [length, setLength] = useState('');
@@ -553,11 +607,12 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
   const [saved, setSaved] = useState<{ n: number; cft: number } | null>(null);
   const nextNo = (load.logs[load.logs.length - 1]?.logNumber ?? 0) + 1;
 
-  async function run(action: () => Promise<unknown>) {
+  async function run(action: () => Promise<unknown>, ok?: string) {
     setBusy(true);
     setError(null);
     try {
       await action();
+      if (ok) toast(ok, 'ok'); // every change says it happened
       onChanged();
     } catch (err) {
       setError(errorText(err));
@@ -566,19 +621,50 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
     }
   }
 
-  function add(e: FormEvent) {
-    e.preventDefault();
+  function saveLog() {
     if (g == null || l == null || !canSave) return;
+    // correcting a saved log from the calculator
+    if (calcEdit) {
+      const id = calcEdit.id;
+      return run(async () => {
+        await api(`/imports/${load.id}/logs/${id}`, { method: 'PATCH', body: JSON.stringify({ girthIn: g, lengthFt: l }) });
+        setSaved({ n: calcEdit.logNumber, cft: importLogCft(g, l) });
+        setCalcEdit(null);
+        setGirth('');
+        setLength('');
+      }, t('logUpdatedToast', { n: calcEdit.logNumber }));
+    }
     const done = { n: nextNo, cft: importLogCft(g, l) };
-    run(async () => {
+    return run(async () => {
       await api(`/imports/${load.id}/logs`, { method: 'POST', body: JSON.stringify({ girthIn: g, lengthFt: l }) });
       setSaved(done);
       setGirth('');
       setLength('');
       logs.reset(); // the new log is the first row of page 1
       girthRef.current?.focus(); // ready for the next log without touching the mouse
-    });
+    }, t('logAddedToast', { n: done.n, cft: num3(done.cft) }));
   }
+  function add(e: FormEvent) {
+    e.preventDefault();
+    void saveLog();
+  }
+  const [calc, setCalc] = useCalcMode();
+  const [calcField, setCalcField] = useState(0);
+  /** a saved log loaded into the calculator to be corrected */
+  const [calcEdit, setCalcEdit] = useState<Log | null>(null);
+  const editLog = (log: Log) => {
+    setCalcEdit(log);
+    setGirth(String(log.girthIn));
+    setLength(String(log.lengthFt));
+    setSaved(null);
+    setCalcField(0);
+  };
+  const cancelEdit = () => {
+    setCalcEdit(null);
+    setGirth('');
+    setLength('');
+    setCalcField(0);
+  };
 
   function saveEdit(e: FormEvent) {
     e.preventDefault();
@@ -589,12 +675,12 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
     run(async () => {
       await api(`/imports/${load.id}/logs/${editing.id}`, { method: 'PATCH', body: JSON.stringify({ girthIn: eg, lengthFt: el }) });
       setEditing(null);
-    });
+    }, t('logUpdatedToast', { n: load.logs.find((x) => x.id === editing.id)?.logNumber ?? '' }));
   }
 
   const remove = (log: Log) => {
     confirmDelete().then((ok) => {
-      if (ok) run(() => api(`/imports/${load.id}/logs/${log.id}`, { method: 'DELETE' }));
+      if (ok) run(() => api(`/imports/${load.id}/logs/${log.id}`, { method: 'DELETE' }), t('logDeletedToast', { n: log.logNumber }));
     });
   };
 
@@ -602,132 +688,8 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
   const logs = useClientPaging(newestFirst);
   const cellInput = 'ml-auto h-9 w-24 text-right tabular-nums max-md:w-16';
 
-  return (
-    <Section id="logs" title={t('measurement')}>
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_19rem]">
-        {/* the running total: beside the form on a wide screen, above it on a tablet or phone */}
-        <Card className="gap-0 bg-primary py-6 text-primary-foreground lg:sticky lg:top-24 lg:order-last dark:bg-primary-soft dark:text-foreground">
-          <CardContent className="px-6">
-            <div className="text-sm font-medium opacity-80">{t('totalCft')}</div>
-            <div className="mt-2 text-5xl leading-none font-semibold tracking-[-0.03em] tabular-nums font-display" aria-live="polite">
-              {num3(load.totalCft)}
-              <span className="ml-2 text-base font-medium tracking-normal opacity-75">CFT</span>
-            </div>
-            <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-current/15 pt-4">
-              <div>
-                <dt className="text-xs opacity-75">{t('logsMeasured')}</dt>
-                <dd className="mt-0.5 text-2xl leading-tight font-bold tabular-nums font-display">{load.totalLogs}</dd>
-              </div>
-              {load.editable && (
-                <div>
-                  <dt className="text-xs opacity-75">{t('nextLog')}</dt>
-                  <dd className="mt-0.5 text-2xl leading-tight font-bold tabular-nums font-display">#{nextNo}</dd>
-                </div>
-              )}
-            </dl>
-            <div className="mt-4 truncate text-xs opacity-75">
-              {load.code} · {load.lorryNumber} · {load.woodType}
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="flex min-w-0 flex-col gap-4">
-          {load.editable && (
-            <Card className="py-6">
-              <CardContent className="px-5 sm:px-6">
-                <form onSubmit={add} className="grid gap-5">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="flex items-center gap-2.5 text-base font-semibold">
-                      <span className="rounded-lg bg-primary-soft px-2.5 py-1 text-sm font-bold text-primary tabular-nums">
-                        {t('logNo')} {nextNo}
-                      </span>
-                    </h3>
-                    <p className="text-xs text-muted-foreground">{t('measureHint')}</p>
-                  </div>
-
-                  {/* the two measurements, side by side at every width */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {(
-                      [
-                        { key: 'girth', label: t('girth'), value: girth, set: setGirth, problem: girthProblem, ref: girthRef },
-                        { key: 'length', label: t('lengthFt'), value: length, set: setLength, problem: lengthProblem, ref: undefined },
-                      ] as const
-                    ).map((f) => (
-                      <label key={f.key} className="flex min-w-0 flex-col gap-1.5">
-                        <span className="text-sm font-medium">{f.label}</span>
-                        <Input
-                          ref={f.ref}
-                          type="number"
-                          value={f.value}
-                          onChange={(e) => {
-                            f.set(e.target.value);
-                            setSaved(null);
-                          }}
-                          min={0.01}
-                          max={999}
-                          step="0.01"
-                          inputMode="decimal"
-                          required
-                          aria-invalid={!!f.problem || undefined}
-                          aria-describedby={f.problem ? `log-${f.key}-error` : undefined}
-                          className="h-16 px-4 text-3xl font-bold tabular-nums md:text-3xl"
-                        />
-                        <span id={`log-${f.key}-error`} className="min-h-4 text-xs font-medium text-destructive" role={f.problem ? 'alert' : undefined}>
-                          {f.problem && t(f.problem)}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-
-                  {/* what this log comes to, and what it makes the load */}
-                  <div className="grid grid-cols-2 gap-3 rounded-lg bg-muted/60 px-4 py-3">
-                    <div>
-                      <div className="text-xs text-muted-foreground">{t('thisLog')}</div>
-                      <div className={cn('mt-0.5 text-2xl leading-tight font-bold tabular-nums font-display', previewCft == null && 'text-muted-foreground')}>
-                        {previewCft != null ? num3(previewCft) : '0.000'} <span className="text-sm font-medium text-muted-foreground">CFT</span>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-muted-foreground">{t('totalAfterLog')}</div>
-                      <div className={cn('mt-0.5 text-2xl leading-tight font-bold tabular-nums font-display', previewCft == null && 'text-muted-foreground')}>
-                        {num3(previewCft != null ? totalCft([load.totalCft, previewCft]) : load.totalCft)} <span className="text-sm font-medium text-muted-foreground">CFT</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
-                    <div className="flex min-h-5 flex-1 items-center gap-1.5 text-sm font-medium text-success" aria-live="polite">
-                      {saved && (
-                        <>
-                          <CheckCircle2Icon className="size-4 shrink-0" aria-hidden />
-                          {t('logSavedLine', { n: saved.n, cft: num3(saved.cft) })}
-                        </>
-                      )}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="lg"
-                      className="h-12"
-                      disabled={busy || (!girth && !length)}
-                      onClick={() => {
-                        setGirth('');
-                        setLength('');
-                        girthRef.current?.focus();
-                      }}
-                    >
-                      {t('clear')}
-                    </Button>
-                    <Button type="submit" size="lg" className="h-12 sm:min-w-52" disabled={busy || !canSave}>
-                      <PlusIcon /> {t('saveLog', { n: nextNo })}
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          )}
-          {error && <Notice tone="error">{error}</Notice>}
-
+  const history = (
+    <>
           <h3 className="mt-4 flex items-center gap-2 text-base font-semibold">
             {t('measurementHistory')}
             <span className="min-w-6 rounded-full bg-muted px-2 text-center text-xs leading-6 font-bold text-muted-foreground tabular-nums">{load.totalLogs}</span>
@@ -839,8 +801,193 @@ function LogsSection({ load, onChanged }: { load: ImportDetail; onChanged: () =>
           </Table>
         </form>
       </TableCard>
+    </>
+  );
+
+  return (
+    <Section id="logs" title={t('measurement')} tools={load.editable && <CalcModeSwitch calc={calc} onChange={setCalc} />}>
+      {calc && load.editable ? (
+        // the calculator view: the keypad and the tape, then the full list
+        <div className="flex flex-col gap-4">
+          <CalcPad
+            title={`${t('logNo')} ${nextNo}`}
+            editing={calcEdit && { key: calcEdit.id, label: `${t('edit')} · ${t('logNo')} ${calcEdit.logNumber}`, onCancel: cancelEdit }}
+            fields={[
+              { key: 'girth', label: t('girth'), unit: 'in', value: girth },
+              { key: 'length', label: t('lengthFt'), unit: 'ft', value: length },
+            ]}
+            onChange={(k, v) => {
+              (k === 'girth' ? setGirth : setLength)(v);
+              setSaved(null);
+            }}
+            active={calcField}
+            setActive={setCalcField}
+            result={previewCft}
+            formula={g != null && l != null ? `${g} × ${g} × ${l} ÷ 2304` : `${t('girth')} × ${t('girth')} × ${t('lengthFt')} ÷ 2304`}
+            total={
+              previewCft != null
+                ? totalCft([calcEdit ? load.totalCft - calcEdit.cft : load.totalCft, previewCft])
+                : load.totalCft
+            }
+            totalLabel={t('totalAfterLog')}
+            problem={girthProblem ? t(girthProblem) : lengthProblem ? t(lengthProblem) : null}
+            canSave={canSave}
+            busy={busy}
+            onSave={saveLog}
+            saveLabel={calcEdit ? t('save') : t('saveLog', { n: nextNo })}
+            afterSave={0}
+            entriesTitle={t('measurementHistory')}
+            entries={newestFirst.map((x) => ({
+              key: x.id,
+              no: x.logNumber,
+              label: `${x.girthIn} × ${x.lengthFt}`,
+              cft: x.cft,
+              onEdit: () => editLog(x),
+              onDelete: () => remove(x),
+            }))}
+            entriesTotal={load.totalCft}
+          />
+          {/* saved / changed / deleted is said by a toast (and the list beside the keys) */}
+          {error && <Notice tone="error">{error}</Notice>}
+        </div>
+      ) : (
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_19rem]">
+        {/* the running total: beside the form on a wide screen, above it on a tablet or phone */}
+        <Card className="gap-0 bg-primary py-6 text-primary-foreground lg:sticky lg:top-24 lg:order-last dark:bg-primary-soft dark:text-foreground">
+          <CardContent className="px-6">
+            <div className="text-sm font-medium opacity-80">{t('totalCft')}</div>
+            <div className="mt-2 text-5xl leading-none font-semibold tracking-[-0.03em] tabular-nums font-display" aria-live="polite">
+              {num3(load.totalCft)}
+              <span className="ml-2 text-base font-medium tracking-normal opacity-75">CFT</span>
+            </div>
+            <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-current/15 pt-4">
+              <div>
+                <dt className="text-xs opacity-75">{t('logsMeasured')}</dt>
+                <dd className="mt-0.5 text-2xl leading-tight font-bold tabular-nums font-display">{load.totalLogs}</dd>
+              </div>
+              {load.editable && (
+                <div>
+                  <dt className="text-xs opacity-75">{t('nextLog')}</dt>
+                  <dd className="mt-0.5 text-2xl leading-tight font-bold tabular-nums font-display">#{nextNo}</dd>
+                </div>
+              )}
+            </dl>
+            <div className="mt-4 truncate text-xs opacity-75">
+              {load.code} · {load.lorryNumber} · {load.woodType}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          {load.editable && (
+            <Card className="py-6">
+              <CardContent className="px-5 sm:px-6">
+                <form onSubmit={add} className="grid gap-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="flex items-center gap-2.5 text-base font-semibold">
+                      <span className="rounded-lg bg-primary-soft px-2.5 py-1 text-sm font-bold text-primary tabular-nums">
+                        {t('logNo')} {nextNo}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-muted-foreground">{t('measureHint')}</p>
+                  </div>
+
+                  {/* the two measurements, side by side at every width */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {(
+                      [
+                        { key: 'girth', label: t('girth'), value: girth, set: setGirth, problem: girthProblem, ref: girthRef },
+                        { key: 'length', label: t('lengthFt'), value: length, set: setLength, problem: lengthProblem, ref: undefined },
+                      ] as const
+                    ).map((f) => (
+                      <label key={f.key} className="flex min-w-0 flex-col gap-1.5">
+                        <span className="text-sm font-medium">{f.label}</span>
+                        <Input
+                          ref={f.ref}
+                          type="number"
+                          value={f.value}
+                          onChange={(e) => {
+                            f.set(e.target.value);
+                            setSaved(null);
+                          }}
+                          min={0.01}
+                          max={999}
+                          step="0.01"
+                          inputMode="decimal"
+                          required
+                          aria-invalid={!!f.problem || undefined}
+                          aria-describedby={f.problem ? `log-${f.key}-error` : undefined}
+                          className="h-16 px-4 text-3xl font-bold tabular-nums md:text-3xl"
+                        />
+                        <span id={`log-${f.key}-error`} className="min-h-4 text-xs font-medium text-destructive" role={f.problem ? 'alert' : undefined}>
+                          {f.problem && t(f.problem)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {/* what this log comes to, and what it makes the load */}
+                  <div className="grid grid-cols-2 gap-3 rounded-lg bg-muted/60 px-4 py-3">
+                    <div>
+                      <div className="text-xs text-muted-foreground">{t('thisLog')}</div>
+                      <div className={cn('mt-0.5 text-2xl leading-tight font-bold tabular-nums font-display', previewCft == null && 'text-muted-foreground')}>
+                        {previewCft != null ? num3(previewCft) : '0.000'} <span className="text-sm font-medium text-muted-foreground">CFT</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">{t('totalAfterLog')}</div>
+                      <div className={cn('mt-0.5 text-2xl leading-tight font-bold tabular-nums font-display', previewCft == null && 'text-muted-foreground')}>
+                        {num3(previewCft != null ? totalCft([load.totalCft, previewCft]) : load.totalCft)} <span className="text-sm font-medium text-muted-foreground">CFT</span>
+                      </div>
+                    </div>
+                    {/* the working, with the numbers just typed, so anyone can check it on paper */}
+                    <div className="col-span-2 border-t border-border/70 pt-2 text-sm text-muted-foreground" aria-live="polite">
+                      {t('cftFormulaLabel')}:{' '}
+                      <span className="font-semibold text-foreground tabular-nums">
+                        {g != null && l != null && previewCft != null
+                          ? `${g} × ${g} × ${l} ÷ 2304 = ${num3(previewCft)} CFT`
+                          : `${t('girth')} × ${t('girth')} × ${t('lengthFt')} ÷ 2304`}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+                    <div className="flex min-h-5 flex-1 items-center gap-1.5 text-sm font-medium text-success" aria-live="polite">
+                      {saved && (
+                        <>
+                          <CheckCircle2Icon className="size-4 shrink-0" aria-hidden />
+                          {t('logSavedLine', { n: saved.n, cft: num3(saved.cft) })}
+                        </>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="lg"
+                      className="h-12"
+                      disabled={busy || (!girth && !length)}
+                      onClick={() => {
+                        setGirth('');
+                        setLength('');
+                        girthRef.current?.focus();
+                      }}
+                    >
+                      {t('clear')}
+                    </Button>
+                    <Button type="submit" size="lg" className="h-12 sm:min-w-52" disabled={busy || !canSave}>
+                      <PlusIcon /> {t('saveLog', { n: nextNo })}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+          {error && <Notice tone="error">{error}</Notice>}
+
+          {history}
         </div>
       </div>
+      )}
     </Section>
   );
 }

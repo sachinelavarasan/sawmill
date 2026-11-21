@@ -232,7 +232,7 @@ export function ApprovalsPage() {
 
       {data && (
         <>
-          <div role="group" aria-label={t('type')} className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-5">
+          <div role="group" aria-label={t('type')} data-tour="approval-types" className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-5">
             {cards.map((c) => {
               const on = filter === c.value;
               return (
@@ -247,8 +247,8 @@ export function ApprovalsPage() {
                     on && 'ring-2 ring-brand',
                   )}
                 >
-                  {/* amber only where something is waiting: the eye goes to what needs a decision */}
-                  <span className={cn('grid size-10 shrink-0 place-items-center rounded-lg [&_svg]:size-[1.125rem]', c.count ? 'bg-warning-soft text-warning' : 'bg-muted text-muted-foreground')}>
+                  {/* quiet grey tiles: the number is what matters, and the open filter carries the orange ring */}
+                  <span className={cn('grid size-10 shrink-0 place-items-center rounded-lg bg-muted [&_svg]:size-[1.125rem]', on ? 'text-brand' : 'text-foreground/70')}>
                     <c.icon aria-hidden strokeWidth={1.75} />
                   </span>
                   <span className="min-w-0">

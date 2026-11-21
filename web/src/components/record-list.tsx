@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { type TKey, useI18n } from '../i18n';
+import { useAuth } from '../auth';
 import { num3, useApi } from './common';
 import type { Column } from './data-table';
 import { SearchBox, usePaging } from './page';
@@ -37,8 +38,22 @@ function savedHidden(key: string, fallback: string[]): string[] {
  * State for a list the server pages at `path` (?take=&skip=&status=&q=).
  * `fixedQuery` replaces the status filter with a fixed one (e.g. `open=1`).
  * `name` keys the remembered column choice on this device.
+ * `simpleColumns`: the only columns the simple view shows (no column choice there).
  */
-export function useRecordList<T>({ path, name, hiddenByDefault = [], fixedQuery }: { path: string; name: string; hiddenByDefault?: string[]; fixedQuery?: string }) {
+export function useRecordList<T>({
+  path,
+  name,
+  hiddenByDefault = [],
+  fixedQuery,
+  simpleColumns,
+}: {
+  path: string;
+  name: string;
+  hiddenByDefault?: string[];
+  fixedQuery?: string;
+  simpleColumns?: string[];
+}) {
+  const { simple } = useAuth();
   const storageKey = `timbertrail.${name}.hiddenColumns`;
   const [status, setStatus] = useState('');
   const [q, setQ] = useState('');
@@ -85,6 +100,11 @@ export function useRecordList<T>({ path, name, hiddenByDefault = [], fixedQuery 
       pickStatus('');
     },
     hidden,
+    /** the simple view: fewer columns, no column choice, the status cards as the only filter */
+    simple: simple && !!simpleColumns,
+    /** the columns to show, of all the list has: the simple view's few, or every one not switched off */
+    shown: <C extends { id: string }>(cols: C[]): C[] =>
+      simple && simpleColumns ? cols.filter((c) => simpleColumns.includes(c.id)) : cols.filter((c) => !hidden.includes(c.id)),
     toggleColumn: (id: string) =>
       setHidden((h) => {
         const next = h.includes(id) ? h.filter((x) => x !== id) : [...h, id];
@@ -112,7 +132,7 @@ export function StatusCards({ list, totalLabel }: { list: RecordList; totalLabel
     { status: 'REJECTED', label: t('rejected'), icon: XCircleIcon, tile: 'bg-destructive-soft text-destructive' },
   ];
   return (
-    <div className="stagger grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4 print:hidden">
+    <div data-tour="status-cards" className="stagger grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4 print:hidden">
       {cards.map((c) => {
         const on = list.status === c.status && c.status !== '';
         return (
@@ -149,7 +169,8 @@ export function ListToolbar<T>({ list, columns, searchPlaceholder }: { list: Rec
     <div className="flex flex-wrap items-center gap-2.5">
       <SearchBox className="sm:w-80 [&_input]:h-10" value={list.q} onChange={list.setQ} placeholder={searchPlaceholder} />
 
-      {list.hasStatusFilter && (
+      {/* in the simple view the status cards above are the filter: one way to do it, not two */}
+      {list.hasStatusFilter && !list.simple && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="h-10 px-3.5">
@@ -188,6 +209,7 @@ export function ListToolbar<T>({ list, columns, searchPlaceholder }: { list: Rec
             </Button>
           </div>
         )}
+        {!list.simple && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="h-10 px-3.5 max-md:hidden">
@@ -205,6 +227,7 @@ export function ListToolbar<T>({ list, columns, searchPlaceholder }: { list: Rec
               ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        )}
       </div>
     </div>
   );

@@ -62,7 +62,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         onMouseLeave={() => setHeld(false)}
         onFocus={() => setHeld(true)}
         onBlur={() => setHeld(false)}
-        className="pointer-events-none fixed inset-x-4 bottom-4 z-[60] flex flex-col items-center gap-2 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end print:hidden"
+        className="pointer-events-none fixed inset-x-4 bottom-8 z-[60] flex flex-col items-center gap-2 sm:inset-x-auto sm:right-6 sm:bottom-10 sm:items-end print:hidden"
       >
         {items.map((i) => {
           const Icon = ICON[i.tone];

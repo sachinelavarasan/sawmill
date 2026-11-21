@@ -17,6 +17,7 @@ const PUBLIC_FIELDS = {
   role: users.role,
   isActive: users.isActive,
   preferredLanguage: users.preferredLanguage,
+  uiMode: users.uiMode,
   lastLoginAt: users.lastLoginAt,
   createdAt: users.createdAt,
 };
@@ -97,6 +98,7 @@ export class UsersService {
           isActive: dto.isActive,
           role: dto.role,
           preferredLanguage: dto.preferredLanguage,
+          uiMode: dto.uiMode,
         })
         .where(and(eq(users.id, id), eq(users.millId, actor.millId)))
         .returning(PUBLIC_FIELDS);

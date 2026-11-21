@@ -1,7 +1,8 @@
-import { Body, Controller, Get, HttpCode, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Patch, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import type { Request, Response } from 'express';
+import { PAGE_TOURS, type PageTourKey } from '@timbertrail/shared';
 import { AuthenticatedOnly, CurrentUser, Public } from '../common/decorators';
 import type { AuthUser } from '../common/types';
 import { AuthService, ClientInfo } from './auth.service';
@@ -19,6 +20,16 @@ class RefreshDto {
 
 class LogoutDto {
   @IsOptional() @IsString() @MaxLength(200) refreshToken?: string;
+}
+
+/** A user's own preferences, kept on their row in the users table. */
+class PreferencesDto {
+  @IsOptional() @IsIn(['simple', 'full']) uiMode?: 'simple' | 'full';
+  @IsOptional() @IsIn(['en', 'ta']) preferredLanguage?: 'en' | 'ta';
+  /** true marks the guided tour as done; false resets it so it shows again */
+  @IsOptional() @IsBoolean() tourCompleted?: boolean;
+  /** one page's tour has been seen (finished or closed) */
+  @IsOptional() @IsIn([...PAGE_TOURS]) tourSeen?: PageTourKey;
 }
 
 const clientInfo = (req: Request): ClientInfo => ({ ip: req.ip, userAgent: req.headers['user-agent'] });
@@ -74,5 +85,11 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: AuthUser) {
     return this.auth.me(user.id);
+  }
+
+  @AuthenticatedOnly()
+  @Patch('me/preferences')
+  preferences(@CurrentUser() user: AuthUser, @Body() dto: PreferencesDto) {
+    return this.auth.setPreferences(user.id, dto);
   }
 }
