@@ -38,7 +38,7 @@ export default function ProductionTab() {
         hero={<TodayHero />}
         header={<Summary />}
         renderItem={(i) => <ProductionCard item={i} />}
-        empty={{ icon: 'settings', title: t('noProduction'), action: { label: t('newProduction'), onPress: add } }}
+        empty={{ mod: 'cut', icon: 'factory', title: t('noProduction'), action: { label: t('newProduction'), onPress: add } }}
       />
       <StickyFooter tabBar>
         <Button icon="plus" title={t('newProduction')} onPress={add} />

@@ -20,7 +20,7 @@ export function FinancialKpiCard({
   const body = (
     <>
       <View className="flex-row items-center gap-1.5">
-        <View className={cn('h-6 w-6 items-center justify-center rounded-lg', tone ? TONE_BG[tone] : 'bg-card')}>
+        <View className={cn('h-6 w-6 items-center justify-center rounded-lg', tone ? TONE_BG[tone] : 'bg-background')}>
           <Icon name={icon} size={13} colorClassName={tone ? TONE_ACCENT[tone] : 'accent-muted-foreground'} />
         </View>
         <Text className="flex-1 text-[11px] font-medium text-muted-foreground" numberOfLines={1}>
@@ -37,7 +37,7 @@ export function FinancialKpiCard({
     </>
   );
 
-  const box = 'flex-1 gap-1.5 rounded-2xl bg-background p-3';
+  const box = 'flex-1 gap-1.5 rounded-2xl bg-card p-3 shadow-sm shadow-black/5';
   if (!onPress) {
     return (
       <View className={box} accessible accessibilityLabel={`${label}: ${value}`}>

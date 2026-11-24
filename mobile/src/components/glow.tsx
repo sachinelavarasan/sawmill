@@ -1,57 +1,59 @@
 /**
- * The warm gradient behind the app bar, the home band and the headline cards: orange at the top
- * melting through burnt orange into warm black, with a soft light bloom in the upper right.
+ * The tree-ring motif: thin concentric rings on the walnut hero surface (headline cards, the dark
+ * login/lock screens). It replaces the old orange gradient; the name `Glow` is kept so every
+ * surface that drew the gradient now draws the rings.
+ *
  * Drawn with react-native-svg (already in the app), so it needs no extra native module.
- * Colours come from the theme tokens (--color-hero-top / -mid / hero).
+ * Colours come from the theme tokens (--color-hero, --color-hero-ring).
  *
  * Place it as the first child of a container with `overflow-hidden`; it fills the container and
  * ignores touches.
  */
-import { useId } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle, Rect } from 'react-native-svg';
 import { useCSSVariable } from 'uniwind';
+
+/** radii of the rings, outermost first (in px; the svg is not scaled) */
+const RINGS = [150, 124, 100, 78, 58, 40, 24];
 
 export function Glow({
   variant = 'band',
 }: {
   /**
-   * band — the top of a screen: orange fades down into the dark.
-   * card — a headline card: dark, with the orange rising from its lower left (like a lit edge).
+   * band — a full screen or a tall surface: rings in the upper right.
+   * card — a headline card: rings rising from the lower right edge.
    */
   variant?: 'band' | 'card';
 }) {
-  const id = useId().replace(/:/g, '');
-  const [top, mid, base] = useCSSVariable(['--color-hero-top', '--color-hero-mid', '--color-hero']).map((c, i) => String(c ?? ['#f06a1c', '#9c3f12', '#17110e'][i]));
-  const band = variant === 'band';
+  const [base, ring] = useCSSVariable(['--color-hero', '--color-hero-ring']).map((c, i) => String(c ?? ['#3d2416', '#a4744f'][i]));
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <Svg width="100%" height="100%" preserveAspectRatio="none">
-        <Defs>
-          <LinearGradient id={`${id}l`} x1="0" y1="0" x2={band ? '0.25' : '1'} y2="1">
-            {(band
-              ? [
-                  [0, top, 1],
-                  [0.45, mid, 1],
-                  [1, base, 1],
-                ]
-              : [
-                  [0, base, 1],
-                  [0.55, mid, 0.85],
-                  [1, top, 1],
-                ]
-            ).map(([offset, color, opacity]) => (
-              <Stop key={String(offset)} offset={String(offset)} stopColor={String(color)} stopOpacity={String(opacity)} />
-            ))}
-          </LinearGradient>
-          <RadialGradient id={`${id}r`} cx={band ? '0.85' : '0.9'} cy={band ? '0.05' : '0.1'} r="0.6">
-            <Stop offset="0" stopColor="#ffffff" stopOpacity={band ? '0.28' : '0.16'} />
-            <Stop offset="1" stopColor="#ffffff" stopOpacity="0" />
-          </RadialGradient>
-        </Defs>
+      <Svg width="100%" height="100%">
         <Rect width="100%" height="100%" fill={base} />
-        <Rect width="100%" height="100%" fill={`url(#${id}l)`} />
-        <Rect width="100%" height="100%" fill={`url(#${id}r)`} />
+      </Svg>
+      <TreeRings color={ring} placement={variant === 'band' ? 'top-right' : 'bottom-right'} />
+    </View>
+  );
+}
+
+/**
+ * Just the rings, for a light surface (an empty state's circle, the login page): pass the colour.
+ * `size` is the diameter of the outermost ring.
+ */
+export function TreeRings({ color, placement = 'bottom-right', size = 300, opacity = 0.55 }: { color: string; placement?: 'top-right' | 'bottom-right' | 'right'; size?: number; opacity?: number }) {
+  const scale = size / 300;
+  const pos =
+    placement === 'top-right'
+      ? { right: -size * 0.28, top: -size * 0.3 }
+      : placement === 'right'
+        ? { right: -size * 0.45, top: '50%' as const, marginTop: -size / 2 }
+        : { right: -size * 0.32, bottom: -size * 0.42 };
+  return (
+    <View pointerEvents="none" style={[{ position: 'absolute', width: size, height: size }, pos]}>
+      <Svg width={size} height={size}>
+        {RINGS.map((r) => (
+          <Circle key={r} cx={size / 2} cy={size / 2} r={r * scale} stroke={color} strokeOpacity={opacity} strokeWidth={Math.max(1.5, 2.5 * scale)} fill="none" />
+        ))}
       </Svg>
     </View>
   );

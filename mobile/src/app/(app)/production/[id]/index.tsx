@@ -44,12 +44,12 @@ import { loadOutLink, param } from '../../../../lib/ways-back';
 function Steps({ items }: { items: { label: string; done: boolean }[] }) {
   const current = items.findIndex((s) => !s.done);
   return (
-    <View className="flex-row items-start rounded-2xl bg-background px-2 py-3" accessibilityRole="progressbar">
+    <View className="flex-row items-start rounded-3xl bg-card px-2 py-3 shadow-sm shadow-black/5" accessibilityRole="progressbar">
       {items.map((s, i) => {
         const now = i === current;
         return (
           <View key={s.label} className="flex-1 items-center gap-1.5" accessible accessibilityLabel={`${i + 1}. ${s.label}`} accessibilityState={{ checked: s.done }}>
-            <View className={cn('h-8 w-8 items-center justify-center rounded-full', s.done ? 'bg-primary' : now ? 'bg-saffron' : 'bg-card')}>
+            <View className={cn('h-8 w-8 items-center justify-center rounded-full', s.done ? 'bg-primary' : now ? 'bg-saffron' : 'bg-background')}>
               {s.done ? (
                 <Icon name="check" size={16} colorClassName="accent-primary-foreground" />
               ) : (

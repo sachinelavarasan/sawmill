@@ -91,9 +91,9 @@ export interface LandingInfo {
 
 export const LANDING_SCREENS: LandingInfo[] = [
   { id: 'index', labelKey: 'home', icon: 'home' },
-  { id: 'loads-in', labelKey: 'imports', icon: 'download' },
+  { id: 'loads-in', labelKey: 'imports', icon: 'truck' },
   { id: 'runs', labelKey: 'production', icon: 'factory' },
-  { id: 'loads-out', labelKey: 'exports', icon: 'upload' },
+  { id: 'loads-out', labelKey: 'exports', icon: 'truck-out' },
   { id: 'inventory', labelKey: 'inventory', icon: 'boxes' },
   { id: 'reports', labelKey: 'reports', icon: 'bar-chart-2' },
 ];

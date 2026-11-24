@@ -111,7 +111,7 @@ export function PartyList({ kind }: { kind: PartnerKind }) {
         }
         ListEmptyComponent={
           list.isPending ? null : needle || activeFilter !== 'all' ? (
-            <EmptyState icon="search" title={t('noResults')} />
+            <EmptyState mod="neutral" icon="search" title={t('noResults')} />
           ) : (
             <EmptyState icon={meta.icon} title={t(meta.emptyLabel)} action={{ label: t(meta.addLabel), onPress: add }} />
           )

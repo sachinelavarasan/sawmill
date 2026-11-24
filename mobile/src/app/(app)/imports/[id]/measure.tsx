@@ -22,10 +22,11 @@ import { CalcPad, type CalcEntry, CalcTape } from '../../../../components/calc-p
 import { BackToSawingBar } from '../../../../components/way-back-bar';
 import { useConfirm } from '../../../../components/confirm';
 import { ScreenHeader } from '../../../../components/header';
+import { Text } from '../../../../components/text';
 import { toast } from '../../../../components/toast';
-import { Button, ErrorBox, Muted, Notice, SkeletonList } from '../../../../components/ui';
+import { Button, ErrorBox, Notice, SkeletonList } from '../../../../components/ui';
 import { ApiError } from '../../../../lib/api';
-import { num3 } from '../../../../lib/format';
+import { int, num3 } from '../../../../lib/format';
 import { useT } from '../../../../lib/i18n';
 import { type ImportDetail, importsApi, type Log } from '../../../../lib/imports-api';
 import { enqueueLog, flushPending, isOffline, newLogRef, onLogSent, type PendingLog, pendingFor, removePending, updatePending, usePendingLogs } from '../../../../lib/offline-logs';
@@ -332,8 +333,14 @@ export default function MeasureScreen() {
   const formula = g != null && l != null ? `${lengthShown} × ${girth} × ${girth} ÷ 2304` : `${t('cftFormulaLabel')}: ${t('lengthFt')} × ${t('girth')} × ${t('girth')} ÷ 2304`;
 
   return (
-    <View className="flex-1 bg-card">
-      <ScreenHeader compact back title={load ? `${load.code} · ${t('measurement')}` : t('measurement')} subtitle={load ? `${load.lorryNumber} · ${load.woodType}` : undefined} />
+    <View className="flex-1 bg-background">
+      <ScreenHeader
+        compact
+        back
+        title={t('simpleMeasure')}
+        subtitle={load ? `${load.code} · ${load.woodType} · ${load.lorryNumber}` : undefined}
+        step={load?.editable ? { at: 2, of: 2 } : undefined}
+      />
       {!load && !error && (
         <View className="p-4">
           <SkeletonList rows={2} />
@@ -346,7 +353,7 @@ export default function MeasureScreen() {
       )}
 
       {load && (
-        <ScrollView ref={scroll} className="flex-1 bg-card" contentContainerClassName="gap-3 px-3 pt-3" contentContainerStyle={{ paddingBottom: 32 + insets.bottom }}>
+        <ScrollView ref={scroll} className="flex-1 bg-background" contentContainerClassName="gap-3 px-4 pt-2" contentContainerStyle={{ paddingBottom: 32 + insets.bottom }}>
           {/* started from New Sawing: back to it with this load chosen */}
           <BackToSawingBar back={param(back)} loadId={load.id} />
           {!load.editable && <Notice icon="lock">{t('lockedRecord')}</Notice>}
@@ -361,13 +368,24 @@ export default function MeasureScreen() {
 
           {load.editable && (
             <>
-              <Muted className="px-1">{t('measureHint').split('.')[0]}.</Muted>
+              <View className="flex-row gap-3">
+                <View className="flex-1 gap-0.5 rounded-3xl bg-saffron-soft px-4 py-3">
+                  <Text className="text-[13px] font-semibold text-saffron-strong">{t('logsSaved')}</Text>
+                  <Text className="text-[26px] font-bold tabular-nums text-foreground font-display">{int(entries.length)}</Text>
+                </View>
+                <View className="flex-1 gap-0.5 rounded-3xl bg-saffron-soft px-4 py-3">
+                  <Text className="text-[13px] font-semibold text-saffron-strong">{t('totalCft')}</Text>
+                  <Text className="text-[26px] font-bold tabular-nums text-foreground font-display">{num3(shownTotalCft)}</Text>
+                </View>
+              </View>
               <CalcPad
-                title={`${t('logNo')}${currentNo}`}
-                editing={editing || editingPending ? { label: `${t('edit')} · ${t('logNo')}${currentNo}`, onCancel: resetEntry } : null}
+                variant="log"
+                hint={t('enterLengthGirth')}
+                title={t('logN', { n: currentNo })}
+                editing={editing || editingPending ? { label: `${t('edit')} · ${t('logN', { n: currentNo })}`, onCancel: resetEntry } : null}
                 fields={[
-                  { key: 'length', label: t('lengthFt'), unit: 'ft', value: lengthShown, note: kept && lengthShown ? t('lengthKept') : undefined, replaceOnType: kept },
-                  { key: 'girth', label: t('girth'), unit: 'in', value: girth },
+                  { key: 'length', label: t('lengthFeet'), unit: 'ft', value: lengthShown, note: kept && lengthShown ? t('lengthKept') : undefined, replaceOnType: kept },
+                  { key: 'girth', label: t('girthInches'), unit: 'in', value: girth },
                 ]}
                 onChange={onChange}
                 active={activeBox}
@@ -380,7 +398,7 @@ export default function MeasureScreen() {
                 canSave={canSave}
                 busy={busy}
                 onSave={save}
-                saveLabel={editing || editingPending ? t('save') : t('saveLog', { n: currentNo })}
+                saveLabel={editing || editingPending ? t('save') : t('saveLogN', { n: currentNo })}
                 // the length is kept for the next log, so the girth is what is typed next
                 afterSave={GIRTH}
               />

@@ -8,8 +8,8 @@
  *   <AppBottomSheet ref={sheet.ref} variant="medium" title="…" footer={<SheetActions primary={…} />}>…</AppBottomSheet>
  *
  * Look (theme tokens only)
- *   surface   light: --color-card (white) · dark: --color-background (raised charcoal, lighter than what
- *             it covers) with a hairline (--color-input) along the top — never the backdrop's colour
+ *   surface   --color-card (white; in dark a raised brown, lighter than the page) with a hairline
+ *             (--color-input) along the top in dark — never the backdrop's colour
  *   corners   28dp at the top · handle 40 × 5dp (--color-muted-foreground)
  *   backdrop  60% black over the whole app, bottom bar and status bar included
  *   body      20dp side padding (`padded`), title in the display face, sticky header and footer
@@ -74,8 +74,9 @@ export const SHEET_GUTTER = 'px-5';
 /** The sheet's surface and edge colours — for anything that must paint over scrolling content (a sticky header). */
 export function useSheetColors() {
   const { dark } = useThemeToggle();
-  const [card, raised, edge, handle] = useCSSVariable(['--color-card', '--color-background', '--color-input', '--color-muted-foreground']).map(String);
-  return { surface: dark ? raised : card, edge: dark ? edge : 'transparent', handle };
+  // cards are the raised surface in both themes (lighter than the page in dark)
+  const [card, edge, handle] = useCSSVariable(['--color-card', '--color-input', '--color-muted-foreground']).map(String);
+  return { surface: card, edge: dark ? edge : 'transparent', handle };
 }
 
 /**

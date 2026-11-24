@@ -202,7 +202,7 @@ export function ProductionForm({ id }: { id?: string }) {
               hint={picked?.pending ? t('pendingRawHint') : undefined}
               onChange={(v) => setForm((f) => f && { ...f, importLoadId: v, inputCft: f.importLoadId === v ? f.inputCft : '' })}
             />
-            {!id && <Button kind={stock.isSuccess && loads.length === 0 ? 'primary' : 'secondary'} size="md" icon="download" title={t('loadInNewLogs')} onPress={loadInNew} />}
+            {!id && <Button kind={stock.isSuccess && loads.length === 0 ? 'primary' : 'secondary'} size="md" icon="truck" title={t('loadInNewLogs')} onPress={loadInNew} />}
             <DateField label={t('productionDate')} required value={form.productionDate} max={todayIso()} onChange={set('productionDate')} error={err('productionDate')} />
             <NumberField label={t('inputCft')} unit="CFT" decimals={3} value={form.inputCft} onChangeText={set('inputCft')} error={err('inputCft')} hint={picked ? t('inputCftHint', { cft: num3(picked.cft) }) : undefined}>
               {picked && (

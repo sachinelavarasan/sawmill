@@ -1,7 +1,7 @@
 /**
  * The app lock screen (lib/app-lock.tsx), drawn over everything while locked: PIN pad, the
  * fingerprint key when turned on (and offered straight away), and "Sign in with password instead".
- * While the lock setting is still being read at start-up it is a plain navy cover, so the app
+ * While the lock setting is still being read at start-up it is a plain cream cover, so the app
  * never flashes into view before the lock decides.
  */
 import { useEffect, useRef, useState } from 'react';
@@ -47,18 +47,19 @@ export function LockScreen() {
   if (!show || !user) return null;
 
   return (
-    <View style={[StyleSheet.absoluteFill, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }]} className="z-50 items-center justify-between bg-hero px-6">
+    <View style={[StyleSheet.absoluteFill, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }]} className="z-50 items-center justify-between bg-background px-6">
       {lock.locked && (
         <>
           <View className="items-center gap-4">
-            <BrandMark size="sm" />
+            <BrandMark size="sm" onDark={false} />
             <View className="items-center gap-2">
-              <Avatar name={user.name} size="md" tone="saffron" />
-              <Text className="text-base font-semibold text-hero-foreground">{user.name}</Text>
+              <View className="rounded-full border-[3px] border-saffron p-1">
+                <Avatar name={user.name} size="lg" tone="hero" />
+              </View>
+              <Text className="text-base font-semibold text-foreground">{user.name}</Text>
             </View>
           </View>
           <PinPad
-            onDark
             title={t('enterPin')}
             error={error}
             extraKey={lock.biometric ? { icon: 'fingerprint', label: t('useFingerprint'), onPress: () => void lock.unlockWithBiometric(t('unlockPrompt'), t('cancel')) } : undefined}

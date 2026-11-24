@@ -173,6 +173,8 @@ export interface ExportLine {
   lineNumber: number;
   importLoadId: string | null;
   importCode: string;
+  /** the lorry that load came in on */
+  importLorryNumber?: string | null;
   thicknessIn: number;
   widthIn: number;
   lengthFt: number;

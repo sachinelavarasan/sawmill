@@ -173,6 +173,8 @@ const ICONS = {
   'trending-up': TrendingUp,
   'tree-pine': TreePine,
   truck: Truck,
+  /** a lorry leaving the mill: the same lorry, facing the other way (drawn mirrored below) */
+  'truck-out': Truck,
   /** an export: wood leaving the mill */
   upload: ArrowUpFromLine,
   'user-check': UserCheck,
@@ -190,8 +192,9 @@ export type IconName = keyof typeof ICONS;
 
 function LucideByName({ name, size = 20, color, strokeWidth, style }: { name: IconName; size?: number; color?: string; strokeWidth?: number; style?: object }) {
   const C = ICONS[name] ?? CircleHelp;
+  const flip = name === 'truck-out' ? { transform: [{ scaleX: -1 }] } : null;
   // thinner strokes on big icons, a touch heavier on tiny ones so they don't wash out
-  return <C size={size} color={color} strokeWidth={strokeWidth ?? (size <= 14 ? 2.25 : size >= 24 ? 1.75 : 2)} style={style} />;
+  return <C size={size} color={color} strokeWidth={strokeWidth ?? (size <= 14 ? 2.25 : size >= 24 ? 1.75 : 2)} style={flip ? [style, flip] : style} />;
 }
 
 /** `<Icon name="layers" size={18} colorClassName="accent-muted-foreground" />` */

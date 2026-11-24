@@ -153,7 +153,7 @@ export default function ReportScreen() {
         }
         ListEmptyComponent={r ? <EmptyState icon="file-text" title={search ? t('noResults') : t('noRows')} /> : null}
         renderItem={({ item }) => (
-          <View className="mb-2.5 gap-1.5 rounded-2xl bg-background p-4">
+          <View className="mb-2.5 gap-1.5 rounded-3xl bg-card p-4 shadow-sm shadow-black/5">
             {titleCol && (
               <Text className="pb-0.5 text-[15px] font-semibold text-foreground">
                 {fmt(item[titleCol.key], titleCol.type)}

@@ -32,6 +32,7 @@ export function FinancialReportList({
           return (
             <MenuRow
               key={r.key}
+              mod="approve"
               icon={meta.icon}
               title={r.title}
               subtitle={t(meta.sub)}

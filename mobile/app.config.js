@@ -2,7 +2,7 @@
  * Expo config for TimberTrail.
  *
  * The API address comes from EXPO_PUBLIC_API_URL (.env locally, eas.json for builds).
- * Splash: the logo on light #F4F6F9 / navy #0F1B2E, held until fonts and the saved login
+ * Splash: the logo on cream #F8F4EE / dark walnut #17110D, held until fonts and the saved login
  * are ready (src/app/_layout.tsx), then faded out.
  *
  * Over-the-air updates (EAS Update): on once EAS_PROJECT_ID is set. Each build listens on its
@@ -48,7 +48,7 @@ module.exports = {
     icon: './assets/icon.png',
     scheme: 'timbertrail',
     userInterfaceStyle: 'automatic',
-    backgroundColor: '#F4F6F9',
+    backgroundColor: '#F8F4EE',
     ios: {
       supportsTablet: false,
     },
@@ -75,10 +75,10 @@ module.exports = {
           image: './assets/images/splash-logo.png',
           imageWidth: 200,
           resizeMode: 'contain',
-          backgroundColor: '#F4F6F9',
+          backgroundColor: '#F8F4EE',
           dark: {
             image: './assets/images/splash-logo-dark.png',
-            backgroundColor: '#0F1B2E',
+            backgroundColor: '#17110D',
           },
         },
       ],
@@ -86,7 +86,7 @@ module.exports = {
         'expo-notifications',
         {
           defaultChannel: 'default',
-          color: '#F59E0B',
+          color: '#C27A3A',
           enableBackgroundRemoteNotifications: false,
         },
       ],

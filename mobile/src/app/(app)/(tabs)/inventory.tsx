@@ -216,7 +216,7 @@ function FinishedStock() {
       keyExtractor={(r) => (r.type === 'wood' ? `wood:${r.wood}` : `size:${r.s.key}`)}
       refreshControl={refresher(q.isRefetching, () => void q.refetch())}
       ListHeaderComponent={header}
-      ListEmptyComponent={q.isPending ? null : <EmptyState icon="package" title={needle || wood ? t('noResults') : t('noStock')} />}
+      ListEmptyComponent={q.isPending ? null : <EmptyState mod="stock" icon="boxes" title={needle || wood ? t('noResults') : t('noStock')} />}
       renderItem={({ item }) => (item.type === 'wood' ? <WoodHeading {...item} /> : <SizeItem s={item.s} last={item.last} open={open.has(item.s.key)} onToggle={() => toggle(item.s.key)} />)}
     />
   );
@@ -302,7 +302,7 @@ function SizeItem({ s, last, open, onToggle }: { s: SizeRow; last: boolean; open
             {s.label}
           </Text>
           <View className="flex-row items-center gap-1.5">
-            <Icon name="download" size={12} colorClassName="accent-muted-foreground" />
+            <Icon name="truck" size={12} colorClassName="accent-muted-foreground" />
             <Text className={cn('text-xs', many ? 'font-semibold text-saffron-strong' : 'text-muted-foreground')} numberOfLines={1}>
               {many ? t('fromLoads', { n: s.loads.length }) : s.loads[0]?.code}
             </Text>
@@ -393,7 +393,7 @@ function RawStock() {
           {q.isPending && <SkeletonList />}
         </View>
       }
-      ListEmptyComponent={q.isPending ? null : <EmptyState icon="layers" title={needle || wood ? t('noResults') : t('noStock')} />}
+      ListEmptyComponent={q.isPending ? null : <EmptyState mod="logs" icon="layers" title={needle || wood ? t('noResults') : t('noStock')} />}
       renderItem={({ item: r, index }) => {
         const pct = r.receivedCft > 0 ? Math.min(100, (r.cft / r.receivedCft) * 100) : 0;
         return (
@@ -436,10 +436,10 @@ function RawStock() {
 // ───────── movements: the ledger as a timeline ─────────
 
 const TYPES: { value: MovementSource; labelKey: TKey; icon: IconName }[] = [
-  { value: 'IMPORT', labelKey: 'srcImport', icon: 'download' },
+  { value: 'IMPORT', labelKey: 'srcImport', icon: 'truck' },
   { value: 'PRODUCTION_INPUT', labelKey: 'srcProductionIn', icon: 'axe' },
   { value: 'PRODUCTION_OUTPUT', labelKey: 'srcProductionOut', icon: 'package' },
-  { value: 'EXPORT', labelKey: 'srcExport', icon: 'upload' },
+  { value: 'EXPORT', labelKey: 'srcExport', icon: 'truck-out' },
   { value: 'ADJUSTMENT', labelKey: 'srcAdjustment', icon: 'sliders' },
 ];
 
@@ -543,7 +543,7 @@ function Movements() {
           {q.isPending && <SkeletonList />}
         </View>
       }
-      ListEmptyComponent={q.isPending ? null : <EmptyState icon="activity" title={filtered ? t('noResults') : t('noMovements')} />}
+      ListEmptyComponent={q.isPending ? null : <EmptyState mod="stock" icon="activity" title={filtered ? t('noResults') : t('noMovements')} />}
       renderItem={({ item }) =>
         item.type === 'day' ? (
           <DayHeader day={item.day} net={item.net} />
@@ -566,7 +566,7 @@ function Corrections() {
     <RecordList<Adjustment>
       path="/stock-adjustments"
       statusFilter
-      empty={{ icon: 'sliders', title: t('noAdjustments'), body: t('adjustHint') }}
+      empty={{ mod: 'stock', icon: 'sliders', title: t('noAdjustments'), body: t('adjustHint') }}
       renderItem={(a) => <CorrectionRow a={a} />}
     />
   );

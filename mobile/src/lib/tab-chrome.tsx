@@ -61,7 +61,7 @@ export function TabScreenLayout({ routeKey, children }: { routeKey: string; chil
   const ctx = useContext(Ctx);
   const ref = useRef<View>(null);
   // painted from the first frame: an unpainted blur target showed black for a moment on a newly opened tab
-  const [card] = useCSSVariable(['--color-card']).map(String);
+  const [card] = useCSSVariable(['--color-background']).map(String);
   useEffect(() => {
     if (!ctx) return;
     const { targets, targetsChanged } = ctx;

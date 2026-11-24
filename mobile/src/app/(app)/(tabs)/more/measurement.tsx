@@ -30,7 +30,7 @@ export default function MeasurementScreen() {
         search={t('searchImports')}
         header={<Muted>{t('measurementSub')}</Muted>}
         renderItem={(i) => (simple ? <MeasureCard item={i} /> : <ImportCard item={i} measure />)}
-        empty={{ icon: 'edit-3', title: t('noOpenLoads'), action: { label: t('newImport'), onPress: () => router.push('/imports/new') } }}
+        empty={{ mod: 'logs', icon: 'ruler', title: t('noOpenLoads'), action: { label: t('newImport'), onPress: () => router.push('/imports/new') } }}
       />
     </View>
   );

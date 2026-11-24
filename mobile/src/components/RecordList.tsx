@@ -14,7 +14,7 @@ import type { Paged, Status } from '../lib/types';
 import { SheetList } from './header';
 import { Appear } from './motion';
 import { OperationFilterChips, SkeletonRecordCards } from './record-card';
-import { EmptyState, ErrorBox, type IconName, refresher, SearchBar } from './ui';
+import { EmptyState, ErrorBox, type IconName, type Mod, refresher, SearchBar } from './ui';
 
 const PAGE = 30;
 
@@ -38,7 +38,7 @@ export function RecordList<T extends { id: string }>({
   search?: string;
   statusFilter?: boolean;
   renderItem: (item: T) => ReactElement;
-  empty: { icon?: IconName; title: string; body?: string; action?: { label: string; onPress: () => void } };
+  empty: { icon?: IconName; title: string; body?: string; action?: { label: string; onPress: () => void }; mod?: Mod };
   header?: ReactNode;
   /** navy content above the sheet (a headline figure) */
   hero?: ReactNode;
@@ -94,7 +94,7 @@ export function RecordList<T extends { id: string }>({
       }
       ListEmptyComponent={
         list.isPending || list.error ? null : filtered ? (
-          <EmptyState icon="search" title={t('noResults')} body={dq ? t('noMatches', { q: dq }) : undefined} />
+          <EmptyState mod="neutral" icon="search" title={t('noResults')} body={dq ? t('noMatches', { q: dq }) : undefined} />
         ) : (
           <EmptyState {...empty} />
         )

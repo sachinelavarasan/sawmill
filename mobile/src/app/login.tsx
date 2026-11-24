@@ -1,9 +1,10 @@
 /**
  * Logged out. First launch on a phone shows a short welcome (what the app does, Get started);
- * after that it opens straight on Sign in. Navy brand band on top, the form on a rounded
- * surface rising from the bottom, the Sign in button always above the keyboard.
+ * after that it opens straight on Sign in. The cream page with tree rings in the top corner, the
+ * mark, then the form; the Sign in button always above the keyboard.
  */
-import { Glow } from '../components/glow';
+import { useCSSVariable } from 'uniwind';
+import { TreeRings } from '../components/glow';
 import { KeyboardView } from '../components/keyboard';
 import { KEYS, getStored, setStored } from '../lib/storage';
 import { useEffect, useState } from 'react';
@@ -18,20 +19,27 @@ import { Button, cn, ErrorBox, Icon, type IconName, LangPills, ThemeToggle } fro
 import { ApiError } from '../lib/api';
 import { useT } from '../lib/i18n';
 import { useSession } from '../lib/session';
+import { useThemeToggle } from '../lib/theme';
+
+/** The big faint rings in the page's upper right corner. */
+function CornerRings() {
+  const [ring] = useCSSVariable(['--color-saffron']).map(String);
+  return <TreeRings color={ring} placement="top-right" size={380} opacity={0.18} />;
+}
 
 
 export default function LoginScreen() {
   // null until we know whether this phone has seen the welcome
   const [step, setStep] = useState<'welcome' | 'signin' | null>(null);
-  // the band is dark in both themes (logging out from a light compact screen lands here)
-  useStatusBar(true);
+  const { dark } = useThemeToggle();
+  useStatusBar(dark);
   useEffect(() => {
     getStored(KEYS.welcomed)
       .then((v) => setStep(v ? 'signin' : 'welcome'))
       .catch(() => setStep('signin'));
   }, []);
 
-  if (!step) return <View className="flex-1 bg-hero" />;
+  if (!step) return <View className="flex-1 bg-background" />;
   return step === 'welcome' ? (
     <Welcome
       onContinue={() => {
@@ -47,10 +55,10 @@ export default function LoginScreen() {
 function Feature({ icon, text }: { icon: IconName; text: string }) {
   return (
     <View className="flex-row items-center gap-3.5">
-      <View className="h-10 w-10 items-center justify-center rounded-xl bg-hero-chip">
-        <Icon name={icon} size={19} colorClassName="accent-saffron" />
+      <View className="h-11 w-11 items-center justify-center rounded-2xl bg-saffron-soft">
+        <Icon name={icon} size={20} colorClassName="accent-saffron-strong" />
       </View>
-      <Text className="flex-1 text-[15px] font-medium text-hero-foreground">{text}</Text>
+      <Text className="flex-1 text-[15px] font-medium text-foreground">{text}</Text>
     </View>
   );
 }
@@ -59,17 +67,17 @@ function Welcome({ onContinue }: { onContinue: () => void }) {
   const t = useT();
   const insets = useSafeAreaInsets();
   return (
-    <View className="flex-1 overflow-hidden bg-hero" style={{ paddingTop: insets.top, paddingBottom: insets.bottom + 20 }}>
-      <Glow />
+    <View className="flex-1 overflow-hidden bg-background" style={{ paddingTop: insets.top, paddingBottom: insets.bottom + 20 }}>
+      <CornerRings />
       <View className="flex-row justify-end px-4 pt-2">
-        <ThemeToggle onDark />
+        <ThemeToggle />
       </View>
       <View className="flex-1 justify-center gap-12 px-7">
         <Appear index={0}>
-          <BrandMark size="lg" tagline={t('appTagline')} />
+          <BrandMark size="lg" onDark={false} tagline={t('appTagline')} />
         </Appear>
         <Appear index={2} className="gap-5">
-          <Text className="text-[26px] font-bold leading-[32px] tracking-tight text-hero-foreground font-display">{t('welcomeHeadline')}</Text>
+          <Text className="text-[26px] font-bold leading-[32px] tracking-tight text-foreground font-display">{t('welcomeHeadline')}</Text>
           <View className="gap-4">
             <Feature icon="ruler" text={t('loginFeature1')} />
             <Feature icon="check-circle" text={t('loginFeature2')} />
@@ -80,7 +88,7 @@ function Welcome({ onContinue }: { onContinue: () => void }) {
       <Appear index={4} className="gap-3 px-6">
         <Button title={t('getStarted')} icon="arrow-right" onPress={onContinue} />
         <View className="items-center">
-          <LangPills onDark />
+          <LangPills />
         </View>
       </Appear>
     </View>
@@ -111,23 +119,23 @@ function SignIn() {
   }
 
   return (
-    <View className="flex-1 overflow-hidden bg-hero">
-      <Glow />
+    <View className="flex-1 overflow-hidden bg-background">
+      <CornerRings />
       <KeyboardView>
         <ScrollView contentContainerClassName="grow" keyboardShouldPersistTaps="handled">
-          {/* navy brand band: language + theme in the corners, the mark centred in the space left */}
-          <View className="min-h-[260px] grow px-5 pb-10" style={{ paddingTop: insets.top + 8 }}>
+          {/* language + theme in the corners, the mark centred in the space left */}
+          <View className="min-h-[240px] grow px-5 pb-6" style={{ paddingTop: insets.top + 8 }}>
             <View className="flex-row items-center justify-between">
-              <LangPills onDark />
-              <ThemeToggle onDark />
+              <LangPills />
+              <ThemeToggle />
             </View>
             <Appear className="flex-1 items-center justify-center pt-6">
-              <BrandMark size="lg" tagline={t('appTagline')} />
+              <BrandMark size="lg" onDark={false} tagline={t('appTagline')} />
             </Appear>
           </View>
 
           {/* keep the Sign in button clear of Android's edge-to-edge navigation bar */}
-          <Appear index={1} className="gap-5 rounded-t-[28px] bg-card px-6 pt-8">
+          <Appear index={1} className="gap-5 px-6 pt-2">
             <View className="gap-1">
               <Text className="text-[26px] font-bold tracking-tight text-foreground font-display">{t('loginWelcome')}</Text>
               <Text className="text-[15px] text-muted-foreground">{t('loginSub')}</Text>

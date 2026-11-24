@@ -51,7 +51,7 @@ export function PinPad({
   }
 
   const fg = onDark ? 'text-hero-foreground' : 'text-foreground';
-  const key = cn('h-[68px] w-[30%] items-center justify-center rounded-2xl', onDark ? 'bg-hero-chip active:bg-hero-border' : 'border border-border bg-card active:bg-secondary');
+  const key = cn('h-[68px] w-[30%] items-center justify-center rounded-full', onDark ? 'bg-hero-chip active:bg-hero-border' : 'bg-card shadow-sm shadow-black/5 active:bg-secondary');
 
   return (
     <View className="w-full max-w-[340px] items-center gap-6 self-center">

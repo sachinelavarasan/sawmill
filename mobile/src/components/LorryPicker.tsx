@@ -42,6 +42,7 @@ export function LorryPicker({
 
   return (
     <SelectField
+      plate
       label={t('lorryNumber')}
       required={required}
       value={value}

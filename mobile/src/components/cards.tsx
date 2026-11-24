@@ -5,100 +5,151 @@ import { Pressable, View } from 'react-native';
 import { dateOnly, dateTime, int, isoDay, num3, signed3, signedInt, timeOnly, todayIso } from '../lib/format';
 import { useT } from '../lib/i18n';
 import { useListDensity } from '../services/preferences';
-import { OperationalRecordCard } from './record-card';
 import type { ImportSummary } from '../lib/imports-api';
 import type { ApprovalItem, ApprovalKind, ExportSummary, Movement, MovementSource, ProductionSummary } from '../lib/types';
 import { Text } from './text';
-import { ActionPill, cn, Icon, IconTile, type IconName, Muted, StatusPill } from './ui';
+import { Tap } from './motion';
+import { ActionPill, cn, Icon, IconTile, type IconName, type Mod, ModTile, Muted, Plate, Reason, StatusPill } from './ui';
 
 /** Row padding for the list density preference (both keep a 48px+ touch target). */
 const rowPad = (compact: boolean) => (compact ? 'min-h-14 py-2' : 'min-h-[68px] py-3');
 
 // ───────── operational records: one card, three configurations ─────────
 
-/** A load coming in: lorry, wood, where from; logs and CFT received. `measure` makes it open the keypad. */
+/** A load coming in: its lorry plate, code, wood and arrival; logs and CFT received. `measure` makes it open the keypad. */
 export function ImportCard({ item, measure }: { item: ImportSummary; measure?: boolean }) {
   const t = useT();
   const router = useRouter();
-  const when = item.arrivalAt ? dateTime(item.arrivalAt) : undefined;
+  const dayLabel = useDayLabel();
   return (
-    <OperationalRecordCard
-      icon="download"
-      code={item.code}
-      date={when}
+    <LoadCard
+      plate={item.lorryNumber}
+      line={[item.code, item.woodType, item.arrivalAt ? `${dayLabel(item.arrivalAt)}, ${timeOnly(item.arrivalAt)}` : null]}
       status={item.status}
-      meta={[
-        { icon: 'truck', label: t('lorryNumber'), value: item.lorryNumber },
-        { icon: 'tree-pine', label: t('woodType'), value: item.woodType },
-        { icon: 'map-pin', label: t('originLocation'), value: item.originLocation },
+      figures={[
+        { value: int(item.totalLogs), unit: t('logs').toLowerCase() },
+        { value: num3(item.totalCft), unit: 'CFT' },
       ]}
-      metrics={[
-        { label: t('logs'), value: int(item.totalLogs) },
-        { label: t('receivedCft'), value: num3(item.totalCft), unit: 'CFT' },
-      ]}
-      footerNote={item.createdByName ? `${t('createdBy')} ${item.createdByName}` : undefined}
-      action={measure ? { label: t('measure'), accent: true } : undefined}
+      action={measure ? t('measure') : undefined}
       rejectionReason={item.rejectionReason}
-      viewDetailsLabel={t('viewDetails')}
       accessibilityLabel={`${t('imports')} ${item.code}, ${item.lorryNumber}, ${item.woodType}, ${int(item.totalLogs)} ${t('logs')}, ${num3(item.totalCft)} CFT`}
       onPress={() => router.push(measure ? `/imports/${item.id}/measure` : `/imports/${item.id}`)}
     />
   );
 }
 
-/** A production run: which load it sawed, wood; raw CFT in, finished CFT out, and waste once known. */
+/** A production run: which load it sawed, wood and day; raw CFT in → finished CFT out. */
 export function ProductionCard({ item }: { item: ProductionSummary }) {
   const t = useT();
   const router = useRouter();
+  const dayLabel = useDayLabel();
   return (
-    <OperationalRecordCard
-      icon="factory"
-      code={item.code}
-      date={dateOnly(item.productionDate)}
+    <LoadCard
+      head={{ mod: 'cut', icon: 'factory', title: item.code }}
+      line={[item.importCode, item.woodType, dayLabel(item.productionDate)]}
       status={item.status}
-      meta={[
-        { icon: 'download', label: t('sourceLoad'), value: item.importCode },
-        { icon: 'tree-pine', label: t('woodType'), value: item.woodType },
+      figures={[
+        ...(item.inputCft != null ? [{ value: num3(item.inputCft), unit: `→` }] : []),
+        { value: num3(item.outputCft), unit: 'CFT' },
       ]}
-      metrics={[
-        { label: t('inputCft'), value: item.inputCft != null ? num3(item.inputCft) : null, unit: 'CFT' },
-        { label: t('outputCft'), value: num3(item.outputCft), unit: 'CFT' },
-        // only when the run has a waste figure: no "0" for something not yet worked out
-        ...(item.wasteCft != null ? [{ label: t('wasteCft'), value: num3(item.wasteCft), unit: 'CFT' }] : []),
-      ]}
-      footerNote={item.createdByName ? `${t('createdBy')} ${item.createdByName}` : undefined}
       rejectionReason={item.rejectionReason}
-      viewDetailsLabel={t('viewDetails')}
       accessibilityLabel={`${t('production')} ${item.code}, ${item.importCode}, ${item.woodType}, ${item.inputCft != null ? num3(item.inputCft) : '—'} → ${num3(item.outputCft)} CFT`}
       onPress={() => router.push(`/production/${item.id}`)}
     />
   );
 }
 
-/** A load going out: lorry, wood; pieces and CFT shipped. */
+/** A load going out: its lorry plate, code, wood and date; pieces and CFT shipped. */
 export function ExportCard({ item }: { item: ExportSummary }) {
   const t = useT();
   const router = useRouter();
+  const dayLabel = useDayLabel();
   return (
-    <OperationalRecordCard
-      icon="upload"
-      code={item.code}
-      date={dateOnly(item.exportDate)}
+    <LoadCard
+      plate={item.lorryNumber}
+      line={[item.code, item.woodType, dayLabel(item.exportDate)]}
       status={item.status}
-      meta={[
-        { icon: 'truck', label: t('lorryNumber'), value: item.lorryNumber },
-        { icon: 'tree-pine', label: t('woodType'), value: item.woodType },
+      figures={[
+        { value: int(item.totalPieces), unit: t('pieces').toLowerCase() },
+        { value: num3(item.totalCft), unit: 'CFT' },
       ]}
-      metrics={[
-        { label: t('pieces'), value: int(item.totalPieces) },
-        { label: t('shippedCft'), value: num3(item.totalCft), unit: 'CFT' },
-      ]}
-      footerNote={item.createdByName ? `${t('createdBy')} ${item.createdByName}` : undefined}
       rejectionReason={item.rejectionReason}
-      viewDetailsLabel={t('viewDetails')}
       accessibilityLabel={`${t('exports')} ${item.code}, ${item.lorryNumber}, ${item.woodType}, ${int(item.totalPieces)} ${t('pieces')}, ${num3(item.totalCft)} CFT`}
       onPress={() => router.push(`/exports/${item.id}`)}
     />
+  );
+}
+
+/**
+ * A lorry load in a list (Sawmill Pro): the lorry's yellow plate with the status on the right,
+ * one muted line of code · wood · when, then the load's figures large, and a chevron (or the
+ * copper call to action). The whole card is one tap target.
+ *
+ *   ┌───────────────────────────────────────────┐
+ *   │ [TN 38 BK 4471]                 (Pending) │
+ *   │ IMP-0143 · Thekku · Today, 8:40 AM        │
+ *   │ ───────────────────────────────────────── │
+ *   │ 46 logs   27.312 CFT                    › │
+ *   └───────────────────────────────────────────┘
+ */
+function LoadCard({
+  plate,
+  head,
+  line,
+  status,
+  figures,
+  action,
+  rejectionReason,
+  accessibilityLabel,
+  onPress,
+}: {
+  /** the lorry's number plate (loads in and out) … */
+  plate?: string;
+  /** … or the area's tile and the record's code (production) */
+  head?: { mod: Mod; icon: IconName; title: string };
+  line: (string | null | undefined)[];
+  status: string;
+  figures: { value: string; unit: string }[];
+  action?: string;
+  rejectionReason?: string | null;
+  accessibilityLabel: string;
+  onPress: () => void;
+}) {
+  return (
+    <Tap scale={0.985} onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel} className="mb-3 gap-3 rounded-3xl bg-card p-4 shadow-sm shadow-black/5 active:bg-secondary">
+      <View className="flex-row items-center gap-3">
+        {plate ? (
+          <View className="flex-1 items-start">
+            <Plate number={plate} />
+          </View>
+        ) : head ? (
+          <View className="flex-1 flex-row items-center gap-3">
+            <ModTile mod={head.mod} icon={head.icon} size="sm" />
+            <Text className="shrink text-[17px] font-bold tracking-tight text-foreground font-display" numberOfLines={1}>
+              {head.title}
+            </Text>
+          </View>
+        ) : (
+          <View className="flex-1" />
+        )}
+        <StatusPill status={status} />
+      </View>
+      <Text className="text-[14px] text-muted-foreground" numberOfLines={1}>
+        {line.filter(Boolean).join(' · ')}
+      </Text>
+      {!!rejectionReason && <Reason>{rejectionReason}</Reason>}
+      <View className="h-px bg-border" />
+      <View className="flex-row items-center gap-5">
+        {figures.map((f, i) => (
+          <Text key={`${i}${f.unit}`} className="text-[22px] font-bold tabular-nums text-foreground font-display" numberOfLines={1}>
+            {f.value}
+            <Text className="text-[13px] font-semibold text-muted-foreground"> {f.unit}</Text>
+          </Text>
+        ))}
+        <View className="flex-1" />
+        {action ? <ActionPill label={action} accent /> : <Icon name="chevron-right" size={20} colorClassName="accent-muted-foreground" />}
+      </View>
+    </Tap>
   );
 }
 
@@ -111,10 +162,10 @@ export const SOURCE_KEY: Record<MovementSource, TKey> = {
 };
 
 const SOURCE_ICON: Record<MovementSource, IconName> = {
-  IMPORT: 'download',
+  IMPORT: 'truck',
   PRODUCTION_INPUT: 'axe',
   PRODUCTION_OUTPUT: 'package',
-  EXPORT: 'upload',
+  EXPORT: 'truck-out',
   ADJUSTMENT: 'sliders',
 };
 
@@ -197,11 +248,11 @@ export function useDayLabel() {
 
 // ───────── approvals ─────────
 
-export const APPROVAL_KIND: Record<ApprovalKind, { labelKey: TKey; icon: IconName; href: (id: string) => string }> = {
-  IMPORT: { labelKey: 'imports', icon: 'download', href: (id) => `/imports/${id}` },
-  PRODUCTION: { labelKey: 'production', icon: 'settings', href: (id) => `/production/${id}` },
-  EXPORT: { labelKey: 'exports', icon: 'upload', href: (id) => `/exports/${id}` },
-  ADJUSTMENT: { labelKey: 'adjustments', icon: 'sliders', href: (id) => `/stock/adjustments/${id}` },
+export const APPROVAL_KIND: Record<ApprovalKind, { labelKey: TKey; icon: IconName; mod: Mod; href: (id: string) => string }> = {
+  IMPORT: { labelKey: 'imports', icon: 'truck', mod: 'in', href: (id) => `/imports/${id}` },
+  PRODUCTION: { labelKey: 'production', icon: 'factory', mod: 'cut', href: (id) => `/production/${id}` },
+  EXPORT: { labelKey: 'exports', icon: 'truck-out', mod: 'out', href: (id) => `/exports/${id}` },
+  ADJUSTMENT: { labelKey: 'adjustments', icon: 'sliders', mod: 'stock', href: (id) => `/stock/adjustments/${id}` },
 };
 
 /** The figures that matter for a decision, on one line. */
@@ -232,7 +283,7 @@ export function ApprovalRow({ item, last }: { item: ApprovalItem; last?: boolean
       accessibilityLabel={`${t('review')} ${item.code}, ${t(k.labelKey)}`}
       className={cn('flex-row items-center gap-3 px-4 active:bg-secondary', rowPad(compact), !last && 'border-b border-border')}
     >
-      <IconTile icon={k.icon} tone="warn" />
+      <ModTile mod={k.mod} icon={k.icon} size="sm" />
       <View className="flex-1 gap-0.5">
         <Text className="text-[15px] font-semibold text-foreground" numberOfLines={1}>
           {item.code} <Text className="text-[13px] font-medium text-muted-foreground">· {t(k.labelKey)}</Text>
@@ -312,7 +363,7 @@ export function ActivityRow({ a, last }: { a: Activity; last?: boolean }) {
       accessibilityLabel={`${a.code}, ${t(k.labelKey)}, ${dayLabel(a.date)}`}
       className={cn('flex-row items-center gap-3 px-4 active:bg-secondary', rowPad(compact), !last && 'border-b border-border')}
     >
-      <IconTile icon={k.icon} tone="navy" />
+      <ModTile mod={APPROVAL_KIND[a.kind].mod} icon={k.icon} size="sm" />
       <View className="flex-1 gap-1">
         <View className="flex-row items-center justify-between gap-2">
           <Text className="shrink text-[15px] font-semibold text-foreground" numberOfLines={1}>

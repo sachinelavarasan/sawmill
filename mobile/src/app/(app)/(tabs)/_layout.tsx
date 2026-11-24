@@ -8,9 +8,9 @@ import { TabChromeProvider, TabScreenLayout } from '../../../lib/tab-chrome';
 import { availableLandingScreens, usePreferences } from '../../../services/preferences';
 
 /**
- * The bar shows the daily work: Home · Loads in · Production · Loads out · More.
- * Inventory and Reports are tabs too (so their screens keep the bar), but they are opened
- * from More rather than shown in the bar — fewer buttons to choose from.
+ * The bar (components/TabBar) shows the mockup's tabs: owner Home · Approvals · Stock · Reports,
+ * accountant Home · My work · Stock. The other screens here (loads in, production, loads out, More)
+ * are tabs too, so they keep the bar; they open from Home's tiles and from More (profile sheet).
  * The bar floats over the screens as frosted glass (lib/tab-chrome); each screen is its blur target.
  * Records and forms open full screen on top.
  *
@@ -20,14 +20,14 @@ import { availableLandingScreens, usePreferences } from '../../../services/prefe
 export default function TabsLayout() {
   const { prefs } = usePreferences();
   const { can } = useSession();
-  const [sceneBg] = useCSSVariable(['--color-card']).map(String);
+  const [sceneBg] = useCSSVariable(['--color-background']).map(String);
   // read once: changing the preference applies on the next start, not by jumping away now
   const [landing] = useState(() => {
     const allowed = availableLandingScreens(can).map((l) => l.id);
     return allowed.includes(prefs.defaultLandingScreen) ? prefs.defaultLandingScreen : 'index';
   });
   return (
-    <View className="flex-1 bg-card">
+    <View className="flex-1 bg-background">
       <TabChromeProvider>
         <Tabs
           initialRouteName={landing}
@@ -36,6 +36,7 @@ export default function TabsLayout() {
           tabBar={(props) => <TabBar {...props} />}
         >
           <Tabs.Screen name="index" />
+          <Tabs.Screen name="approvals" />
           <Tabs.Screen name="loads-in" />
           <Tabs.Screen name="runs" />
           <Tabs.Screen name="loads-out" />

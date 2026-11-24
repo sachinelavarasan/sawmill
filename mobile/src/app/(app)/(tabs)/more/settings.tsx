@@ -47,7 +47,7 @@ export default function SecuritySignInScreen() {
   };
 
   return (
-    <View className="flex-1 bg-card">
+    <View className="flex-1 bg-background">
       <ScreenHeader compact title={t('securitySignIn')} back />
       <Page
         compact
@@ -110,7 +110,7 @@ export default function SecuritySignInScreen() {
               <Text className="flex-1 pt-1 text-[15px] leading-[22px] text-foreground">{t(k)}</Text>
             </View>
           ))}
-          <View className="mt-1 flex-row gap-3 rounded-2xl bg-background p-4">
+          <View className="mt-1 flex-row gap-3 rounded-3xl bg-card p-4 shadow-sm shadow-black/5">
             <Icon name="info" size={18} colorClassName="accent-muted-foreground" />
             <Text className="flex-1 text-[13px] leading-[19px] text-muted-foreground">{t('helpContact')}</Text>
           </View>

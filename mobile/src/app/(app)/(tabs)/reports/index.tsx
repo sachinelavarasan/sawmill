@@ -14,12 +14,25 @@ import { FinancialReportList } from '../../../../components/reports/FinancialRep
 import { FinancialSummary } from '../../../../components/reports/FinancialSummary';
 import { OperationalReportList } from '../../../../components/reports/OperationalReportList';
 import { ReportPeriodSelector } from '../../../../components/reports/ReportPeriodSelector';
-import { EmptyState, ErrorBox, Muted, SectionTitle, SkeletonList } from '../../../../components/ui';
-import { periodQuery, presets } from '../../../../lib/format';
+import { EmptyState, ErrorBox, Muted, SectionTitle, Segmented, SkeletonList } from '../../../../components/ui';
+import { isoDay, type Period, periodQuery, presets, todayIso } from '../../../../lib/format';
 import { useLang, useT } from '../../../../lib/i18n';
 import { useApi } from '../../../../lib/query';
 import { useSession } from '../../../../lib/session';
 import type { AccountsSummary, OwnerCharts, ReportInfo } from '../../../../lib/types';
+
+type Quick = 'today' | 'week' | 'month';
+
+/** Today, this week (from Monday) and this month — the three quick periods at the top of Reports. */
+function quickPeriod(q: Quick): Period {
+  const now = new Date();
+  if (q === 'today') return { from: todayIso(), to: todayIso() };
+  if (q === 'week') {
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
+    return { from: isoDay(monday), to: todayIso() };
+  }
+  return presets(now).thisMonth;
+}
 
 export default function ReportsHome() {
   const t = useT();
@@ -28,6 +41,10 @@ export default function ReportsHome() {
   const { can } = useSession();
   const owner = can(Permission.FINANCE_VIEW);
   const [period, setPeriod] = useState(presets().thisMonth);
+  const quick = (['today', 'week', 'month'] as Quick[]).find((k) => {
+    const p = quickPeriod(k);
+    return p.from === period.from && p.to === period.to;
+  });
 
   const q = useApi<ReportInfo[]>(`/reports?lang=${lang}`);
   const money = useApi<AccountsSummary>(`/accounts/summary?${periodQuery(period)}`, { enabled: owner });
@@ -52,13 +69,23 @@ export default function ReportsHome() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScreenHeader compact title={t('reports')} />
+      <ScreenHeader large title={t('reports')} subtitle={t('reportsSub')} />
       <Page
         compact
         bottomInset={false}
         refreshing={q.isRefetching || money.isRefetching}
         onRefresh={refetchAll}
       >
+        {/* the quick periods; anything else is picked below (owner) */}
+        <Segmented
+          value={quick ?? ('' as Quick)}
+          onChange={(k) => setPeriod(quickPeriod(k))}
+          options={[
+            { value: 'today', label: t('today') },
+            { value: 'week', label: t('weekShort') },
+            { value: 'month', label: t('month') },
+          ]}
+        />
         {owner && (
           <View className="gap-3">
             <SectionTitle>{t('businessOverview')}</SectionTitle>

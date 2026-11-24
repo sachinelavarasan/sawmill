@@ -15,6 +15,8 @@
  */
 import { type ReactNode, useRef } from 'react';
 import { Pressable, View } from 'react-native';
+import Svg, { Ellipse, Line, Rect } from 'react-native-svg';
+import { useCSSVariable } from 'uniwind';
 import { num3 } from '../lib/format';
 import { useT } from '../lib/i18n';
 import { Tap } from './motion';
@@ -73,10 +75,10 @@ function typeKey(value: string, key: string, integer: boolean): string | null {
   return value + key;
 }
 
-/** Number keys: white with a visible border, so each one stands out on the grey panel. */
-const NUM_KEY = 'border border-input bg-card';
-/** ⌫, C, Clear all, Next: soft orange with orange text, so they never read as numbers. */
-const FN_KEY = 'border border-saffron/30 bg-saffron-soft';
+/** Number keys: white with a soft lift, so each one stands out on the cream page. */
+const NUM_KEY = 'bg-card shadow-sm shadow-black/5';
+/** ⌫, C, Clear all, Next: soft peach with copper text, so they never read as numbers. */
+const FN_KEY = 'bg-saffron-soft';
 const KEY_H = 'h-[58px]';
 
 function Key({
@@ -101,7 +103,7 @@ function Key({
       accessibilityRole="button"
       accessibilityLabel={a11y}
       accessibilityState={{ disabled: !!disabled }}
-      className={cn('flex-1 items-center justify-center rounded-xl active:opacity-75', className, disabled && 'opacity-35')}
+      className={cn('flex-1 items-center justify-center rounded-2xl active:opacity-75', className, disabled && 'opacity-35')}
     >
       {typeof label === 'string' ? <Text className="text-[26px] font-semibold tabular-nums text-foreground">{label}</Text> : label}
     </Tap>
@@ -126,7 +128,17 @@ export function CalcPad({
   afterSave = 0,
   editing,
   extra,
+  variant = 'calc',
+  hint,
 }: {
+  /**
+   * calc — the full calculator (working, "=", Next, Clear all): load-out lines and sawn sizes.
+   * log  — measuring one log (Sawmill Pro): a log drawing, Length and Girth side by side, a plain
+   *        3 × 4 keypad (1–9, ".", 0, ⌫) and a full-width "✓ Save log N" button.
+   */
+  variant?: 'calc' | 'log';
+  /** log variant: what to do, shown beside the title until the entry has a CFT */
+  hint?: string;
   /** what is being entered, e.g. "Log # 12" */
   title: string;
   fields: CalcField[];
@@ -161,14 +173,18 @@ export function CalcPad({
   const allFilled = fields.every((f) => f.value);
   const last = active === fields.length - 1 || (ready && allFilled);
 
+  const choose = setActive;
+
   const press = (key: string) => {
+    // ⌫ on an empty box goes back to the box before it
+    if (key === 'back' && !field.value && active > 0) return choose(active - 1);
     const from = field.replaceOnType && key !== 'back' && key !== 'clear' ? '' : field.value;
     const next = field.replaceOnType && key === 'back' ? '' : typeKey(from, key, !!field.integer);
     if (next != null) onChange(field.key, next);
   };
   const clearAll = () => {
     fields.forEach((f) => onChange(f.key, ''));
-    setActive(0);
+    choose(0);
   };
 
   /** set at once (props update later): a second "=" while saving is ignored, not saved twice */
@@ -177,44 +193,164 @@ export function CalcPad({
     if (!ready || saving.current) return;
     saving.current = true;
     try {
-      if ((await onSave()) !== false) setActive(afterSave);
+      if ((await onSave()) !== false) choose(afterSave);
     } finally {
       saving.current = false;
     }
   };
   /** Next, or "=" on the last box: move on while something is missing, save once it is all there */
   const enter = () => {
-    if (active < fields.length - 1 && !(ready && allFilled)) return setActive(active + 1);
+    if (active < fields.length - 1 && !(ready && allFilled)) return choose(active + 1);
     if (ready) return void save();
     const empty = fields.findIndex((f) => !f.value);
-    setActive(empty >= 0 ? empty : active);
+    choose(empty >= 0 ? empty : active);
   };
+
+  if (variant === 'log') {
+    const lengthOn = active === 0;
+    return (
+      <View className="gap-3">
+        <View className="gap-4 rounded-3xl bg-card p-4 shadow-sm shadow-black/5" accessibilityLiveRegion="polite">
+          {editing && (
+            <View className="flex-row items-center justify-between gap-2 rounded-xl bg-saffron-soft py-1.5 pl-3 pr-1">
+              <Icon name="edit-2" size={15} colorClassName="accent-saffron-strong" />
+              <Text className="flex-1 text-[14px] font-semibold text-foreground" numberOfLines={1}>
+                {editing.label}
+              </Text>
+              <Pressable onPress={editing.onCancel} accessibilityRole="button" hitSlop={6} className="flex-row items-center gap-1 rounded-lg px-2.5 py-1.5 active:bg-card">
+                <Icon name="x" size={15} colorClassName="accent-foreground" />
+                <Text className="text-[14px] font-semibold text-foreground">{t('cancel')}</Text>
+              </Pressable>
+            </View>
+          )}
+          <View className="flex-row items-center justify-between gap-3">
+            <Text className="text-[22px] font-bold tracking-tight text-foreground font-display">{editing ? '' : title}</Text>
+            {result != null ? (
+              <Text className="text-[17px] font-bold tabular-nums text-saffron-strong" accessibilityLabel={`${num3(result)} CFT`}>
+                = {num3(result)} <Text className="text-[13px] font-semibold">CFT</Text>
+              </Text>
+            ) : (
+              <Text className="shrink text-right text-[14px] text-muted-foreground" numberOfLines={1}>
+                {hint}
+              </Text>
+            )}
+          </View>
+          <LogDrawing length={lengthOn} />
+          <View className="flex-row gap-3">
+            {fields.map((f, i) => {
+              const on = i === active;
+              return (
+                <Pressable
+                  key={f.key}
+                  onPress={() => choose(i)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={`${f.label} ${f.value || '0'}`}
+                  className={cn('min-h-[88px] flex-1 justify-between rounded-2xl border-2 px-3.5 py-2.5', on ? 'border-saffron bg-saffron-soft/40' : 'border-border bg-card')}
+                >
+                  <View className="flex-row items-center justify-between gap-1">
+                    <Text className="shrink text-[14px] font-medium text-muted-foreground" numberOfLines={1}>
+                      {f.label}
+                    </Text>
+                    {!!f.note && (
+                      <Text className="text-[11px] font-semibold text-saffron-strong" numberOfLines={1}>
+                        {f.note}
+                      </Text>
+                    )}
+                  </View>
+                  <View className="flex-row items-center gap-1">
+                    <Text className={cn('text-[30px] font-bold leading-9 tabular-nums font-display', f.value ? 'text-foreground' : 'text-input')}>{f.value || '–'}</Text>
+                    {on && <View className="h-7 w-0.5 bg-saffron" />}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+          {extra}
+          {!!problem && (
+            <Text className="text-[13px] font-medium text-destructive" accessibilityRole="alert">
+              {problem}
+            </Text>
+          )}
+        </View>
+
+        {/* the keypad: 1–9, then . 0 ⌫ — and a tall OK on the right: next box, or save on the last one */}
+        <View className="flex-row gap-2.5 pt-2">
+          <View className="flex-[3] gap-2.5">
+            {[
+              ['1', '2', '3'],
+              ['4', '5', '6'],
+              ['7', '8', '9'],
+            ].map((row) => (
+              <View key={row[0]} className="h-[62px] flex-row gap-2.5">
+                {row.map((k) => (
+                  <Key key={k} label={k} a11y={k} onPress={() => press(k)} className={NUM_KEY} />
+                ))}
+              </View>
+            ))}
+            <View className="h-[62px] flex-row gap-2.5">
+              <Key label="." a11y="." onPress={() => press('.')} className={NUM_KEY} disabled={!!field.integer} />
+              <Key label="0" a11y="0" onPress={() => press('0')} className={NUM_KEY} />
+              <Key label={<Icon name="delete" size={26} colorClassName="accent-foreground" />} a11y={t('delete')} onPress={() => press('back')} className={FN_KEY} />
+            </View>
+          </View>
+          <View className="flex-1">
+            <Key
+              a11y={last ? saveLabel : `${t('okKey')}, ${t('next')}`}
+              onPress={enter}
+              className={last && ready && allFilled ? 'bg-saffron' : FN_KEY}
+              label={
+                <View className="items-center gap-1">
+                  <Text className={cn('text-[22px] font-bold', last && ready && allFilled ? 'text-saffron-foreground' : 'text-saffron-strong')}>{t('okKey')}</Text>
+                  <Icon name={last ? 'check' : 'arrow-right'} size={22} colorClassName={last && ready && allFilled ? 'accent-saffron-foreground' : 'accent-saffron-strong'} />
+                </View>
+              }
+            />
+          </View>
+        </View>
+
+        {/* never greyed out for real: while it can't save, a press moves to the empty box */}
+        <Tap
+          scale={0.97}
+          onPress={enter}
+          accessibilityRole="button"
+          accessibilityLabel={saveLabel}
+          className={cn('min-h-[60px] flex-row items-center justify-center gap-2.5 rounded-2xl', ready && allFilled ? 'bg-primary active:opacity-85' : 'bg-input')}
+        >
+          <Icon name="check" size={22} colorClassName={ready && allFilled ? 'accent-primary-foreground' : 'accent-white'} />
+          <Text className={cn('text-[18px] font-bold', ready && allFilled ? 'text-primary-foreground' : 'text-white')}>{saveLabel}</Text>
+        </Tap>
+      </View>
+    );
+  }
 
   const fnText = (s: string, size = 'text-[22px]') => <Text className={cn(size, 'font-semibold text-saffron-strong')}>{s}</Text>;
 
   return (
-    <View className="gap-3 rounded-3xl bg-background p-3">
+    <View className="gap-3">
       {/* the display */}
-      <View className="gap-3 rounded-2xl bg-hero p-4" accessibilityLiveRegion="polite">
+      <View className="gap-3 rounded-3xl bg-card p-4 shadow-sm shadow-black/5" accessibilityLiveRegion="polite">
         {editing && (
-          <View className="-mx-1 flex-row items-center justify-between gap-2 rounded-xl bg-saffron/20 py-1.5 pl-3 pr-1">
+          <View className="-mx-1 flex-row items-center justify-between gap-2 rounded-xl bg-saffron-soft py-1.5 pl-3 pr-1">
             <View className="flex-1 flex-row items-center gap-2">
-              <Icon name="edit-2" size={15} colorClassName="accent-saffron" />
-              <Text className="flex-1 text-[14px] font-semibold text-hero-foreground" numberOfLines={1}>
+              <Icon name="edit-2" size={15} colorClassName="accent-saffron-strong" />
+              <Text className="flex-1 text-[14px] font-semibold text-foreground" numberOfLines={1}>
                 {editing.label}
               </Text>
             </View>
-            <Pressable onPress={editing.onCancel} accessibilityRole="button" hitSlop={6} className="flex-row items-center gap-1 rounded-lg px-2.5 py-1.5 active:bg-hero-border">
-              <Icon name="x" size={15} colorClassName="accent-hero-foreground" />
-              <Text className="text-[14px] font-semibold text-hero-foreground">{t('cancel')}</Text>
+            <Pressable onPress={editing.onCancel} accessibilityRole="button" hitSlop={6} className="flex-row items-center gap-1 rounded-lg px-2.5 py-1.5 active:bg-card">
+              <Icon name="x" size={15} colorClassName="accent-foreground" />
+              <Text className="text-[14px] font-semibold text-foreground">{t('cancel')}</Text>
             </Pressable>
           </View>
         )}
         <View className="flex-row items-center justify-between gap-3">
-          <Text className="text-[13px] font-semibold text-hero-foreground">{editing ? '' : title}</Text>
-          <Text className="shrink text-right text-[13px] tabular-nums text-hero-muted" numberOfLines={1}>
-            {totalLabel}: <Text className="font-semibold text-hero-foreground">{num3(total)}</Text> CFT
-          </Text>
+          <Text className="text-[20px] font-bold tracking-tight text-foreground font-display">{editing ? '' : title}</Text>
+          <View className="shrink rounded-full bg-saffron-soft px-3 py-1">
+            <Text className="text-right text-[13px] tabular-nums text-saffron-strong" numberOfLines={1}>
+              {totalLabel}: <Text className="font-bold">{num3(total)}</Text> CFT
+            </Text>
+          </View>
         </View>
 
         {/* the numbers being typed: tap one to type into it */}
@@ -224,27 +360,27 @@ export function CalcPad({
             return (
               <Pressable
                 key={f.key}
-                onPress={() => setActive(i)}
+                onPress={() => choose(i)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
                 accessibilityLabel={`${f.label} ${f.value || '0'}`}
-                className={cn('min-h-[78px] grow basis-[45%] justify-between rounded-xl border-2 px-3 py-2', on ? 'border-saffron bg-hero-chip' : 'border-transparent bg-hero-chip/60')}
+                className={cn('min-h-[84px] grow basis-[45%] justify-between rounded-2xl border-2 px-3.5 py-2.5', on ? 'border-saffron bg-saffron-soft/40' : 'border-border bg-card')}
               >
                 <View className="flex-row items-center justify-between gap-1">
-                  <Text className="shrink text-[12px] font-medium text-hero-muted" numberOfLines={1}>
+                  <Text className="shrink text-[13px] font-medium text-muted-foreground" numberOfLines={1}>
                     {f.label}
                   </Text>
                   {!!f.note && (
-                    <Text className="text-[11px] font-semibold text-saffron" numberOfLines={1}>
+                    <Text className="text-[11px] font-semibold text-saffron-strong" numberOfLines={1}>
                       {f.note}
                     </Text>
                   )}
                 </View>
                 <View className="flex-row items-baseline gap-1">
-                  <Text className={cn('text-[30px] font-bold leading-9 tabular-nums font-display', f.value ? 'text-hero-foreground' : 'text-hero-muted/60')}>{f.value || '0'}</Text>
+                  <Text className={cn('text-[30px] font-bold leading-9 tabular-nums font-display', f.value ? 'text-foreground' : 'text-muted-foreground/50')}>{f.value || '0'}</Text>
                   {on && <View className="h-6 w-0.5 self-center bg-saffron" />}
                   {/* the unit, unless the label already says it ("Girth (in)") */}
-                  {!!f.unit && !f.label.includes(`(${f.unit})`) && <Text className="text-sm font-medium text-hero-muted">{f.unit}</Text>}
+                  {!!f.unit && !f.label.includes(`(${f.unit})`) && <Text className="text-sm font-medium text-muted-foreground">{f.unit}</Text>}
                 </View>
               </Pressable>
             );
@@ -253,15 +389,15 @@ export function CalcPad({
 
         {extra}
 
-        <View className="gap-1 border-t border-hero-border pt-3">
-          <Text className="text-[13px] tabular-nums text-hero-muted">{formula}</Text>
-          <Text className="self-end text-[38px] font-bold leading-[44px] tabular-nums text-hero-foreground font-display" accessibilityLabel={`${result != null ? num3(result) : '0.000'} CFT`}>
+        <View className="gap-1 border-t border-border pt-3">
+          <Text className="text-[13px] tabular-nums text-muted-foreground">{formula}</Text>
+          <Text className="self-end text-[38px] font-bold leading-[44px] tabular-nums text-foreground font-display" accessibilityLabel={`${result != null ? num3(result) : '0.000'} CFT`}>
             {result != null ? `= ${num3(result)}` : '0.000'}
-            <Text className="text-base font-medium text-hero-muted"> CFT</Text>
+            <Text className="text-base font-medium text-muted-foreground"> CFT</Text>
           </Text>
         </View>
         {!!problem && (
-          <Text className="text-[13px] font-medium text-saffron" accessibilityRole="alert">
+          <Text className="text-[13px] font-medium text-saffron-strong" accessibilityRole="alert">
             {problem}
           </Text>
         )}
@@ -325,7 +461,7 @@ export function CalcPad({
 export function CalcTape({ title, entries, total, empty, selectedKey }: { title: string; entries: CalcEntry[]; total: number; empty?: string; selectedKey?: string | null }) {
   const t = useT();
   return (
-    <View className="overflow-hidden rounded-2xl border border-border bg-card">
+    <View className="overflow-hidden rounded-3xl bg-card shadow-sm shadow-black/5">
       <View className="flex-row items-center justify-between gap-2 border-b border-border px-4 py-3">
         <Text className="text-[15px] font-semibold text-foreground">{title}</Text>
         <View className="min-w-7 items-center rounded-full bg-secondary px-2">
@@ -378,6 +514,24 @@ export function CalcTape({ title, entries, total, empty, selectedKey }: { title:
           {num3(total)} <Text className="text-xs font-medium text-muted-foreground">CFT</Text>
         </Text>
       </View>
+    </View>
+  );
+}
+
+/**
+ * The log being measured: a measuring line along the top (copper while Length is being typed) and
+ * a dashed ring round its middle (copper while Girth is being typed).
+ */
+function LogDrawing({ length }: { length: boolean }) {
+  const [line, wood, edge, accent] = useCSSVariable(['--color-input', '--color-saffron-soft', '--color-input', '--color-saffron']).map(String);
+  return (
+    <View className="items-center" accessible={false} importantForAccessibility="no-hide-descendants">
+      <Svg width={300} height={96} viewBox="0 0 300 96">
+        <Line x1={24} y1={8} x2={276} y2={8} stroke={length ? accent : line} strokeWidth={length ? 4 : 3} strokeLinecap="round" />
+        <Rect x={22} y={24} width={256} height={56} rx={12} fill={wood} stroke={edge} strokeWidth={2.5} />
+        <Ellipse cx={24} cy={52} rx={14} ry={28} fill={wood} stroke={edge} strokeWidth={2.5} />
+        <Ellipse cx={150} cy={52} rx={10} ry={34} fill="none" stroke={length ? edge : accent} strokeWidth={length ? 2.5 : 3.5} strokeDasharray="6 5" />
+      </Svg>
     </View>
   );
 }

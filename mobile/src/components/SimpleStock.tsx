@@ -21,7 +21,8 @@ import { useApi } from '../lib/query';
 import { useTabBarInset } from '../lib/tab-chrome';
 import type { Balances, FinishedStockRow } from '../lib/types';
 import { Text } from './text';
-import { Button, Chip, cn, ErrorBox, Icon, type IconName, ProgressBar, refresher, SearchBar, SkeletonList } from './ui';
+import { HeroPanel } from './header';
+import { Button, Chip, cn, EmptyState, ErrorBox, Icon, type IconName, type Mod, ProgressBar, refresher, SearchBar, Segmented, SkeletonList } from './ui';
 
 type RawItem = { importLoadId: string; importCode: string; woodType: string; arrivalAt: string; logs: number; cft: number; receivedCft: number; pending: boolean };
 type SizeItem = { key: string; wood: string; size: string; pieces: number; cft: number; pending: boolean; sources: { key: string; label: string; pieces: number; runId?: string }[] };
@@ -81,11 +82,25 @@ export function SimpleStock() {
       {!data && !q.error && <SkeletonList rows={3} />}
       {data && (
         <>
-          {/* the two kinds of stock, as two big switches */}
-          <View className="flex-row gap-3">
-            <SwitchCard on={tab === 'raw'} onPress={() => switchTo('raw')} icon="layers" label={t('stockLogs')} value={num3(data.totals.rawCft)} unit="CFT" sub={t('loadsCount', { n: int(data.totals.rawLoads) })} />
-            <SwitchCard on={tab === 'finished'} onPress={() => switchTo('finished')} icon="package" label={t('stockSawn')} value={int(data.totals.finishedPieces)} unit={t('pieces')} sub={`${num3(data.totals.finishedCft)} CFT`} />
-          </View>
+          {/* the two kinds of stock, then the chosen one's total on the walnut card */}
+          <Segmented
+            value={tab}
+            onChange={switchTo}
+            options={[
+              { value: 'raw', label: t('stockLogs') },
+              { value: 'finished', label: t('stockSawn') },
+            ]}
+          />
+          <HeroPanel className="gap-1">
+            <Text className="text-[15px] text-hero-muted">{tab === 'raw' ? t('stockLogs') : t('stockSawn')}</Text>
+            <Text className="text-[40px] font-bold leading-[46px] tabular-nums text-hero-foreground font-display" numberOfLines={1} adjustsFontSizeToFit>
+              {num3(tab === 'raw' ? data.totals.rawCft : data.totals.finishedCft)}
+              <Text className="text-[18px] font-semibold text-hero-muted"> CFT</Text>
+            </Text>
+            <Text className="text-[14px] tabular-nums text-saffron-soft">
+              {tab === 'raw' ? t('loadsCount', { n: int(data.totals.rawLoads) }) : `${int(data.totals.finishedPieces)} ${t('pieces').toLowerCase()}`}
+            </Text>
+          </HeroPanel>
 
           {/* one plain filter: the wood */}
           {items.length > 0 && (
@@ -100,12 +115,12 @@ export function SimpleStock() {
 
           {tab === 'raw' ? (
             rawItems.length === 0 ? (
-              <EmptyStock text={t('noLogsInStock')} to="/imports/new" action={t('simpleLoadIn')} icon="download" />
+              <EmptyStock text={t('noLogsInStock')} to="/imports/new" action={t('simpleLoadIn')} icon="truck" mod="logs" />
             ) : (
               (shown as RawItem[]).map((r) => <RawCard key={`${r.importLoadId}${r.pending ? ':p' : ''}`} r={r} />)
             )
           ) : sizeItems.length === 0 ? (
-            <EmptyStock text={t('nothingSawn')} to="/production/new" action={t('simpleCut')} icon="factory" />
+            <EmptyStock text={t('nothingSawn')} to="/production/new" action={t('simpleCut')} icon="factory" mod="stock" />
           ) : (
             // sawn pieces, under a heading per wood with its totals (stock only; waiting sizes are not stock yet)
             [...new Set((shown as SizeItem[]).map((s) => s.wood))].map((w) => {
@@ -132,32 +147,6 @@ export function SimpleStock() {
   );
 }
 
-function SwitchCard({ on, onPress, icon, label, value, unit, sub }: { on: boolean; onPress: () => void; icon: IconName; label: string; value: string; unit: string; sub: string }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected: on }}
-      className={cn('flex-1 gap-2 rounded-2xl border-2 bg-card p-3.5 active:opacity-85', on ? 'border-saffron' : 'border-border')}
-    >
-      <View className="flex-row items-center gap-2">
-        <View className={cn('h-8 w-8 items-center justify-center rounded-lg', on ? 'bg-primary' : 'bg-primary-soft')}>
-          <Icon name={icon} size={17} colorClassName={on ? 'accent-primary-foreground' : 'accent-primary'} />
-        </View>
-        <Text className="shrink text-[13px] font-semibold text-muted-foreground" numberOfLines={2}>
-          {label}
-        </Text>
-      </View>
-      <Text className="text-[24px] font-bold leading-7 tabular-nums text-foreground font-display" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-        {value}
-      </Text>
-      <Text className="text-[12px] tabular-nums text-muted-foreground" numberOfLines={1}>
-        {unit} · {sub}
-      </Text>
-    </Pressable>
-  );
-}
-
 function PendingTag() {
   const t = useT();
   return (
@@ -173,7 +162,7 @@ function RawCard({ r }: { r: RawItem }) {
   const router = useRouter();
   const share = !r.pending && r.receivedCft > 0 ? Math.min(100, Math.max(0, (r.cft / r.receivedCft) * 100)) : 0;
   return (
-    <View className={cn('gap-4 rounded-2xl bg-card p-4', r.pending ? 'border-2 border-dashed border-warning' : 'border border-border')}>
+    <View className={cn('gap-4 rounded-3xl bg-card p-4', r.pending ? 'border-2 border-dashed border-warning' : 'shadow-sm shadow-black/5')}>
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1">
           <Text className="text-xl font-bold text-foreground font-display" numberOfLines={1}>
@@ -208,18 +197,23 @@ function SizeCard({ s }: { s: SizeItem }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   return (
-    <View className={cn('gap-3 rounded-2xl bg-card p-4', s.pending ? 'border-2 border-dashed border-warning' : 'border border-border')}>
-      <Pressable onPress={() => setOpen((o) => !o)} accessibilityRole="button" accessibilityState={{ expanded: open }} className="flex-row items-start justify-between gap-3">
+    <View className={cn('gap-3 rounded-3xl bg-card p-4', s.pending ? 'border-2 border-dashed border-warning' : 'shadow-sm shadow-black/5')}>
+      <Pressable onPress={() => setOpen((o) => !o)} accessibilityRole="button" accessibilityState={{ expanded: open }} className="flex-row items-center justify-between gap-3">
+        <View className="h-14 w-14 items-center justify-center rounded-2xl bg-mod-peach-soft">
+          <View className="h-6 w-9 rounded-[5px] border-2 border-mod-peach bg-saffron-soft" />
+        </View>
         <View className="flex-1">
-          <Text className="text-lg font-bold leading-6 tabular-nums text-foreground">{s.size}</Text>
+          <Text className="text-[20px] font-bold leading-6 tabular-nums text-foreground font-display">{s.size}</Text>
           <View className="mt-1 flex-row items-center gap-1">
             <Icon name={open ? 'chevron-up' : 'chevron-down'} size={14} colorClassName="accent-muted-foreground" />
             <Text className="text-xs text-muted-foreground">{t('fromLoads', { n: s.sources.length })}</Text>
           </View>
         </View>
         <View className="items-end">
-          <Text className="text-[26px] font-bold leading-8 tabular-nums text-foreground font-display">{int(s.pieces)}</Text>
-          <Text className="text-xs tabular-nums text-muted-foreground">{num3(s.cft)} CFT</Text>
+          <Text className="text-[28px] font-bold leading-8 tabular-nums text-foreground font-display">{int(s.pieces)}</Text>
+          <Text className="text-xs tabular-nums text-muted-foreground">
+            {t('pieces').toLowerCase()} · {num3(s.cft)} CFT
+          </Text>
         </View>
       </Pressable>
       {s.pending && <PendingTag />}
@@ -240,17 +234,12 @@ function SizeCard({ s }: { s: SizeItem }) {
           ))}
         </View>
       )}
-      <Button kind="secondary" size="md" icon="upload" title={t('loadOutThis')} onPress={() => router.push({ pathname: '/exports/new', params: { wood: s.wood } })} />
+      <Button kind="secondary" size="md" icon="truck-out" title={t('loadOutThis')} onPress={() => router.push({ pathname: '/exports/new', params: { wood: s.wood } })} />
     </View>
   );
 }
 
-function EmptyStock({ text, to, action, icon }: { text: string; to: '/imports/new' | '/production/new'; action: string; icon: IconName }) {
+function EmptyStock({ text, to, action, icon, mod }: { text: string; to: '/imports/new' | '/production/new'; action: string; icon: IconName; mod: Mod }) {
   const router = useRouter();
-  return (
-    <View className="items-center gap-4 rounded-2xl border border-border bg-card p-8">
-      <Text className="text-center text-base text-muted-foreground">{text}</Text>
-      <Button icon={icon} title={action} onPress={() => router.push(to)} />
-    </View>
-  );
+  return <EmptyState mod={mod} icon={mod === 'logs' ? 'ruler' : 'boxes'} title={text} action={{ label: action, icon, onPress: () => router.push(to) }} />;
 }

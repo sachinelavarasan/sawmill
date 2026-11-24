@@ -1,18 +1,18 @@
 /**
- * Screen chrome, in two weights:
+ * Screen chrome. Every screen sits on the cream page (--color-background) with white cards on it.
  *
- *  - band (default) — primary screens (the tab roots, Accounts): the app bar sits on the warm band
- *    (orange melting into warm black, see glow.tsx) and the content rises over it on a white sheet.
- *  - compact — secondary and data-entry screens (records, forms, measuring, settings): a slim light
- *    bar with a hairline under it and the content straight below. A screen's headline figures still
- *    get the dark treatment: `hero` content on a compact page is drawn in a dark headline card.
+ *  - large — tab roots (Home, Stock, Reports…): a big title and a subtitle straight on the page,
+ *    actions on the right.
+ *  - default / compact — secondary and data-entry screens: a round white back button beside the
+ *    title and subtitle.
  *
- * The status bar follows whichever header the focused screen shows (light icons on the band, dark
- * icons on a light compact bar).
+ * A screen's headline figures (`hero`) are drawn in the walnut headline card with tree rings
+ * (HeroPanel), at the top of the content. The status bar is dark on the light page (light in dark
+ * theme).
  */
 import { useFocusEffect, useRouter } from 'expo-router';
 import { setStatusBarStyle } from 'expo-status-bar';
-import { createContext, createElement, ReactNode, useCallback, useContext } from 'react';
+import { createElement, ReactNode, useCallback } from 'react';
 import { FlatList, type FlatListProps, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCSSVariable } from 'uniwind';
@@ -22,9 +22,6 @@ import { useThemeToggle } from '../lib/theme';
 import { Glow } from './glow';
 import { Text } from './text';
 import { cn, Icon, type IconName, refresher } from './ui';
-
-/** true inside a compact (light) app bar: header buttons switch to their on-surface look */
-const OnSurface = createContext(false);
 
 /**
  * Light or dark status bar icons while this screen is focused. Every screen that draws its own top
@@ -38,27 +35,27 @@ export function useStatusBar(light: boolean) {
   );
 }
 
-/** Icon button for the app bar: round white on the band, round grey on a compact bar. */
+/** Round white icon button with a soft shadow (back, bell, filters). */
 export function HeaderButton({ icon, label, onPress, badge }: { icon: IconName; label: string; onPress: () => void; badge?: ReactNode }) {
-  const surface = useContext(OnSurface);
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={4}
-      className={cn('mx-0.5 h-10 w-10 items-center justify-center rounded-full', surface ? 'bg-secondary active:bg-background' : 'bg-hero-foreground active:opacity-80')}
+      className="mx-0.5 h-11 w-11 items-center justify-center rounded-full bg-card shadow-sm shadow-black/10 active:bg-secondary"
     >
-      <Icon name={icon} size={19} colorClassName={surface ? 'accent-foreground' : 'accent-hero'} />
-      {badge && <View className="absolute right-1 top-1">{badge}</View>}
+      <Icon name={icon} size={20} colorClassName="accent-foreground" />
+      {badge && <View className="absolute right-0.5 top-0.5">{badge}</View>}
     </Pressable>
   );
 }
 
 /**
- * App bar: back arrow (when `back` is set), title + subtitle, actions on the right.
- * `large` is for tab roots: bigger title, no back arrow. `compact` is the light bar for secondary and
- * data-entry screens. `children` render under the title (a search box, tabs, a summary).
+ * App bar: back button (when `back` is set), title + subtitle, actions on the right.
+ * `large` is for tab roots: bigger title, no back button. `compact` is kept for callers that ask for
+ * the slim bar; it looks the same as the default now. `children` render under the title (a search
+ * box, tabs, a summary).
  */
 export function ScreenHeader({
   title,
@@ -67,9 +64,11 @@ export function ScreenHeader({
   onBack,
   right,
   large,
-  compact,
+  step,
   children,
 }: {
+  /** where this screen sits in a flow (Lorry in → Unloading → Measure): segments under the title */
+  step?: { at: number; of: number };
   title: string;
   subtitle?: string;
   back?: boolean;
@@ -83,72 +82,54 @@ export function ScreenHeader({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { dark } = useThemeToggle();
-  useStatusBar(!compact || dark);
+  useStatusBar(dark);
   const goBack = onBack ?? (() => router.back());
 
-  if (compact)
-    return (
-      <OnSurface.Provider value>
-        <View className="border-b border-border bg-card" style={{ paddingTop: insets.top }}>
-          <View className="min-h-14 flex-row items-center gap-1 px-3">
-            {back && <HeaderButton icon="chevron-left" label={t('back')} onPress={goBack} />}
-            <View className="flex-1 pl-2">
-              <Text className="text-[17px] font-semibold tracking-tight text-foreground font-display" numberOfLines={1} accessibilityRole="header">
-                {title}
-              </Text>
-              {!!subtitle && (
-                <Text className="text-xs text-muted-foreground" numberOfLines={1}>
-                  {subtitle}
-                </Text>
-              )}
-            </View>
-            {right}
-          </View>
-          {children ? <View className="gap-3 px-4 pb-3 pt-1">{children}</View> : null}
-        </View>
-      </OnSurface.Provider>
-    );
-
   return (
-    <View className="overflow-hidden bg-hero" style={{ paddingTop: insets.top }}>
-      <Glow />
-      <View className={cn('flex-row items-center gap-1 px-3', large ? 'min-h-16 pl-5' : 'min-h-14')}>
+    <View className="bg-background" style={{ paddingTop: insets.top }}>
+      <View className={cn('flex-row items-center gap-1', large ? 'min-h-[72px] px-5 pt-2' : 'min-h-16 px-3 pt-1')}>
         {back && <HeaderButton icon="chevron-left" label={t('back')} onPress={goBack} />}
-        <View className={cn('flex-1', back && 'pl-2')}>
-          <Text className={cn('font-semibold text-hero-foreground font-display', large ? 'text-[22px] font-bold tracking-tight font-display' : 'text-[17px]')} numberOfLines={1} accessibilityRole="header">
+        <View className={cn('flex-1', back && 'pl-2.5')}>
+          <Text
+            className={cn('tracking-tight text-foreground font-display', large ? 'text-[30px] font-bold leading-9' : 'text-[20px] font-bold leading-6')}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            accessibilityRole="header"
+          >
             {title}
           </Text>
           {!!subtitle && (
-            <Text className="text-xs text-hero-muted" numberOfLines={1}>
+            <Text className={cn('text-muted-foreground', large ? 'text-[15px]' : 'text-[13px]')} numberOfLines={1}>
               {subtitle}
             </Text>
           )}
         </View>
         {right}
       </View>
-      {children ? <View className="gap-3 px-4 pb-4 pt-1">{children}</View> : <View className="h-1" />}
+      {step && <StepBar at={step.at} of={step.of} />}
+      {children ? <View className="gap-3 px-4 pb-3 pt-2">{children}</View> : <View className="h-1" />}
     </View>
   );
 }
 
-/**
- * The page surface on band screens: the dark of the app bar carries on behind the content, and the
- * content sits on ONE rounded sheet that rises over it. Anything in `hero` (a headline figure, a
- * chart) is drawn on the band above the sheet and scrolls away with it.
- *
- * Inside the sheet there are no boxed cards: rows divided by hairlines, soft grey panels for
- * grouped figures, and section headings.
- */
-export const SHEET_TOP = 'rounded-t-[30px] bg-card';
-
-/** Dark content above the sheet (the band continues under the app bar's gradient). */
-function Hero({ children }: { children?: ReactNode }) {
-  return children ? <View className="gap-4 px-5 pb-7 pt-2">{children}</View> : <View className="h-2" />;
+/** Copper segments for the steps done (and this one), beige for the rest. */
+export function StepBar({ at, of }: { at: number; of: number }) {
+  return (
+    <View className="flex-row gap-2 px-4 pb-1 pt-2" accessibilityRole="progressbar" accessibilityValue={{ min: 1, max: of, now: at }}>
+      {Array.from({ length: of }, (_, i) => (
+        <View key={i} className={cn('h-2 flex-1 rounded-full', i < at ? 'bg-saffron' : 'bg-secondary')} />
+      ))}
+    </View>
+  );
 }
 
+/** @deprecated the sheet is gone; kept so older imports still resolve. */
+export const SHEET_TOP = '';
+
 /**
- * The dark headline card: what `hero` becomes on a compact page, and a frame for any headline
- * figure written for the dark (hero-foreground / hero-muted text).
+ * The walnut headline card with tree rings: what `hero` content is drawn in, and a frame for any
+ * headline figure written for the dark (hero-foreground / hero-muted text).
  */
 export function HeroPanel({ children, className }: { children: ReactNode; className?: string }) {
   return (
@@ -159,19 +140,12 @@ export function HeroPanel({ children, className }: { children: ReactNode; classN
   );
 }
 
-/**
- * Why the scroll views below are white, not dark: a dark scroll view relied on the white sheet
- * stretching (flex-grow) to cover it, and on the first frame of a newly opened tab that stretch
- * isn't measured yet — the empty space showed dark for a moment, then turned white (a flicker on
- * every tab change). Now only the band itself is dark:
- *  - OVERSCROLL: a tall dark strip above the band, so pulling down to refresh still shows dark;
- *  - CornerBacking: dark behind the sheet's rounded top corners.
- */
-export const BandOverscroll = () => <View pointerEvents="none" className="absolute inset-x-0 bottom-full h-[1000px] bg-hero" />;
-export const CornerBacking = () => <View pointerEvents="none" className="absolute inset-x-0 top-0 h-[30px] bg-hero" />;
-const OVERSCROLL = <BandOverscroll />;
+/** @deprecated no dark band any more; render nothing so old layouts stay valid. */
+export const BandOverscroll = () => null;
+/** @deprecated no dark band any more; render nothing so old layouts stay valid. */
+export const CornerBacking = () => null;
 
-/** Scrolling page body: optional hero, then the content (on the sheet, or flat when `compact`). */
+/** Scrolling page body: optional headline card, then the content, on the cream page. */
 export function Page({
   children,
   hero,
@@ -179,7 +153,6 @@ export function Page({
   onRefresh,
   className,
   bottomInset = true,
-  compact,
 }: {
   children: ReactNode;
   hero?: ReactNode;
@@ -188,89 +161,70 @@ export function Page({
   className?: string;
   /** add the phone's bottom inset (screens without the tab bar) */
   bottomInset?: boolean;
-  /** under a compact header: flat white body, `hero` drawn as a dark headline card */
+  /** kept for older callers; every page looks the same now */
   compact?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const tabBar = useTabBarInset();
   const paddingBottom = 32 + (tabBar || (bottomInset ? insets.bottom : 0));
   const refreshControl = onRefresh ? refresher(!!refreshing, onRefresh) : undefined;
-  if (compact)
-    return (
-      <ScrollView className="flex-1 bg-card" contentContainerClassName={cn('grow gap-3 px-4 pt-4', className)} contentContainerStyle={{ paddingBottom }} refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
-        {hero ? <HeroPanel>{hero}</HeroPanel> : null}
-        {children}
-      </ScrollView>
-    );
   return (
-    <ScrollView className="flex-1 bg-card" contentContainerClassName="grow" refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
-      <View className="bg-hero">
-        {OVERSCROLL}
-        <Hero>{hero}</Hero>
-      </View>
-      <View className="grow">
-        <CornerBacking />
-        <View className={cn('grow gap-3 px-4 pt-6', SHEET_TOP, className)} style={{ paddingBottom }}>
-          {children}
-        </View>
-      </View>
+    <ScrollView className="flex-1 bg-background" contentContainerClassName={cn('grow gap-3 px-4 pt-2', className)} contentContainerStyle={{ paddingBottom }} refreshControl={refreshControl} keyboardShouldPersistTaps="handled">
+      {hero ? <HeroPanel>{hero}</HeroPanel> : null}
+      {children}
     </ScrollView>
   );
 }
 
 type SheetListProps<T> = Omit<FlatListProps<T>, 'contentContainerClassName' | 'contentContainerStyle' | 'ListFooterComponentStyle'> & {
-  /** dark content above the sheet (a headline card when `compact`) */
+  /** headline card above the list */
   hero?: ReactNode;
   /** room under the last row (a pinned footer, the phone's inset) */
   bottomPad?: number;
-  /** under a compact header: flat white list, `hero` drawn as a dark headline card */
+  /** kept for older callers; every list looks the same now */
   compact?: boolean;
 };
 
 /**
- * A FlatList laid out as hero + sheet: `ListHeaderComponent` is the top of the sheet (search,
- * filters), rows follow on the sheet, and the sheet always reaches the bottom of the screen even
- * when the list is short.
+ * A FlatList on the cream page: `ListHeaderComponent` (search, filters) under the headline card,
+ * then the rows.
  */
-export function SheetList<T>({ hero, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, renderItem, bottomPad = 24, compact, ...rest }: SheetListProps<T>) {
+export function SheetList<T>({ hero, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, renderItem, bottomPad = 24, compact: _compact, ...rest }: SheetListProps<T>) {
   const tabBar = useTabBarInset();
-  const [card] = useCSSVariable(['--color-card']).map(String);
+  const [page] = useCSSVariable(['--color-background']).map(String);
   const node = (c: SheetListProps<T>['ListHeaderComponent']) => (c == null ? null : typeof c === 'function' ? createElement(c) : c);
   return (
     <FlatList
       {...rest}
-      // white even under a dark band (see OVERSCROLL above): a dark list flickered on a tab's first frame
-      className="flex-1 bg-card"
+      className="flex-1 bg-background"
       contentContainerClassName="grow"
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={
-        compact ? (
-          <View className="gap-3 bg-card px-4 pb-1 pt-4">
-            {hero ? <HeroPanel>{hero}</HeroPanel> : null}
-            {node(ListHeaderComponent)}
-          </View>
-        ) : (
-          <View className="bg-hero">
-            {OVERSCROLL}
-            <Hero>{hero}</Hero>
-            <View className={cn('gap-3 px-4 pb-1 pt-6', SHEET_TOP)}>{node(ListHeaderComponent)}</View>
-          </View>
-        )
+        <View className="gap-3 px-4 pb-1 pt-2">
+          {hero ? <HeroPanel>{hero}</HeroPanel> : null}
+          {node(ListHeaderComponent)}
+        </View>
       }
-      renderItem={renderItem ? (info) => <View className="bg-card px-4">{renderItem(info)}</View> : undefined}
-      ListEmptyComponent={ListEmptyComponent ? <View className="bg-card px-4 pt-2">{node(ListEmptyComponent)}</View> : null}
+      renderItem={renderItem ? (info) => <View className="px-4">{renderItem(info)}</View> : undefined}
+      ListEmptyComponent={ListEmptyComponent ? <View className="px-4 pt-2">{node(ListEmptyComponent)}</View> : null}
       ListFooterComponent={<View style={{ paddingBottom: bottomPad + tabBar }}>{node(ListFooterComponent)}</View>}
-      ListFooterComponentStyle={{ flexGrow: 1, backgroundColor: card }}
+      ListFooterComponentStyle={{ flexGrow: 1, backgroundColor: page }}
     />
   );
 }
 
-/** Action pinned under a scrolling screen (Save, Generate, Add). Stays above the keyboard and the nav bar. */
+/**
+ * Action pinned under a scrolling screen (Continue, Save, Send to owner): a white bar with rounded
+ * top corners, above the keyboard and the nav bar. Buttons inside fill the width.
+ */
 export function StickyFooter({ children, tabBar }: { children: ReactNode; /** on a tab screen: sits just above the floating bar, which pads the phone's inset */ tabBar?: boolean }) {
   const insets = useSafeAreaInsets();
   const barHeight = useTabBarInset();
   return (
-    <View className="gap-2 border-t border-border bg-card px-4 pt-3" style={{ paddingBottom: 12 + (tabBar ? 0 : insets.bottom), marginBottom: tabBar ? barHeight : 0 }}>
+    <View
+      className="gap-2 rounded-t-[28px] bg-card px-4 pt-4 shadow-lg shadow-black/10"
+      style={{ paddingBottom: 14 + (tabBar ? 0 : insets.bottom), marginBottom: tabBar ? barHeight : 0 }}
+    >
       {children}
     </View>
   );

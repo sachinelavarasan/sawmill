@@ -149,8 +149,7 @@ function Surface({ children, onPress, label }: { children: ReactNode; onPress: (
       accessibilityRole="button"
       accessibilityLabel={label}
       className={cn(
-        'mb-3 rounded-2xl border border-border',
-        dark ? 'bg-background active:bg-primary-soft' : 'bg-card active:bg-secondary',
+        'mb-3 rounded-3xl bg-card shadow-sm shadow-black/5 active:bg-secondary',
         compact ? 'gap-2.5 p-3' : 'gap-3 p-4',
       )}
     >
@@ -180,7 +179,7 @@ export function SkeletonRecordCards({ count = 3 }: { count?: number }) {
   return (
     <View accessibilityLabel="Loading">
       {Array.from({ length: count }, (_, i) => (
-        <View key={i} className="mb-3 gap-3 rounded-2xl border border-border p-4">
+        <View key={i} className="mb-3 gap-3 rounded-3xl bg-card p-4">
           <View className="flex-row items-center gap-3">
             <Skeleton className="h-8 w-8 rounded-lg" />
             <View className="flex-1 gap-1.5">

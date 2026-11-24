@@ -114,9 +114,9 @@ export default function PreferencesScreen() {
   const landings = availableLandingScreens(can);
 
   return (
-    <View className="flex-1 bg-card">
+    <View className="flex-1 bg-background">
       <ScreenHeader compact back title={t('preferences')} subtitle={t('preferencesNote')} />
-      <ScrollView ref={scroll} className="flex-1 bg-card" contentContainerClassName="gap-3 px-4 pt-2" contentContainerStyle={{ paddingBottom: 32 + insets.bottom }}>
+      <ScrollView ref={scroll} className="flex-1 bg-background" contentContainerClassName="gap-3 px-4 pt-2" contentContainerStyle={{ paddingBottom: 32 + insets.bottom }}>
         <Section title={t('secMyPreferences')} sub={t('secMyPreferencesSub')} onLayout={at('view')}>
           <Text className="px-1 text-[13px] font-semibold text-foreground">{t('viewMode')}</Text>
           <View className="gap-2.5">
@@ -237,7 +237,7 @@ function ViewChoice({ icon, title, sub, on, onPress }: { icon: IconName; title: 
       accessibilityLabel={`${title}. ${sub}`}
       className={cn(
         'min-h-[76px] flex-row items-center gap-3.5 rounded-2xl border-2 px-4 py-3.5 active:opacity-85',
-        on ? 'border-saffron bg-saffron-soft' : 'border-border bg-background',
+        on ? 'border-saffron bg-saffron-soft' : 'border-border bg-card',
       )}
     >
       <IconTile icon={icon} tone={on ? 'saffron' : 'neutral'} />

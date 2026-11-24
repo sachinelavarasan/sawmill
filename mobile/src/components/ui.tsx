@@ -23,7 +23,7 @@ import { useListDensity } from '../services/preferences';
 import type { Status } from '../lib/types';
 import { Icon, type IconName } from './icon';
 import { Appear, AnimatedView, SLIDE, Tap, tick, useGrowIn } from './motion';
-import { Glow } from './glow';
+import { Glow, TreeRings } from './glow';
 import { useInSheet } from './sheet-context';
 import { Text, TextInput } from './text';
 
@@ -74,10 +74,14 @@ export function Muted({ children, className, lines }: { children: ReactNode; cla
 
 // ───────── surfaces ─────────
 
-/** A soft tinted panel on the sheet — grouped figures, details. No border, no shadow. */
+/** A white card on the cream page — grouped figures, details. Rounded, with a soft shadow. */
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <View className={cn('gap-2.5 rounded-2xl bg-background p-4', className)}>{children}</View>;
+  const surface = useRaisedPanel();
+  return <View className={cn('gap-2.5 rounded-3xl p-4', surface, CARD_SHADOW, className)}>{children}</View>;
 }
+
+/** the soft lift every white card on the page gets */
+export const CARD_SHADOW = 'shadow-sm shadow-black/5';
 
 export function PressableCard({ children, onPress, label, className }: { children: ReactNode; onPress: () => void; label?: string; className?: string }) {
   const compact = useListDensity() === 'compact';
@@ -116,7 +120,7 @@ export function IconTile({ icon, tone = 'saffron', size = 'md', raised }: { icon
       ? 'bg-saffron-soft'
       : tone === 'navy' || tone === 'neutral'
         ? raised
-          ? 'bg-card'
+          ? 'bg-background'
           : tone === 'navy'
             ? 'bg-primary-soft'
             : 'bg-secondary'
@@ -182,8 +186,8 @@ export function Kpi({
     <>
       <View className="flex-row items-center gap-2">
         {icon && (
-          <View className={cn('h-7 w-7 items-center justify-center rounded-lg', tone ? TONE_BG[tone] : 'bg-card')}>
-            <Icon name={icon} size={14} colorClassName={tone ? TONE_ACCENT[tone] : 'accent-foreground'} />
+          <View className={cn('h-7 w-7 items-center justify-center rounded-lg', tone ? TONE_BG[tone] : 'bg-saffron-soft')}>
+            <Icon name={icon} size={14} colorClassName={tone ? TONE_ACCENT[tone] : 'accent-saffron-strong'} />
           </View>
         )}
         <Text className="flex-1 text-xs font-medium leading-4 text-muted-foreground" numberOfLines={2}>
@@ -203,7 +207,7 @@ export function Kpi({
       ) : null}
     </>
   );
-  const box = 'grow basis-[46%] gap-2 rounded-2xl bg-background p-3.5';
+  const box = cn('grow basis-[46%] gap-2 rounded-3xl bg-card p-4', CARD_SHADOW);
   const a11y = `${label}: ${value}${unit ? ` ${unit}` : ''}${trend ? `, ${trend.pct > 0 ? '+' : ''}${trend.pct}% ${trend.label}` : hint ? `, ${hint}` : ''}`;
   return onPress ? (
     <Tap scale={0.97} onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y} className={cn(box, 'min-h-[112px] active:bg-secondary')}>
@@ -240,19 +244,21 @@ export function HeroStats({ items, wrap }: { items: { label: string; value: stri
   );
 }
 
-/** Two big numbers side by side; the second sits on the dark gradient card. */
+/** A record's two headline numbers side by side on one walnut card with tree rings ("Logs 46 · Total CFT 27.312"). */
 export function StatPair({ a, b }: { a: { label: string; value: string | number }; b: { label: string; value: string | number } }) {
   return (
-    <View className="flex-row gap-3">
-      <View className="flex-1 gap-1 rounded-3xl bg-background p-4">
-        <Text className="text-xs font-medium text-muted-foreground">{a.label}</Text>
-        <Text className="text-2xl font-bold tracking-tight tabular-nums text-foreground font-display">{a.value}</Text>
-      </View>
-      <View className="flex-1 gap-1 overflow-hidden rounded-3xl bg-hero p-4">
-        <Glow variant="card" />
-        <Text className="text-xs font-medium text-hero-muted">{b.label}</Text>
-        <Text className="text-2xl font-bold tracking-tight tabular-nums text-hero-foreground font-display">{b.value}</Text>
-      </View>
+    <View className="flex-row gap-7 overflow-hidden rounded-3xl bg-hero px-5 py-5">
+      <Glow variant="card" />
+      {[a, b].map((x) => (
+        <View key={x.label} className="shrink gap-0.5">
+          <Text className="text-[14px] font-medium text-hero-muted" numberOfLines={1}>
+            {x.label}
+          </Text>
+          <Text className="text-[34px] font-bold leading-10 tracking-tight tabular-nums text-hero-foreground font-display" numberOfLines={1} adjustsFontSizeToFit>
+            {x.value}
+          </Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -390,7 +396,7 @@ export function Avatar({ name, size = 'md', tone = 'navy' }: { name: string; siz
   const text = { sm: 'text-xs', md: 'text-sm', lg: 'text-lg' }[size];
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const initials = ((parts[0]?.[0] ?? '?') + (parts.length > 1 ? (parts[parts.length - 1][0] ?? '') : '')).toUpperCase();
-  const bg = tone === 'saffron' ? 'bg-saffron' : tone === 'hero' ? 'border border-hero-border bg-hero/85' : 'bg-primary-soft';
+  const bg = tone === 'saffron' ? 'bg-saffron' : tone === 'hero' ? 'bg-hero' : 'bg-primary-soft';
   const fg = tone === 'saffron' ? 'text-saffron-foreground' : tone === 'hero' ? 'text-hero-foreground' : 'text-primary';
   return (
     <View className={cn('items-center justify-center rounded-full', box, bg)} accessible={false}>
@@ -399,13 +405,13 @@ export function Avatar({ name, size = 'md', tone = 'navy' }: { name: string; siz
   );
 }
 
-/** Orange count bubble (pending approvals on the bell / tab / menu row). */
+/** Red count bubble (pending approvals on the bell / tab / menu row). */
 export function CountBadge({ n, className, onDark, inline }: { n: number; className?: string; /** sits on the navy app bar */ onDark?: boolean; /** inline inside a list row */ inline?: boolean }) {
   if (!n) return null;
   return (
     <View
       className={cn(
-        'items-center justify-center rounded-full bg-saffron',
+        'items-center justify-center rounded-full bg-destructive',
         inline ? 'h-[22px] min-w-[22px] px-1.5' : cn('h-5 min-w-5 border-2 px-1', onDark ? 'border-hero-foreground' : 'border-card'),
         className,
       )}
@@ -559,7 +565,10 @@ export function MenuRow({
   tone,
   last,
   right,
+  mod,
 }: {
+  /** draw the icon on its work area's coloured tile */
+  mod?: Mod;
   icon?: IconName;
   title: string;
   subtitle?: string;
@@ -581,10 +590,10 @@ export function MenuRow({
       className={cn(
         'flex-row items-center gap-3.5 px-4', compact ? 'min-h-[52px] py-2' : 'min-h-[60px] py-3',
         inset ? 'active:bg-input/40' : 'active:bg-secondary',
-        !last && (inset ? 'border-b border-card' : 'border-b border-border'),
+        !last && 'border-b border-border',
       )}
     >
-      {icon && <IconTile icon={icon} tone={tone === 'bad' ? 'bad' : 'navy'} size="sm" raised={inset} />}
+      {icon && (mod ? <ModTile mod={mod} icon={icon} size="sm" /> : <IconTile icon={icon} tone={tone === 'bad' ? 'bad' : 'navy'} size="sm" raised={inset} />)}
       <View className="flex-1 gap-0.5">
         <Text className={cn('text-[15px] font-semibold', tone === 'bad' ? 'text-destructive' : 'text-foreground')}>{title}</Text>
         {!!subtitle && <Muted lines={2}>{subtitle}</Muted>}
@@ -630,7 +639,7 @@ export function Tile({
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={badge ? `${title}, ${badge}` : title}
-        className="min-h-[64px] flex-1 flex-row items-center gap-3 rounded-2xl bg-background py-3 pl-3 pr-2.5 active:bg-secondary"
+        className={cn('min-h-[64px] flex-1 flex-row items-center gap-3 rounded-3xl bg-card py-3 pl-3 pr-2.5 active:bg-secondary', CARD_SHADOW)}
       >
         <IconTile icon={icon} tone={tone} raised />
         {/* two lines, so long Tamil names wrap instead of being cut */}
@@ -649,7 +658,7 @@ export function Tile({
       accessibilityLabel={badge ? `${title}, ${badge}` : title}
       className={cn(
         // a raised card with a visible edge and soft shadow, so each tile reads as its own button
-        'flex-1 rounded-[22px] border border-foreground/10 bg-card shadow-sm shadow-black/10 active:bg-secondary',
+        'flex-1 rounded-3xl bg-card shadow-sm shadow-black/5 active:bg-secondary',
         compact ? 'min-h-[112px] items-center justify-center gap-3 px-2 py-4' : 'min-h-[148px] justify-between gap-4 p-4',
       )}
     >
@@ -695,28 +704,26 @@ export function TileGrid({ columns = 3, children }: { columns?: 2 | 3; children:
 const InsetGroup = createContext(false);
 
 /**
- * Rows holding MenuRows (or any rows).
- *  - default: on the sheet, edge to edge, divided by hairlines (lists, history);
- *  - `inset`: one soft grey rounded panel per group (settings, preferences, menus).
+ * Rows holding MenuRows (or any rows), divided by hairlines inside one white rounded card
+ * (lists, history, settings, menus). `inset` is kept for older callers; both look the same.
  */
 export function MenuGroup({ children, inset }: { children: ReactNode; inset?: boolean }) {
   const raised = useRaisedPanel();
-  if (!inset) return <View className="-mx-4">{children}</View>;
+  const inSheet = useInSheet();
   return (
-    <InsetGroup.Provider value>
-      <View className={cn('overflow-hidden rounded-2xl', raised)}>{children}</View>
+    <InsetGroup.Provider value={!!inset}>
+      <View className={cn('overflow-hidden rounded-3xl', raised, !inSheet && CARD_SHADOW)}>{children}</View>
     </InsetGroup.Provider>
   );
 }
 
 /**
- * A grey panel's fill. On a page it is --color-background; inside a dark bottom sheet (whose own
- * surface is that same raised charcoal) it steps up to --color-primary-soft so it still shows.
+ * A panel's fill. On the page it is a white card (`base`); inside a bottom sheet (whose own
+ * surface is already the card colour) it steps to the page colour so it still shows.
  */
-function useRaisedPanel(base = 'bg-background') {
+function useRaisedPanel(base = 'bg-card') {
   const inSheet = useInSheet();
-  const { dark } = useThemeToggle();
-  return inSheet && dark ? 'bg-primary-soft' : base;
+  return inSheet ? 'bg-background' : base;
 }
 
 /**
@@ -793,8 +800,8 @@ export function Button({
       accessibilityLabel={title}
       accessibilityState={{ disabled: !!disabled, busy: !!busy }}
       className={cn(
-        'flex-row items-center justify-center gap-2 rounded-full',
-        size === 'lg' ? 'min-h-[52px] px-5' : size === 'md' ? 'min-h-11 px-4' : 'min-h-9 px-3',
+        'flex-row items-center justify-center gap-2',
+        size === 'lg' ? 'min-h-[56px] rounded-2xl px-5' : size === 'md' ? 'min-h-11 rounded-xl px-4' : 'min-h-9 rounded-full px-3',
         off ? 'bg-secondary' : box[kind],
         busy && 'opacity-80',
         className,
@@ -806,7 +813,7 @@ export function Button({
         <>
           {icon && <Icon name={icon} size={size === 'sm' ? 16 : 18} colorClassName={off ? 'accent-muted-foreground' : accent[kind]} />}
           <Text
-            className={cn('shrink text-center font-semibold', size === 'lg' ? 'text-[15px]' : 'text-sm', off ? 'text-muted-foreground' : text[kind])}
+            className={cn('shrink text-center font-semibold', size === 'lg' ? 'text-[17px]' : 'text-sm', off ? 'text-muted-foreground' : text[kind])}
             numberOfLines={2}
           >
             {title}
@@ -883,7 +890,9 @@ export function Segmented<V extends string>({
   onChange: (v: V) => void;
   onDark?: boolean;
 }) {
-  const index = Math.max(0, options.findIndex((o) => o.value === value));
+  const found = options.findIndex((o) => o.value === value);
+  // a value outside the options (e.g. a custom period) selects nothing
+  const index = Math.max(0, found);
   const track = useRaisedPanel('bg-secondary');
   const [w, setW] = useState(0);
   const x = useSharedValue(0);
@@ -901,10 +910,10 @@ export function Segmented<V extends string>({
         setW(each);
       }}
     >
-      {w > 0 && (
+      {w > 0 && found >= 0 && (
         <AnimatedView
           pointerEvents="none"
-          className={cn('absolute bottom-1 left-1 top-1 rounded-xl', onDark ? 'bg-saffron' : 'bg-primary')}
+          className={cn('absolute bottom-1 left-1 top-1 rounded-xl', onDark ? 'bg-saffron' : 'bg-card shadow-sm shadow-black/10')}
           style={[{ width: w }, thumb]}
         />
       )}
@@ -919,12 +928,12 @@ export function Segmented<V extends string>({
             }}
             accessibilityRole="tab"
             accessibilityState={{ selected: on }}
-            className="min-h-10 flex-1 items-center justify-center rounded-xl px-2"
+            className="min-h-11 flex-1 items-center justify-center rounded-xl px-2"
           >
             <Text
               className={cn(
                 'text-center text-[13px]',
-                on ? (onDark ? 'font-semibold text-saffron-foreground' : 'font-semibold text-primary-foreground') : onDark ? 'font-medium text-hero-muted' : 'font-medium text-muted-foreground',
+                on ? (onDark ? 'font-semibold text-saffron-foreground' : 'font-semibold text-foreground') : onDark ? 'font-medium text-hero-muted' : 'font-medium text-muted-foreground',
               )}
               numberOfLines={2}
             >
@@ -938,7 +947,7 @@ export function Segmented<V extends string>({
 }
 
 /**
- * Text tabs for the navy app bar: icon + label, the active one bright with a saffron bar
+ * Text tabs under a screen's title: icon + label, the active one dark with a copper bar
  * underneath that springs to the next tab. Tabs size to their labels and the strip scrolls
  * sideways when they don't fit (long Tamil labels).
  */
@@ -971,7 +980,7 @@ export function TabStrip<V extends string>({
   const bar = useAnimatedStyle(() => ({ width: w.value, transform: [{ translateX: x.value }] }));
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-4 border-b border-hero-border" contentContainerClassName="px-4" accessibilityRole="tablist">
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-4 border-b border-border" contentContainerClassName="px-4" accessibilityRole="tablist">
       <View className="flex-row gap-6">
         {options.map((o) => {
           const on = o.value === value;
@@ -990,8 +999,8 @@ export function TabStrip<V extends string>({
               accessibilityState={{ selected: on }}
               className="min-h-12 flex-row items-center gap-1.5 pb-1"
             >
-              {o.icon && <Icon name={o.icon} size={16} colorClassName={on ? 'accent-saffron' : 'accent-hero-muted'} />}
-              <Text className={cn('text-[15px]', on ? 'font-semibold text-hero-foreground' : 'font-medium text-hero-muted')} numberOfLines={1}>
+              {o.icon && <Icon name={o.icon} size={16} colorClassName={on ? 'accent-saffron' : 'accent-muted-foreground'} />}
+              <Text className={cn('text-[15px]', on ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground')} numberOfLines={1}>
                 {o.label}
               </Text>
             </Pressable>
@@ -1006,7 +1015,7 @@ export function TabStrip<V extends string>({
 export function SearchBar({ value, onChange, placeholder, right }: { value: string; onChange: (v: string) => void; placeholder: string; right?: ReactNode }) {
   const t = useT();
   return (
-    <View className="min-h-12 flex-row items-center gap-2.5 rounded-full bg-background pl-4 pr-1.5">
+    <View className="min-h-12 flex-row items-center gap-2.5 rounded-full border border-border bg-card pl-4 pr-1.5">
       <Icon name="search" size={18} colorClassName="accent-muted-foreground" />
       <TextInput
         value={value}
@@ -1108,7 +1117,7 @@ export function LangToggle() {
 export function LangPills({ onDark }: { onDark?: boolean }) {
   const { lang, setLang } = useLang();
   return (
-    <View className={cn('flex-row rounded-full p-0.5', onDark ? 'bg-hero-chip' : 'bg-background')} accessibilityRole="tablist">
+    <View className={cn('flex-row rounded-full p-0.5', onDark ? 'bg-hero-chip' : 'bg-secondary')} accessibilityRole="tablist">
       {(['en', 'ta'] as const).map((l) => {
         const on = lang === l;
         return (
@@ -1198,7 +1207,7 @@ export function SkeletonGrid({ tiles = 4 }: { tiles?: number }) {
   return (
     <Grid>
       {Array.from({ length: tiles }, (_, i) => (
-        <View key={i} className="min-h-[112px] grow basis-[46%] gap-3 rounded-2xl bg-background p-3.5">
+        <View key={i} className="min-h-[112px] grow basis-[46%] gap-3 rounded-3xl bg-card p-4">
           <View className="flex-row items-center gap-2">
             <Skeleton className="h-7 w-7 rounded-lg" />
             <Skeleton className="h-3 w-20" />
@@ -1211,15 +1220,74 @@ export function SkeletonGrid({ tiles = 4 }: { tiles?: number }) {
   );
 }
 
-export function EmptyState({ icon = 'inbox', title, body, action }: { icon?: IconName; title: string; body?: string; action?: { label: string; onPress: () => void } }) {
+// ───────── work areas ─────────
+
+/** The six work areas, each with its own soft tile colour (global.css --color-mod-*). */
+export type Mod = 'in' | 'unload' | 'logs' | 'cut' | 'stock' | 'out' | 'approve' | 'neutral';
+
+export const MOD: Record<Mod, { bg: string; fg: string; ring: string }> = {
+  in: { bg: 'bg-mod-green-soft', fg: 'accent-mod-green', ring: '--color-mod-green' },
+  unload: { bg: 'bg-mod-teal-soft', fg: 'accent-mod-teal', ring: '--color-mod-teal' },
+  logs: { bg: 'bg-mod-peach-soft', fg: 'accent-mod-peach', ring: '--color-mod-peach' },
+  cut: { bg: 'bg-mod-rose-soft', fg: 'accent-mod-rose', ring: '--color-mod-rose' },
+  stock: { bg: 'bg-mod-taupe-soft', fg: 'accent-mod-taupe', ring: '--color-mod-taupe' },
+  out: { bg: 'bg-mod-blue-soft', fg: 'accent-mod-blue', ring: '--color-mod-blue' },
+  approve: { bg: 'bg-mod-green-soft', fg: 'accent-mod-green', ring: '--color-mod-green' },
+  neutral: { bg: 'bg-secondary', fg: 'accent-muted-foreground', ring: '--color-muted-foreground' },
+};
+
+/** A work area's icon on its soft tile (home tiles, approval rows, report rows). */
+export function ModTile({ mod, icon, size = 'md' }: { mod: Mod; icon: IconName; size?: 'sm' | 'md' | 'lg' }) {
+  const box = { sm: 'h-10 w-10 rounded-xl', md: 'h-12 w-12 rounded-2xl', lg: 'h-[60px] w-[60px] rounded-[20px]' }[size];
+  const px = { sm: 19, md: 22, lg: 28 }[size];
   return (
-    <Appear className="items-center gap-2 px-6 py-12">
-      <View className="mb-2 h-16 w-16 items-center justify-center rounded-full bg-background">
-        <Icon name={icon} size={24} colorClassName="accent-muted-foreground" />
+    <View className={cn('items-center justify-center', box, MOD[mod].bg)}>
+      <Icon name={icon} size={px} strokeWidth={1.9} colorClassName={MOD[mod].fg} />
+    </View>
+  );
+}
+
+/** A lorry number on a yellow plate ("TN 38 BK 4471"), the way it reads on the lorry. */
+export function Plate({ number, size = 'md' }: { number: string; size?: 'sm' | 'md' | 'lg' }) {
+  const box = { sm: 'rounded-lg px-2 py-0.5', md: 'rounded-xl px-3 py-1', lg: 'rounded-2xl px-4 py-2.5' }[size];
+  const text = { sm: 'text-[12px]', md: 'text-[15px]', lg: 'text-[24px]' }[size];
+  return (
+    <View className={cn('self-start border-2 border-plate-foreground bg-plate', box)} accessible accessibilityLabel={number}>
+      <Text className={cn('font-bold uppercase tracking-[1.5px] text-plate-foreground', text)} numberOfLines={1}>
+        {number}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * Nothing to show yet: a soft tinted circle with the icon and faint tree rings, a short title, one
+ * line of what fills it, and at most one action.
+ */
+export function EmptyState({
+  icon = 'inbox',
+  title,
+  body,
+  action,
+  mod = 'logs',
+}: {
+  icon?: IconName;
+  title: string;
+  body?: string;
+  action?: { label: string; onPress: () => void; icon?: IconName };
+  /** which work area's colour the circle takes */
+  mod?: Mod;
+}) {
+  const [ring] = useCSSVariable([MOD[mod].ring]).map(String);
+  return (
+    <Appear className="items-center gap-2 px-6 py-10">
+      <View className={cn('mb-3 h-28 w-28 items-center justify-center overflow-hidden rounded-full', MOD[mod].bg)}>
+        <TreeRings color={ring} placement="right" size={150} opacity={0.22} />
+        <Icon name={icon} size={36} strokeWidth={1.9} colorClassName={MOD[mod].fg} />
       </View>
-      <Text className="text-center text-base font-bold text-foreground font-display">{title}</Text>
-      {!!body && <Text className="text-center text-[13px] leading-[18px] text-muted-foreground">{body}</Text>}
-      {action && <Button className="mt-2" size="md" kind="secondary" icon="plus" title={action.label} onPress={action.onPress} />}
+      <Text className="text-center text-[20px] font-bold tracking-tight text-foreground font-display">{title}</Text>
+      {!!body && <Text className="max-w-[300px] text-center text-[15px] leading-[21px] text-muted-foreground">{body}</Text>}
+      {action && <Button className="mt-3" size="md" icon={action.icon ?? 'plus'} title={action.label} onPress={action.onPress} />}
     </Appear>
   );
 }

@@ -1,18 +1,20 @@
 /*
  * TimberTrail on Android — design tokens. Tailwind v4 through Uniwind.
  *
- * Warm industrial: each screen opens on a band where orange melts into warm black (drawn by
- * components/glow.tsx over --color-hero-top → --color-hero-mid → --color-hero), with white type and
- * round white buttons. Content rises over it on a white sheet: light grey rounded panels, near-black
- * for the main action and the selected choice, one orange accent (the open tab, highlights).
- * The same language as the web app (web/src/tokens.css).
+ * Warm timber: a cream page (--color-background) with white cards (--color-card) on it, dark
+ * walnut brown for the main action and the selected choice (--color-primary), and one copper accent
+ * (--color-saffron: links, highlights, the open tab's pill). Headline figures sit on a walnut card
+ * with thin tree rings in its corner (components/glow.tsx, --color-hero / --color-hero-ring).
+ * Each work area has its own soft icon tile (--color-mod-*): lorry in green, unloading teal,
+ * logs peach, cutting rose, stock taupe, lorry out blue. Lorry numbers sit on a yellow plate.
  *
  * This file is the single source of truth for colour and radius. Components only ever use these
  * names (bg-card, text-muted-foreground, bg-saffron-soft …) — never hex.
  * Type lives in src/components/text.tsx (Inter + Plus Jakarta Sans), icons in src/components/icon.tsx.
  *
- * The band and the headline cards are dark in both themes. Dark theme otherwise steps surfaces up in
- * lightness as they rise, and "primary" flips to white so black-filled elements stay visible.
+ * Surfaces: the page is --color-background; cards, lists and inputs are --color-card; a panel
+ * inside a card (or inside a bottom sheet) is --color-background again. Dark theme keeps that
+ * order: the page is the darkest, cards step up. The walnut hero is the same in both themes.
  */
 @import 'tailwindcss';
 @import 'uniwind';
@@ -21,145 +23,189 @@
 @source '../../packages/shared/src';
 
 @theme {
-  --color-background: #f2f2f4;
-  --color-foreground: #111113;
+  --color-background: #f8f4ee;
+  --color-foreground: #2a1a10;
   --color-card: #ffffff;
-  --color-secondary: #f4f4f5;
-  --color-border: #ebebed;
-  --color-input: #dcdce0;
-  /* filter chips and pickers: the web's control colours (web/src/tokens.css) */
+  --color-secondary: #f1eadf;
+  --color-border: #ede4d8;
+  --color-input: #e3d7c7;
   --color-control: #ffffff;
-  --color-control-border: #d6d6dd;
-  --color-control-hover: #f5f5f7;
-  --color-muted-foreground: #6b6b74;
-  --color-primary: #111113;
+  --color-control-border: #e3d7c7;
+  --color-control-hover: #f8f4ee;
+  --color-muted-foreground: #7a685a;
+  --color-primary: #3d2416;
   --color-primary-foreground: #ffffff;
-  --color-primary-soft: #f1f1f3;
-  --color-saffron: #f26b1d;
+  --color-primary-soft: #f3e9dd;
+  --color-saffron: #c27a3a;
   --color-saffron-foreground: #ffffff;
-  --color-saffron-soft: #fff1e8;
-  --color-saffron-strong: #c2410c;
-  --color-success: #15803d;
-  --color-success-soft: #e8f8ee;
-  --color-warning: #a16207;
-  --color-warning-soft: #fef8e1;
-  --color-destructive: #dc2626;
-  --color-destructive-soft: #fdecec;
-  --color-info: #4f46e5;
-  --color-info-soft: #eef0fe;
-  --color-hero: #17110e;
-  --color-hero-top: #f06a1c;
-  --color-hero-mid: #9c3f12;
+  --color-saffron-soft: #f6e7d4;
+  --color-saffron-strong: #9a5a22;
+  --color-success: #3f6e4e;
+  --color-success-soft: #e3eee6;
+  --color-warning: #a86a12;
+  --color-warning-soft: #fbf0dc;
+  --color-destructive: #b83a2e;
+  --color-destructive-soft: #f8e1dd;
+  --color-info: #3e5f8a;
+  --color-info-soft: #e2e9f3;
+  --color-hero: #3d2416;
+  --color-hero-top: #4a2c1b;
+  --color-hero-mid: #3d2416;
+  --color-hero-ring: #a4744f;
   --color-hero-foreground: #ffffff;
-  --color-hero-muted: #d6c8bf;
-  --color-hero-chip: #ffffff24;
-  --color-hero-border: #ffffff26;
-  --color-sidebar: #111113;
-  --color-sidebar-foreground: #ffffff;
-  --color-sidebar-muted: #a1a1aa;
-  --color-sidebar-active: #2a2a2e;
-  --color-sidebar-accent: #f26b1d;
-  --color-chart-1: #f26b1d;
-  --color-chart-2: #3f3f46;
-  --color-chart-3: #c4c4cc;
+  --color-hero-muted: #dcc8b5;
+  --color-hero-chip: #ffffff1f;
+  --color-hero-border: #ffffff24;
+  --color-sidebar: #ffffff;
+  --color-sidebar-foreground: #2a1a10;
+  --color-sidebar-muted: #7a685a;
+  --color-sidebar-active: #f8f4ee;
+  --color-sidebar-accent: #f6e3cc;
+  --color-chart-1: #c27a3a;
+  --color-chart-2: #5b4033;
+  --color-chart-3: #d8c9b8;
+  /* work areas: a soft tile and its icon colour */
+  --color-mod-green: #3f6e4e;
+  --color-mod-green-soft: #e3eee6;
+  --color-mod-teal: #3d6b72;
+  --color-mod-teal-soft: #e0ecee;
+  --color-mod-peach: #a8642a;
+  --color-mod-peach-soft: #f6e7d4;
+  --color-mod-rose: #a9452f;
+  --color-mod-rose-soft: #f6e0da;
+  --color-mod-taupe: #5b4033;
+  --color-mod-taupe-soft: #efe5de;
+  --color-mod-blue: #3e5f8a;
+  --color-mod-blue-soft: #e2e9f3;
+  /* number plates */
+  --color-plate: #f2c94c;
+  --color-plate-foreground: #2a1a10;
 
-  /* ── radius: controls 12, cards 16–20, sheets 28 ── */
+  /* ── radius: controls 12, cards 20–24, sheets 28 ── */
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 10px;
   --radius-xl: 12px;
-  --radius-2xl: 18px;
+  --radius-2xl: 20px;
   --radius-3xl: 24px;
 }
 
 @layer theme {
   :root {
     @variant light {
-      --color-background: #f2f2f4;
-      --color-foreground: #111113;
+      --color-background: #f8f4ee;
+      --color-foreground: #2a1a10;
       --color-card: #ffffff;
-      --color-secondary: #f4f4f5;
-      --color-border: #ebebed;
-      --color-input: #dcdce0;
-      /* filter chips and pickers: the web's control colours (web/src/tokens.css) */
+      --color-secondary: #f1eadf;
+      --color-border: #ede4d8;
+      --color-input: #e3d7c7;
       --color-control: #ffffff;
-      --color-control-border: #d6d6dd;
-      --color-control-hover: #f5f5f7;
-      --color-muted-foreground: #6b6b74;
-      --color-primary: #111113;
+      --color-control-border: #e3d7c7;
+      --color-control-hover: #f8f4ee;
+      --color-muted-foreground: #7a685a;
+      --color-primary: #3d2416;
       --color-primary-foreground: #ffffff;
-      --color-primary-soft: #f1f1f3;
-      --color-saffron: #f26b1d;
+      --color-primary-soft: #f3e9dd;
+      --color-saffron: #c27a3a;
       --color-saffron-foreground: #ffffff;
-      --color-saffron-soft: #fff1e8;
-      --color-saffron-strong: #c2410c;
-      --color-success: #15803d;
-      --color-success-soft: #e8f8ee;
-      --color-warning: #a16207;
-      --color-warning-soft: #fef8e1;
-      --color-destructive: #dc2626;
-      --color-destructive-soft: #fdecec;
-      --color-info: #4f46e5;
-      --color-info-soft: #eef0fe;
-      --color-hero: #17110e;
-      --color-hero-top: #f06a1c;
-      --color-hero-mid: #9c3f12;
+      --color-saffron-soft: #f6e7d4;
+      --color-saffron-strong: #9a5a22;
+      --color-success: #3f6e4e;
+      --color-success-soft: #e3eee6;
+      --color-warning: #a86a12;
+      --color-warning-soft: #fbf0dc;
+      --color-destructive: #b83a2e;
+      --color-destructive-soft: #f8e1dd;
+      --color-info: #3e5f8a;
+      --color-info-soft: #e2e9f3;
+      --color-hero: #3d2416;
+      --color-hero-top: #4a2c1b;
+      --color-hero-mid: #3d2416;
+      --color-hero-ring: #a4744f;
       --color-hero-foreground: #ffffff;
-      --color-hero-muted: #d6c8bf;
-      --color-hero-chip: #ffffff24;
-      --color-hero-border: #ffffff26;
-      --color-sidebar: #111113;
-      --color-sidebar-foreground: #ffffff;
-      --color-sidebar-muted: #a1a1aa;
-      --color-sidebar-active: #2a2a2e;
-      --color-sidebar-accent: #f26b1d;
-      --color-chart-1: #f26b1d;
-      --color-chart-2: #3f3f46;
-      --color-chart-3: #c4c4cc;
+      --color-hero-muted: #dcc8b5;
+      --color-hero-chip: #ffffff1f;
+      --color-hero-border: #ffffff24;
+      --color-sidebar: #ffffff;
+      --color-sidebar-foreground: #2a1a10;
+      --color-sidebar-muted: #7a685a;
+      --color-sidebar-active: #f8f4ee;
+      --color-sidebar-accent: #f6e3cc;
+      --color-chart-1: #c27a3a;
+      --color-chart-2: #5b4033;
+      --color-chart-3: #d8c9b8;
+      --color-mod-green: #3f6e4e;
+      --color-mod-green-soft: #e3eee6;
+      --color-mod-teal: #3d6b72;
+      --color-mod-teal-soft: #e0ecee;
+      --color-mod-peach: #a8642a;
+      --color-mod-peach-soft: #f6e7d4;
+      --color-mod-rose: #a9452f;
+      --color-mod-rose-soft: #f6e0da;
+      --color-mod-taupe: #5b4033;
+      --color-mod-taupe-soft: #efe5de;
+      --color-mod-blue: #3e5f8a;
+      --color-mod-blue-soft: #e2e9f3;
+      --color-plate: #f2c94c;
+      --color-plate-foreground: #2a1a10;
     }
 
     @variant dark {
-      --color-background: #1c1c20;
-      --color-foreground: #f4f4f5;
-      --color-card: #121214;
-      --color-secondary: #1e1e22;
-      --color-border: #26262b;
-      --color-input: #34343a;
-      /* filter chips and pickers: the web's control colours (web/src/tokens.css) */
-      --color-control: #2a2a30;
-      --color-control-border: #3d3d45;
-      --color-control-hover: #34343b;
-      --color-muted-foreground: #9a9aa3;
-      --color-primary: #f4f4f5;
-      --color-primary-foreground: #111113;
-      --color-primary-soft: #232328;
-      --color-saffron: #f47a33;
+      --color-background: #17110d;
+      --color-foreground: #f3eae1;
+      --color-card: #241a14;
+      --color-secondary: #2c2119;
+      --color-border: #33271f;
+      --color-input: #46372c;
+      --color-control: #2c2119;
+      --color-control-border: #46372c;
+      --color-control-hover: #33271f;
+      --color-muted-foreground: #b3a08f;
+      --color-primary: #f3eae1;
+      --color-primary-foreground: #2a1a10;
+      --color-primary-soft: #2c2119;
+      --color-saffron: #d48c4a;
       --color-saffron-foreground: #ffffff;
-      --color-saffron-soft: #2e1c11;
-      --color-saffron-strong: #fb9a5c;
-      --color-success: #4ade80;
-      --color-success-soft: #10261a;
-      --color-warning: #facc15;
-      --color-warning-soft: #2a2410;
-      --color-destructive: #f87171;
-      --color-destructive-soft: #2d1414;
-      --color-info: #a5b4fc;
-      --color-info-soft: #1b1d3a;
-      --color-hero: #17110e;
-      --color-hero-top: #f06a1c;
-      --color-hero-mid: #9c3f12;
+      --color-saffron-soft: #3a2616;
+      --color-saffron-strong: #e9a867;
+      --color-success: #7fbf92;
+      --color-success-soft: #1b2a20;
+      --color-warning: #e7b45a;
+      --color-warning-soft: #2e2414;
+      --color-destructive: #e77c6e;
+      --color-destructive-soft: #33191a;
+      --color-info: #9db6da;
+      --color-info-soft: #1c2433;
+      --color-hero: #3d2416;
+      --color-hero-top: #4a2c1b;
+      --color-hero-mid: #3d2416;
+      --color-hero-ring: #a4744f;
       --color-hero-foreground: #ffffff;
-      --color-hero-muted: #d6c8bf;
-      --color-hero-chip: #ffffff24;
-      --color-hero-border: #ffffff26;
-      --color-sidebar: #111113;
-      --color-sidebar-foreground: #ffffff;
-      --color-sidebar-muted: #a1a1aa;
-      --color-sidebar-active: #2a2a2e;
-      --color-sidebar-accent: #f26b1d;
-      --color-chart-1: #f47a33;
-      --color-chart-2: #a1a1aa;
-      --color-chart-3: #3a3a40;
+      --color-hero-muted: #dcc8b5;
+      --color-hero-chip: #ffffff1f;
+      --color-hero-border: #ffffff24;
+      --color-sidebar: #241a14;
+      --color-sidebar-foreground: #f3eae1;
+      --color-sidebar-muted: #b3a08f;
+      --color-sidebar-active: #2c2119;
+      --color-sidebar-accent: #3a2616;
+      --color-chart-1: #d48c4a;
+      --color-chart-2: #b3a08f;
+      --color-chart-3: #46372c;
+      --color-mod-green: #7fbf92;
+      --color-mod-green-soft: #1b2a20;
+      --color-mod-teal: #8cc3ca;
+      --color-mod-teal-soft: #17282b;
+      --color-mod-peach: #e9a867;
+      --color-mod-peach-soft: #3a2616;
+      --color-mod-rose: #e8907b;
+      --color-mod-rose-soft: #35191a;
+      --color-mod-taupe: #d2b9a6;
+      --color-mod-taupe-soft: #2e231c;
+      --color-mod-blue: #9db6da;
+      --color-mod-blue-soft: #1c2433;
+      --color-plate: #f2c94c;
+      --color-plate-foreground: #2a1a10;
     }
   }
 }

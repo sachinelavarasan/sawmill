@@ -7,16 +7,20 @@ import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { ApprovalFilterBar, type ApprovalSort } from '../../../../components/approvals/ApprovalFilterBar';
 import { ApprovalQueueCard } from '../../../../components/approvals/ApprovalQueueCard';
-import { ApprovalSummary } from '../../../../components/approvals/ApprovalSummary';
 import { APPROVAL_KIND } from '../../../../components/cards';
 import { HeaderButton, ScreenHeader, SheetList } from '../../../../components/header';
-import { EmptyState, ErrorBox, Muted, refresher, SkeletonList } from '../../../../components/ui';
+import { EmptyState, ErrorBox, refresher, SkeletonList } from '../../../../components/ui';
 import { int, isoDay, type Period } from '../../../../lib/format';
 import { useT } from '../../../../lib/i18n';
 import { useApi } from '../../../../lib/query';
 import type { ApprovalKind, ApprovalQueue } from '../../../../lib/types';
 
+/** Opened from More (with a back arrow) or as the owner's Approvals tab (`asTab`: a large title, no back). */
 export default function ApprovalsScreen() {
+  return <ApprovalsView />;
+}
+
+export function ApprovalsView({ asTab }: { asTab?: boolean }) {
   const t = useT();
   const router = useRouter();
   const [kind, setKind] = useState<ApprovalKind | ''>('');
@@ -42,10 +46,10 @@ export default function ApprovalsScreen() {
   return (
     <View className="flex-1 bg-background">
       <ScreenHeader
-        compact
-        back
-        title={t('approvals')}
-        subtitle={q.data ? `${int(q.data.counts.total)} · ${t('pending')}` : undefined}
+        large={asTab}
+        back={!asTab}
+        title={asTab ? t('tabApprovals') : t('approvals')}
+        subtitle={q.data ? (q.data.counts.total ? t('nWaitingApproval', { n: int(q.data.counts.total) }) : t('nothingWaitingApproval')) : undefined}
         right={
           <HeaderButton
             icon={q.isRefetching ? 'loader' : 'refresh-cw'}
@@ -61,7 +65,6 @@ export default function ApprovalsScreen() {
         refreshControl={refresher(q.isRefetching, () => void q.refetch())}
         ListHeaderComponent={
           <View className="gap-3 pb-2">
-            <ApprovalSummary counts={q.data?.counts} loading={q.isPending} />
             <ApprovalFilterBar
               kind={kind}
               onKind={setKind}
@@ -71,7 +74,6 @@ export default function ApprovalsScreen() {
               period={period}
               onPeriod={setPeriod}
             />
-            <Muted>{t('approvalsSubtitle')}</Muted>
             {q.error && <ErrorBox message={(q.error as Error).message} onRetry={() => void q.refetch()} />}
             {q.isPending && <SkeletonList />}
           </View>
@@ -80,14 +82,17 @@ export default function ApprovalsScreen() {
           q.isPending || q.error ? null : (
             <EmptyState
               icon="check-circle"
-              title={t('noPendingApprovals')}
+              mod="approve"
+              title={kind || period ? t('noPendingApprovals') : t('allCaughtUp')}
               body={kind || period ? t('noneWithStatus') : t('nothingToApprove')}
             />
           )
         }
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <ApprovalQueueCard
             item={item}
+            first={index === 0}
+            last={index === items.length - 1}
             onPress={() => router.push(APPROVAL_KIND[item.type].href(item.id) as never)}
           />
         )}

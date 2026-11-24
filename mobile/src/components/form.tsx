@@ -130,7 +130,7 @@ export function FormSection({
     </View>
   );
   return (
-    <View className="gap-4 border-b border-border pb-6 pt-2">
+    <View className="gap-4 rounded-3xl bg-card p-4 shadow-sm shadow-black/5">
       {collapsible ? (
         <Pressable onPress={() => setOpen((o) => !o)} accessibilityRole="button" accessibilityState={{ expanded: open }} className="-m-1 p-1">
           {head}
@@ -154,7 +154,10 @@ export function FormScreen({
   footer,
   error,
   onBack,
+  step,
 }: {
+  /** where this form sits in a flow: segments under the title */
+  step?: { at: number; of: number };
   title: string;
   subtitle?: string;
   children: ReactNode;
@@ -163,10 +166,10 @@ export function FormScreen({
   onBack?: () => void;
 }) {
   return (
-    <View className="flex-1 bg-card">
-      <ScreenHeader compact title={title} subtitle={subtitle} back onBack={onBack} />
+    <View className="flex-1 bg-background">
+      <ScreenHeader compact title={title} subtitle={subtitle} back onBack={onBack} step={step} />
       <KeyboardView>
-        <ScrollView className="flex-1 bg-card" contentContainerClassName="grow gap-4 px-4 pb-10 pt-4" keyboardShouldPersistTaps="handled">
+        <ScrollView className="flex-1 bg-background" contentContainerClassName="grow gap-4 px-4 pb-10 pt-3" keyboardShouldPersistTaps="handled">
           {children}
           {error && <ErrorBox message={error} />}
         </ScrollView>

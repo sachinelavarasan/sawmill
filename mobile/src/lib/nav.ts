@@ -2,8 +2,9 @@
  * Navigation map, by permission — the same rules as the web menu (web/src/nav.ts).
  * The API checks every request again; hiding an item is only presentation.
  *
- * Bottom bar: Home · Loads in · Production · Loads out · More (the daily work).
- * Everything else (parties, money, admin, preferences, security) lives under More.
+ * Bottom bar (components/TabBar): owner Home · Approvals · Stock · Reports; accountant Home · My work · Stock.
+ * The daily lists (loads in, production, loads out) open from Home's "Entries" row and from More;
+ * everything else (parties, money, admin, preferences, security) lives under More.
  *
  * Simple view (web: nav.ts): plain names (`simple*` keys), and Reports, Accounts, expenses, Users
  * and Change History are hidden from More — hidden, not removed: a link to one still opens when the
@@ -47,7 +48,10 @@ export const MORE_GROUPS: { labelKey: TKey; items: MenuItem[] }[] = [
   {
     labelKey: 'operations',
     items: [
-      // the simple view lists the daily work here, in the order it is done
+      // the daily lists (they have no button in the bottom bar), then the rest of the daily work
+      { key: 'loadsIn', href: '/loads-in', labelKey: 'imports', simpleKey: 'simpleLoadIn', icon: 'truck' },
+      { key: 'runs', href: '/runs', labelKey: 'production', simpleKey: 'simpleCut', icon: 'factory' },
+      { key: 'loadsOut', href: '/loads-out', labelKey: 'exports', simpleKey: 'simpleLoadOut', icon: 'truck-out' },
       { key: 'measurement', href: '/more/measurement', labelKey: 'measurement', simpleKey: 'simpleMeasure', icon: 'ruler', only: 'simple' },
       { key: 'inventory', href: '/inventory', labelKey: 'stock', simpleKey: 'simpleStock', icon: 'boxes' },
       { key: 'approvals', href: '/more/approvals', labelKey: 'pendingApprovals', simpleKey: 'simpleApprove', icon: 'check-circle', permission: Permission.OPERATIONS_APPROVE },
@@ -75,10 +79,10 @@ export const MORE_GROUPS: { labelKey: TKey; items: MenuItem[] }[] = [
 
 /** Quick Add sheet and the dashboard's quick actions. */
 export const QUICK_ADD: MenuItem[] = [
-  { key: 'newImport', href: '/imports/new', labelKey: 'newImport', icon: 'download', permission: Permission.OPERATIONS_CREATE },
+  { key: 'newImport', href: '/imports/new', labelKey: 'newImport', icon: 'truck', permission: Permission.OPERATIONS_CREATE },
   { key: 'measure', href: '/more/measurement', labelKey: 'measure', icon: 'edit-3', permission: Permission.OPERATIONS_CREATE },
   { key: 'newProduction', href: '/production/new', labelKey: 'newProduction', icon: 'settings', permission: Permission.OPERATIONS_CREATE },
-  { key: 'newExport', href: '/exports/new', labelKey: 'newExport', icon: 'upload', permission: Permission.OPERATIONS_CREATE },
+  { key: 'newExport', href: '/exports/new', labelKey: 'newExport', icon: 'truck-out', permission: Permission.OPERATIONS_CREATE },
   { key: 'newAdjustment', href: '/stock/adjustments/new', labelKey: 'newAdjustment', icon: 'sliders', permission: Permission.OPERATIONS_CREATE },
   { key: 'addExpense', href: '/expenses/form', labelKey: 'addExpense', icon: 'receipt', permission: Permission.FINANCE_VIEW },
 ];

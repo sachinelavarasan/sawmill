@@ -25,7 +25,7 @@ export function ImportsList() {
         search={t('searchImports')}
         statusFilter
         renderItem={(i) => <ImportCard item={i} />}
-        empty={{ icon: 'download', title: t('noImports'), action: { label: t('newImport'), onPress: () => router.push('/imports/new') } }}
+        empty={{ mod: 'in', icon: 'truck', title: t('noImports'), action: { label: t('newImport'), onPress: () => router.push('/imports/new') } }}
       />
       <StickyFooter tabBar>
         <Button icon="plus" title={t('newImport')} onPress={() => router.push('/imports/new')} />
@@ -46,7 +46,7 @@ export function ExportsList() {
         search={t('searchRecords')}
         statusFilter
         renderItem={(i) => <ExportCard item={i} />}
-        empty={{ icon: 'upload', title: t('noExports'), action: { label: t('newExport'), onPress: () => router.push('/exports/new') } }}
+        empty={{ mod: 'out', icon: 'truck-out', title: t('noExports'), action: { label: t('newExport'), onPress: () => router.push('/exports/new') } }}
       />
       <StickyFooter tabBar>
         <Button icon="plus" title={t('newExport')} onPress={() => router.push('/exports/new')} />

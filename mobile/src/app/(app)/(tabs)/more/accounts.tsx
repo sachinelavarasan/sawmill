@@ -109,7 +109,7 @@ export default function AccountsScreen() {
               ]}
             />
             {balances.length === 0 ? (
-              <EmptyState icon="check-circle" title={t('noOutstanding')} />
+              <EmptyState mod="approve" icon="check-circle" title={t('noOutstanding')} />
             ) : (
               <MenuGroup>
                 {balances.map((b, i) => (

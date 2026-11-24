@@ -51,7 +51,7 @@ export function ApprovalFilterBar({
           accessibilityLabel={t('sortAndDates')}
           className={cn(
             'min-h-9 flex-row items-center gap-1.5 rounded-full border px-3',
-            hasAdvanced ? 'border-saffron/35 bg-saffron-soft' : 'border-transparent bg-background active:bg-secondary',
+            hasAdvanced ? 'border-saffron/35 bg-saffron-soft' : 'border-border bg-card active:bg-secondary',
           )}
         >
           <Icon name="sliders" size={14} colorClassName={hasAdvanced ? 'accent-saffron-strong' : 'accent-muted-foreground'} />

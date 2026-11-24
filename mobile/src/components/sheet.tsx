@@ -32,6 +32,7 @@ export function PickerTrigger({
   hint,
   onPress,
   disabled,
+  plate,
 }: {
   label: string;
   required?: boolean;
@@ -42,6 +43,8 @@ export function PickerTrigger({
   hint?: string;
   onPress: () => void;
   disabled?: boolean;
+  /** a lorry number: drawn as a yellow number plate (a dashed blank one while empty) */
+  plate?: boolean;
 }) {
   const t = useT();
   return (
@@ -50,6 +53,23 @@ export function PickerTrigger({
         {label}
         {required && <Text className="text-destructive"> *</Text>}
       </Text>
+      {plate ? (
+        <Pressable
+          onPress={onPress}
+          disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={`${label}: ${value || placeholder || t('choose')}`}
+          className={cn(
+            'min-h-[64px] items-center justify-center rounded-2xl border-2 px-4 active:opacity-85',
+            value ? 'border-plate-foreground bg-plate' : error ? 'border-dashed border-destructive bg-saffron-soft/50' : 'border-dashed border-input bg-saffron-soft/50',
+            disabled && 'opacity-60',
+          )}
+        >
+          <Text className={cn('text-[24px] font-bold uppercase tracking-[2px]', value ? 'text-plate-foreground' : 'text-muted-foreground/70')} numberOfLines={1} adjustsFontSizeToFit>
+            {value || 'TN 00 AA 0000'}
+          </Text>
+        </Pressable>
+      ) : (
       <Pressable
         onPress={onPress}
         disabled={disabled}
@@ -66,6 +86,7 @@ export function PickerTrigger({
         </Text>
         <Icon name={icon} size={18} colorClassName="accent-muted-foreground" />
       </Pressable>
+      )}
       {error ? <Text className="text-[13px] text-destructive">{error}</Text> : hint ? <Muted>{hint}</Muted> : null}
     </View>
   );
@@ -94,7 +115,10 @@ export function SelectField<V extends string>({
   allowClear,
   emptyText,
   onCreate,
+  plate,
 }: {
+  /** draw the trigger as a number plate (lorry numbers) */
+  plate?: boolean;
   label: string;
   required?: boolean;
   value: V | '' | null;
@@ -117,6 +141,7 @@ export function SelectField<V extends string>({
   return (
     <>
       <PickerTrigger
+        plate={plate}
         label={label}
         required={required}
         value={selected?.label}

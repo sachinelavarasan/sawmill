@@ -75,6 +75,9 @@ export default function ExportDetailScreen() {
       submitBlocked={exp.lines.length === 0 ? t('needLinesToSubmit') : null}
       approvedNote={t('approvedExportNote')}
       onDone={refresh}
+      // the lorry's whole load is checked on one page, which sends it
+      onSubmit={() => router.push(`/exports/${id}/check`)}
+      submitLabel={t('checkAndSend')}
     />
   );
   const details = exp && (
@@ -346,12 +349,12 @@ function ExportLines({ exp, stock, onChanged }: { exp: ExportDetail; stock: Bala
   // which load the pieces come from: only the loads that hold this size
   const fromLoad = (
     <View className="gap-2">
-      <Text className="text-[13px] font-semibold text-hero-muted">{t('fromLoad')}</Text>
+      <Text className="text-[13px] font-semibold text-muted-foreground">{t('fromLoad')}</Text>
       {!typedSize ? (
-        <Text className="text-[13px] text-hero-muted">{t('loadAutoHint')}</Text>
+        <Text className="text-[13px] text-muted-foreground">{t('loadAutoHint')}</Text>
       ) : sources.length === 0 ? (
         <View className="flex-row flex-wrap items-center gap-2">
-          <Text className="text-[13px] font-medium text-saffron">{t('sizeNotInStock')}</Text>
+          <Text className="text-[13px] font-medium text-saffron-strong">{t('sizeNotInStock')}</Text>
           <Pressable onPress={addSawing} accessibilityRole="button" className="flex-row items-center gap-1.5 rounded-full bg-saffron px-3 py-1.5 active:opacity-80">
             <Icon name="factory" size={14} colorClassName="accent-saffron-foreground" />
             <Text className="text-[13px] font-semibold text-saffron-foreground">{t('addSawing')}</Text>
@@ -367,9 +370,9 @@ function ExportLines({ exp, stock, onChanged }: { exp: ExportDetail; stock: Bala
                 onPress={() => setEntry((e) => ({ ...e, importLoadId: src.id }))}
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
-                className={cn('min-h-9 flex-row items-center rounded-full px-3 py-1.5', on ? 'bg-hero-foreground' : 'bg-hero-chip', src.pending && 'border border-dashed border-saffron')}
+                className={cn('min-h-9 flex-row items-center rounded-full px-3 py-1.5', on ? 'bg-primary' : 'bg-secondary', src.pending && 'border border-dashed border-saffron')}
               >
-                <Text className={cn('text-[13px] font-semibold tabular-nums', on ? 'text-hero' : 'text-hero-foreground')}>
+                <Text className={cn('text-[13px] font-semibold tabular-nums', on ? 'text-primary-foreground' : 'text-foreground')}>
                   {src.code} · {int(src.pieces)}
                   {src.pending ? ` · ${t('pendingApproval')}` : ''}
                 </Text>
@@ -407,8 +410,8 @@ function ExportLines({ exp, stock, onChanged }: { exp: ExportDetail; stock: Bala
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
                 className={cn(
-                  'min-h-14 grow basis-[46%] flex-row items-center justify-between gap-2 rounded-xl border px-3 py-2',
-                  on ? 'border-primary bg-primary-soft' : g.pending ? 'border-dashed border-warning bg-card' : 'border-input bg-card',
+                  'min-h-14 grow basis-[46%] flex-row items-center justify-between gap-2 rounded-2xl border px-3 py-2',
+                  on ? 'border-saffron bg-saffron-soft' : g.pending ? 'border-dashed border-warning bg-card' : 'border-border bg-card',
                 )}
               >
                 <Text className="shrink text-[14px] font-semibold tabular-nums text-foreground">{sizeLabel(g.f.thicknessIn, g.f.widthIn, g.f.lengthFt)}</Text>

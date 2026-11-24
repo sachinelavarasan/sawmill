@@ -22,8 +22,7 @@ import { Fragment, ReactNode, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActivityRow, ApprovalRow, ImportCard, toActivities } from '../../../components/cards';
-import { Glow } from '../../../components/glow';
-import { HeaderButton, SHEET_TOP, useStatusBar } from '../../../components/header';
+import { HeaderButton, HeroPanel, useStatusBar } from '../../../components/header';
 import { Appear, Tap } from '../../../components/motion';
 import { ProfileSheet } from '../../../components/ProfileSheet';
 import { QuickAddSheet } from '../../../components/QuickAddSheet';
@@ -33,6 +32,7 @@ import {
   Avatar,
   BarChart,
   Card,
+  CARD_SHADOW,
   cn,
   CountBadge,
   Divider,
@@ -48,6 +48,9 @@ import {
   Kpi,
   LegendDot,
   MenuGroup,
+  MenuRow,
+  type Mod,
+  ModTile,
   Muted,
   Pill,
   refresher,
@@ -57,23 +60,26 @@ import {
   SkeletonList,
 } from '../../../components/ui';
 import { dateOnly, dayNum, inr, inrShort, int, monthShort, num3, PERIOD_KEYS, periodQuery, presets, todayIso } from '../../../lib/format';
-import { useT } from '../../../lib/i18n';
+import { useLang, useT } from '../../../lib/i18n';
 import type { ImportSummary } from '../../../lib/imports-api';
 import { type DashboardWidget, useDashboardWidgets } from '../../../services/preferences';
 import { QUICK_ADD, visible } from '../../../lib/nav';
 import { useApi } from '../../../lib/query';
 import { useSession, useUser } from '../../../lib/session';
 import { useTabBarInset } from '../../../lib/tab-chrome';
+import { useThemeToggle } from '../../../lib/theme';
 import type {
   AccountantCharts,
   AccountantDashboard,
   AccountsSummary,
   ApprovalQueue,
   ExportSummary,
+  MillSettings,
   OwnerCharts,
   OwnerDashboard,
   Paged,
   ProductionSummary,
+  UserRow,
 } from '../../../lib/types';
 
 export default function HomeScreen() {
@@ -85,9 +91,14 @@ export default function HomeScreen() {
 // ───────── simple view ─────────
 
 /**
- * Home in the simple view (the default for everyone; web: pages/SimpleHome.tsx): today in three
- * numbers on the band, big picture tiles for the day's work ("What do you want to do?"), and up to
- * three plain sentences of what is waiting on this person, each with Open ("Needs your action").
+ * Home in the simple view (the default for everyone; web: pages/SimpleHome.tsx), laid out like the
+ * Sawmill Pro mockups:
+ *  - owner: the walnut card says how many entries wait for approval (Review now), or "All caught up";
+ *    yard stock in two tiles (raw logs, finished wood); lorries in and out today;
+ *  - accountant: a red "needs fixing" banner when entries were sent back, or a dashed note when
+ *    nothing has been entered today;
+ *  - both: "loads still to measure" when there are some, then "Start work" — big tiles for the day's
+ *    work, each in its work area's colour.
  * It reuses the dashboards' endpoints; nothing else is fetched.
  */
 function SimpleHome() {
@@ -108,7 +119,6 @@ function SimpleHome() {
   const today = {
     loadsIn: owner ? ok?.todayImports : ak?.todayImports,
     loadsOut: owner ? ok?.todayExports : ak?.todayExports,
-    stockCft: ok ? ok.rawStockCft + ok.finishedStockCft : null,
     pending: owner ? (ok?.pendingApprovals ?? 0) : 0,
     rejected: owner ? 0 : (ak?.rejectedEntries ?? 0),
     toMeasure: owner ? (openQ.data?.total ?? 0) : open.length,
@@ -116,47 +126,62 @@ function SimpleHome() {
   // with exactly one load to measure, its measuring screen opens directly
   const measureTo = !owner && open.length === 1 ? `/imports/${open[0].id}/measure` : '/more/measurement';
 
-  const todo: { key: string; icon: IconName; text: string; to: string }[] = loaded
+  const tiles: { key: string; to: string; label: string; icon: IconName; mod: Mod; badge?: number }[] = can(Permission.OPERATIONS_CREATE)
     ? [
-        ...(today.pending > 0 ? [{ key: 'approve', icon: 'check-circle' as IconName, text: t('nWaitingApproval', { n: today.pending }), to: '/more/approvals' }] : []),
-        ...(today.rejected > 0 ? [{ key: 'rejected', icon: 'repeat' as IconName, text: t('rejectedToFix', { n: today.rejected }), to: '/loads-in' }] : []),
-        ...(today.toMeasure > 0 ? [{ key: 'measure', icon: 'ruler' as IconName, text: t('loadsToMeasure', { n: today.toMeasure }), to: measureTo }] : []),
+        { key: 'in', to: '/imports/new', label: t('simpleLoadIn'), icon: 'truck', mod: 'in' },
+        { key: 'measure', to: '/more/measurement', label: t('simpleMeasure'), icon: 'ruler', mod: 'logs' },
+        { key: 'cut', to: '/production/new', label: t('simpleCut'), icon: 'factory', mod: 'cut' },
+        { key: 'stock', to: '/inventory', label: t('simpleStock'), icon: 'boxes', mod: 'stock' },
+        { key: 'out', to: '/exports/new', label: t('simpleLoadOut'), icon: 'truck-out', mod: 'out' },
+        ...(can(Permission.CLIENTS_MANAGE) ? [{ key: 'dues', to: '/more/clients', label: t('simpleDues'), icon: 'wallet' as IconName, mod: 'neutral' as Mod }] : []),
       ]
     : [];
 
-  const tiles: { key: string; to: string; label: string; icon: IconName; badge?: number }[] = can(Permission.OPERATIONS_CREATE)
-    ? [
-        { key: 'in', to: '/imports/new', label: t('simpleLoadIn'), icon: 'download' },
-        { key: 'measure', to: '/more/measurement', label: t('simpleMeasure'), icon: 'ruler' },
-        { key: 'cut', to: '/production/new', label: t('simpleCut'), icon: 'factory' },
-        { key: 'out', to: '/exports/new', label: t('simpleLoadOut'), icon: 'upload' },
-        { key: 'stock', to: '/inventory', label: t('simpleStock'), icon: 'boxes' },
-        ...(can(Permission.OPERATIONS_APPROVE) ? [{ key: 'approve', to: '/more/approvals', label: t('simpleApprove'), icon: 'check-circle' as IconName, badge: today.pending }] : []),
-        ...(can(Permission.CLIENTS_MANAGE) ? [{ key: 'dues', to: '/more/clients', label: t('simpleDues'), icon: 'wallet' as IconName }] : []),
-      ]
-    : [];
-
-  const n = (v: number | undefined) => (v == null ? '–' : int(v));
   return (
-    <Body
-      refreshing={queries.some((q) => q.isRefetching)}
-      onRefresh={() => refetchAll(queries)}
-      hero={
-        <HomeHero>
-          {/* today, in three numbers */}
-          <View className="flex-row flex-wrap gap-3">
-            <TodayFigure icon="download" label={t('loadsInToday')} value={n(today.loadsIn)} />
-            <TodayFigure icon="upload" label={t('loadsOutToday')} value={n(today.loadsOut)} />
-            {owner && <TodayFigure wide icon="boxes" label={t('totalStock')} value={today.stockCft != null ? num3(today.stockCft) : '–'} unit="CFT" />}
-          </View>
-        </HomeHero>
-      }
-    >
+    <Body refreshing={queries.some((q) => q.isRefetching)} onRefresh={() => refetchAll(queries)} hero={<HomeHero />}>
       {error && <ErrorBox message={error} onRetry={() => refetchAll(queries)} />}
 
-      {tiles.length > 0 && (
+      {owner ? (
         <Appear index={0} className="gap-3">
-          <Text className="text-base font-semibold text-muted-foreground">{t('whatToDo')}</Text>
+          {!loaded && !error ? (
+            <Skeleton className="h-36 rounded-3xl" />
+          ) : (
+            <ApprovalHero count={today.pending} onReview={() => router.push('/approvals')} />
+          )}
+          <Text className="pt-2 text-base font-semibold text-muted-foreground">{t('yardStock')}</Text>
+          <View className="flex-row gap-3">
+            <StockTile icon="ruler" mod="logs" value={ok ? ok.rawStockCft : null} label={t('cftRawLogs')} onPress={() => router.push('/inventory')} />
+            <StockTile icon="boxes" mod="stock" value={ok ? ok.finishedStockCft : null} label={t('cftFinishedWood')} onPress={() => router.push('/inventory')} />
+          </View>
+          <Card className="flex-row items-center gap-3 py-3.5">
+            <TodayCount icon="truck" mod="in" value={today.loadsIn} label={t('loadsInToday')} onPress={() => router.push('/loads-in')} />
+            <View className="h-10 w-px bg-border" />
+            <TodayCount icon="truck-out" mod="out" value={today.loadsOut} label={t('loadsOutToday')} onPress={() => router.push('/loads-out')} />
+          </Card>
+        </Appear>
+      ) : (
+        <Appear index={0} className="gap-3">
+          {today.rejected > 0 ? (
+            <AttentionBanner icon="alert-circle" tone="bad" text={t('rejectedToFix', { n: today.rejected })} onPress={() => router.push('/loads-in')} />
+          ) : loaded && !today.loadsIn && !today.loadsOut ? (
+            <View className="mt-1 rounded-3xl border border-dashed border-input bg-card px-5 py-4">
+              <Text className="text-[15px] leading-[21px] text-muted-foreground">{t('noEntriesToday', { first: t('simpleLoadIn') })}</Text>
+            </View>
+          ) : null}
+        </Appear>
+      )}
+
+      {owner && <FinishSetup />}
+
+      {today.toMeasure > 0 && (
+        <Appear index={1}>
+          <AttentionBanner icon="ruler" tone="warn" text={t('loadsToMeasure', { n: today.toMeasure })} onPress={() => router.push(measureTo as never)} />
+        </Appear>
+      )}
+
+      {tiles.length > 0 && (
+        <Appear index={2} className="gap-3 pt-2">
+          <Text className="text-base font-semibold text-muted-foreground">{t('startWork')}</Text>
           <View className="flex-row flex-wrap gap-3">
             {tiles.map((a) => (
               <Tap
@@ -164,12 +189,12 @@ function SimpleHome() {
                 onPress={() => router.push(a.to as never)}
                 accessibilityRole="button"
                 accessibilityLabel={a.badge ? `${a.label}, ${a.badge}` : a.label}
-                className="min-h-[112px] grow basis-[45%] items-center justify-center gap-2.5 rounded-2xl border border-border bg-card p-4"
+                className={cn('min-h-[128px] grow basis-[45%] justify-between gap-4 rounded-3xl bg-card p-4', CARD_SHADOW)}
               >
-                <View className="h-[52px] w-[52px] items-center justify-center rounded-xl bg-primary-soft">
-                  <Icon name={a.icon} size={26} strokeWidth={1.75} colorClassName="accent-primary" />
-                </View>
-                <Text className="text-center text-[15px] font-medium leading-5 text-foreground">{a.label}</Text>
+                <ModTile mod={a.mod} icon={a.icon} size="lg" />
+                <Text className="text-[18px] font-bold leading-6 tracking-tight text-foreground font-display" numberOfLines={2}>
+                  {a.label}
+                </Text>
                 {!!a.badge && <CountBadge n={a.badge} className="absolute right-3 top-3" />}
               </Tap>
             ))}
@@ -177,54 +202,139 @@ function SimpleHome() {
         </Appear>
       )}
 
-      <Appear index={1} className="gap-3 pt-2">
-        <Text className="text-base font-semibold text-muted-foreground">{t('needsAction')}</Text>
-        {!loaded && !error ? (
-          <SkeletonList rows={2} />
-        ) : todo.length === 0 ? (
-          <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-card p-5">
-            <Icon name="check-circle" size={26} colorClassName="accent-success" />
-            <Text className="flex-1 text-base text-foreground">{t('allDone')}</Text>
-          </View>
-        ) : (
-          todo.map((x) => (
-            <Tap
-              key={x.key}
-              onPress={() => router.push(x.to as never)}
-              accessibilityRole="button"
-              accessibilityLabel={`${x.text}. ${t('open')}`}
-              className="min-h-16 flex-row items-center gap-3.5 rounded-2xl border border-border bg-card px-4 py-3"
-            >
-              <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary-soft">
-                <Icon name={x.icon} size={20} strokeWidth={1.75} colorClassName="accent-primary" />
-              </View>
-              <Text className="flex-1 text-base font-medium leading-snug text-foreground">{x.text}</Text>
-              <View className="flex-row items-center gap-1 rounded-full bg-primary px-3.5 py-2">
-                <Text className="text-sm font-medium text-primary-foreground">{t('open')}</Text>
-                <Icon name="chevron-right" size={15} colorClassName="accent-primary-foreground" />
-              </View>
-            </Tap>
-          ))
-        )}
+      {/* the lists of what has been entered: each opens with its own "New" button at the foot */}
+      <Appear index={3} className="gap-3 pt-2">
+        <Text className="text-base font-semibold text-muted-foreground">{t('entries')}</Text>
+        <MenuGroup>
+          <MenuRow mod="in" icon="truck" title={t('simpleLoadIn')} onPress={() => router.push('/loads-in')} />
+          <MenuRow mod="cut" icon="factory" title={t('simpleCut')} onPress={() => router.push('/runs')} />
+          <MenuRow mod="out" icon="truck-out" title={t('simpleLoadOut')} last onPress={() => router.push('/loads-out')} />
+        </MenuGroup>
       </Appear>
     </Body>
   );
 }
 
-function TodayFigure({ icon, label, value, unit, wide }: { icon: IconName; label: string; value: string; unit?: string; /** a full row */ wide?: boolean }) {
+/**
+ * The owner's one-time setup, as a checklist card on Home (Sawmill Pro): each row is ticked once
+ * it is done, and the card goes away when everything is. Only what the owner may set is listed.
+ */
+function FinishSetup() {
+  const t = useT();
+  const router = useRouter();
+  const { can } = useSession();
+  const users = useApi<UserRow[]>(can(Permission.USERS_MANAGE) ? '/users' : null);
+  const settings = useApi<MillSettings>(can(Permission.SETTINGS_MANAGE) ? '/settings' : null);
+  const suppliers = useApi<unknown[]>(can(Permission.SUPPLIERS_MANAGE) ? '/suppliers' : null);
+
+  const all: { key: string; label: string; done: boolean | undefined; to: string; failed: boolean }[] = [
+    ...(can(Permission.USERS_MANAGE) ? [{ key: 'acc', failed: !!users.error, label: t('setupAccountant'), done: users.data?.some((u) => u.role === 'ACCOUNTANT' && u.isActive), to: '/more/users' }] : []),
+    ...(can(Permission.SETTINGS_MANAGE)
+      ? [
+          { key: 'rate', failed: !!settings.error, label: t('setupUnloadingRate'), done: settings.data ? (settings.data.defaultUnloadingRatePerHour ?? 0) > 0 : undefined, to: '/mill-settings' },
+          { key: 'wood', failed: !!settings.error, label: t('setupWoodTypes'), done: settings.data ? settings.data.woodTypes.length > 0 : undefined, to: '/mill-settings' },
+        ]
+      : []),
+    ...(can(Permission.SUPPLIERS_MANAGE) ? [{ key: 'sup', failed: !!suppliers.error, label: t('setupSuppliers'), done: suppliers.data ? suppliers.data.length > 0 : undefined, to: '/more/suppliers' }] : []),
+  ];
+  // a check that could not be loaded is left out, so it never keeps the card from showing
+  const items = all.filter((i) => !i.failed);
+  // wait for every answer (no flashing card), and hide it once all is done
+  if (!items.length || items.some((i) => i.done === undefined) || items.every((i) => i.done)) return null;
+
   return (
-    <View className={cn('gap-1.5 rounded-2xl bg-hero-chip p-4', wide ? 'basis-full' : 'flex-1')}>
-      <View className="flex-row items-center gap-2">
-        <Icon name={icon} size={15} colorClassName="accent-hero-muted" />
-        <Text className="shrink text-[13px] text-hero-muted" numberOfLines={1}>
+    <Appear index={1}>
+      <Card className="gap-0 px-0 pb-1 pt-4">
+        <View className="gap-0.5 px-4 pb-3">
+          <Text className="text-[17px] font-bold tracking-tight text-foreground font-display">{t('finishSetup')}</Text>
+          <Muted>{t('finishSetupSub')}</Muted>
+        </View>
+        {items.map((i) => (
+          <Pressable
+            key={i.key}
+            onPress={() => router.push(i.to as never)}
+            accessibilityRole="button"
+            accessibilityState={{ checked: !!i.done }}
+            className="min-h-[60px] flex-row items-center gap-3.5 border-t border-border px-4 py-3 active:bg-secondary"
+          >
+            {i.done ? (
+              <View className="h-8 w-8 items-center justify-center rounded-full bg-success">
+                <Icon name="check" size={17} colorClassName="accent-white" />
+              </View>
+            ) : (
+              <View className="h-8 w-8 rounded-full border-2 border-input" />
+            )}
+            <Text className={cn('flex-1 text-[16px] font-semibold', i.done ? 'text-muted-foreground line-through' : 'text-foreground')}>{i.label}</Text>
+            <Icon name="chevron-right" size={18} colorClassName="accent-muted-foreground" />
+          </Pressable>
+        ))}
+      </Card>
+    </Appear>
+  );
+}
+
+/** The walnut card at the top of the owner's home: entries waiting, or all caught up. */
+function ApprovalHero({ count, onReview }: { count: number; onReview: () => void }) {
+  const t = useT();
+  if (!count)
+    return (
+      <HeroPanel className="flex-row items-center gap-4 py-6">
+        <View className="h-14 w-14 items-center justify-center rounded-full bg-hero-chip">
+          <Icon name="check" size={26} colorClassName="accent-saffron" />
+        </View>
+        <View className="flex-1 gap-0.5">
+          <Text className="text-[22px] font-bold tracking-tight text-hero-foreground font-display">{t('allCaughtUp')}</Text>
+          <Text className="text-[14px] text-hero-muted">{t('nothingWaitingApproval')}</Text>
+        </View>
+      </HeroPanel>
+    );
+  return (
+    <Tap scale={0.985} onPress={onReview} accessibilityRole="button" accessibilityLabel={`${count} ${t(count === 1 ? 'oneEntryNeedsApproval' : 'entriesNeedApproval')}. ${t('reviewNow')}`}>
+      <HeroPanel className="gap-3 py-6">
+        <Text className="text-[48px] font-bold leading-[54px] tabular-nums text-hero-foreground font-display">{int(count)}</Text>
+        <Text className="-mt-1 text-[17px] text-hero-foreground">{t(count === 1 ? 'oneEntryNeedsApproval' : 'entriesNeedApproval')}</Text>
+        <View className="mt-1 flex-row items-center gap-2 self-start rounded-2xl bg-saffron px-5 py-3">
+          <Text className="text-[16px] font-semibold text-saffron-foreground">{t('reviewNow')}</Text>
+          <Icon name="arrow-right" size={18} colorClassName="accent-saffron-foreground" />
+        </View>
+      </HeroPanel>
+    </Tap>
+  );
+}
+
+/** One yard-stock figure: the area's tile, the CFT large, what it is under it. */
+function StockTile({ icon, mod, value, label, onPress }: { icon: IconName; mod: Mod; value: number | null; label: string; onPress: () => void }) {
+  return (
+    <Tap scale={0.97} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${value == null ? '' : num3(value)} ${label}`} className={cn('flex-1 gap-4 rounded-3xl bg-card p-4', CARD_SHADOW)}>
+      <ModTile mod={mod} icon={icon} />
+      {value == null ? (
+        <Skeleton className="h-8 w-20" />
+      ) : (
+        <View>
+          <Text className={cn('text-[30px] font-bold leading-9 tabular-nums font-display', value ? 'text-foreground' : 'text-muted-foreground/70')} numberOfLines={1} adjustsFontSizeToFit>
+            {int(Math.round(value))}
+          </Text>
+          <Text className="text-[14px] text-muted-foreground" numberOfLines={1}>
+            {label}
+          </Text>
+        </View>
+      )}
+    </Tap>
+  );
+}
+
+/** "2 · Lorries in today" — an area tile beside a count. */
+function TodayCount({ icon, mod, value, label, onPress }: { icon: IconName; mod: Mod; value: number | undefined; label: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" className="flex-1 flex-row items-center gap-3 rounded-2xl active:opacity-70" accessibilityLabel={`${value ?? '–'} ${label}`}>
+      <ModTile mod={mod} icon={icon} size="sm" />
+      <View className="flex-1">
+        <Text className="text-[22px] font-bold leading-7 tabular-nums text-foreground font-display">{value == null ? '–' : int(value)}</Text>
+        <Text className="text-[13px] text-muted-foreground" numberOfLines={1}>
           {label}
         </Text>
       </View>
-      <Text className="text-[28px] font-semibold leading-8 tabular-nums text-hero-foreground font-display">
-        {value}
-        {!!unit && <Text className="text-sm font-medium text-hero-muted"> {unit}</Text>}
-      </Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -253,55 +363,45 @@ const errorOf = (q: { error: unknown }) => (q.error ? (q.error as Error).message
 
 // ───────── shared frame ─────────
 
-function greetingKey() {
-  const h = new Date().getHours();
-  return h < 12 ? 'goodMorning' : h < 17 ? 'goodAfternoon' : 'goodEvening';
-}
-
-/** Two thin rings in the band's upper right — the one decorative touch, behind everything. */
-function Rings() {
-  return (
-    <View pointerEvents="none" accessible={false} className="absolute -right-24 -top-28 h-72 w-72 items-center justify-center rounded-full border border-hero-border">
-      <View className="h-48 w-48 rounded-full border border-hero-border" />
-    </View>
-  );
+/** "Sunday, 22 November" in the app's language (falls back to the plain date). */
+function longToday(lang: string) {
+  try {
+    return new Date().toLocaleDateString(lang === 'ta' ? 'ta-IN' : 'en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
+  } catch {
+    return dateOnly(todayIso());
+  }
 }
 
 /**
- * The band: greeting with the first name, the mill and today's date, the bell and the profile;
- * then the screen's headline (`children`). Kept short so the sections start high.
+ * The top of Home, straight on the cream page: "Hello, Ravi", today's date, the bell (when given)
+ * and the profile circle; then the screen's headline (`children`).
  */
 function HomeHero({ bell, children }: { bell?: { count: number; label: string; onPress: () => void }; children?: ReactNode }) {
   const t = useT();
+  const { lang } = useLang();
   const user = useUser();
   const profile = useSheet();
+  const first = user.name.trim().split(/\s+/)[0] ?? user.name;
   return (
-    <View className="gap-5 px-5 pb-7 pt-2">
-      <Rings />
-      <View className="flex-row items-center gap-2">
+    <View className="gap-4 px-4 pb-2 pt-3">
+      <View className="flex-row items-center gap-2 pl-1">
         <View className="flex-1 gap-0.5">
-          <Text className="text-[13px] text-hero-muted" numberOfLines={1}>
-            {t(greetingKey())},
-          </Text>
           <Text
-            className="text-[22px] font-bold tracking-tight text-hero-foreground font-display"
-            numberOfLines={2}
+            className="text-[30px] font-bold leading-9 tracking-tight text-foreground font-display"
+            numberOfLines={1}
             adjustsFontSizeToFit
-            minimumFontScale={0.85}
+            minimumFontScale={0.75}
             accessibilityRole="header"
           >
-            {user.name}
+            {t('helloName', { name: first })}
           </Text>
-          <View className="flex-row items-center gap-1.5">
-            <Icon name="building" size={12} colorClassName="accent-hero-muted" />
-            <Text className="shrink text-xs text-hero-muted" numberOfLines={1}>
-              {user.mill.name} · {dateOnly(todayIso())}
-            </Text>
-          </View>
+          <Text className="text-[15px] text-muted-foreground" numberOfLines={1}>
+            {longToday(lang)}
+          </Text>
         </View>
-        {bell && <HeaderButton icon="bell" label={bell.label} onPress={bell.onPress} badge={bell.count ? <CountBadge n={bell.count} onDark /> : undefined} />}
-        <Pressable onPress={profile.open} accessibilityRole="button" accessibilityLabel={t('profile')} className="h-11 w-11 items-center justify-center rounded-full active:opacity-80">
-          <Avatar name={user.name} size="sm" tone="hero" />
+        {bell && <HeaderButton icon="bell" label={bell.label} onPress={bell.onPress} badge={bell.count ? <CountBadge n={bell.count} /> : undefined} />}
+        <Pressable onPress={profile.open} accessibilityRole="button" accessibilityLabel={t('profile')} className="h-14 w-14 items-center justify-center rounded-full active:opacity-80">
+          <Avatar name={first} size="lg" tone="hero" />
         </Pressable>
       </View>
       {children}
@@ -313,18 +413,14 @@ function HomeHero({ bell, children }: { bell?: { count: number; label: string; o
 function Body({ hero, children, refreshing, onRefresh }: { hero: ReactNode; children: ReactNode; refreshing: boolean; onRefresh: () => void }) {
   const insets = useSafeAreaInsets();
   const tabBar = useTabBarInset();
-  useStatusBar(true);
+  const { dark } = useThemeToggle();
+  useStatusBar(dark);
   return (
-    <View className="flex-1 overflow-hidden bg-hero">
-      {/* orange melting into warm black behind the band; the white sheet rises over it */}
-      <Glow />
-      {/* the lower half is white behind the scroll view, so a short first frame (before the sheet
-          has stretched to the bottom) never flashes the dark band colour underneath */}
-      <View pointerEvents="none" className="absolute inset-x-0 bottom-0 h-1/2 bg-card" />
+    <View className="flex-1 bg-background">
       <View style={{ height: insets.top }} />
       <ScrollView className="flex-1" contentContainerClassName="grow" refreshControl={refresher(refreshing, onRefresh)}>
         {hero}
-        <View className={cn('grow gap-3 px-4 pt-3', SHEET_TOP)} style={{ paddingBottom: 40 + tabBar }}>
+        <View className="grow gap-3 px-4 pt-2" style={{ paddingBottom: 40 + tabBar }}>
           {children}
         </View>
       </ScrollView>
@@ -351,11 +447,9 @@ function AttentionBanner({ icon, text, onPress, tone }: { icon: IconName; text: 
       scale={0.98}
       onPress={onPress}
       accessibilityRole="button"
-      className={cn('mt-3 flex-row items-center gap-3 rounded-2xl border p-3.5 active:opacity-85', tone === 'warn' ? 'border-saffron/40 bg-saffron-soft' : 'border-destructive/30 bg-destructive-soft')}
+      className={cn('mt-1 min-h-14 flex-row items-center gap-3 rounded-3xl px-5 py-3.5 active:opacity-85', tone === 'warn' ? 'bg-saffron-soft' : 'bg-destructive-soft')}
     >
-      <View className={cn('h-10 w-10 items-center justify-center rounded-xl', tone === 'warn' ? 'bg-saffron' : 'bg-destructive')}>
-        <Icon name={icon} size={18} colorClassName={tone === 'warn' ? 'accent-saffron-foreground' : 'accent-white'} />
-      </View>
+      <Icon name={icon} size={22} colorClassName={tone === 'warn' ? 'accent-saffron-strong' : 'accent-destructive'} />
       <Text className={cn('flex-1 text-[15px] font-semibold', tone === 'warn' ? 'text-foreground' : 'text-destructive')}>{text}</Text>
       <Icon name="chevron-right" size={18} colorClassName={tone === 'warn' ? 'accent-foreground' : 'accent-destructive'} />
     </Tap>
@@ -371,7 +465,7 @@ function QuickActions({ index }: { index: number }) {
   const router = useRouter();
   const { can } = useSession();
   const quick = useSheet();
-  const icon: Record<string, IconName> = { newImport: 'download', newProduction: 'factory', newExport: 'upload' };
+  const icon: Record<string, IconName> = { newImport: 'truck', newProduction: 'factory', newExport: 'truck-out' };
   const allowed = QUICK_ADD.filter((i) => visible(i, can));
   const actions = [
     ...allowed.filter((i) => i.key in icon).map((i) => ({ key: i.key, icon: icon[i.key], label: t(i.labelKey), href: i.href })),
@@ -519,8 +613,8 @@ function OwnerHome() {
             <SkeletonGrid tiles={4} />
           ) : (
             <Grid>
-              <Kpi icon="download" label={t('receivedCft')} value={num3(received.now)} unit="CFT" trend={trend(received.pct)} hint={t('lastSevenDays')} onPress={() => router.push('/loads-in')} />
-              <Kpi icon="upload" label={t('shippedCft')} value={num3(shipped.now)} unit="CFT" trend={trend(shipped.pct)} hint={t('lastSevenDays')} onPress={() => router.push('/loads-out')} />
+              <Kpi icon="truck" label={t('receivedCft')} value={num3(received.now)} unit="CFT" trend={trend(received.pct)} hint={t('lastSevenDays')} onPress={() => router.push('/loads-in')} />
+              <Kpi icon="truck-out" label={t('shippedCft')} value={num3(shipped.now)} unit="CFT" trend={trend(shipped.pct)} hint={t('lastSevenDays')} onPress={() => router.push('/loads-out')} />
               <Kpi icon="arrow-down-circle" label={t('pendingReceivables')} value={inrShort(k.pendingReceivables)} tone={k.pendingReceivables ? 'warn' : undefined} onPress={() => router.push('/more/accounts')} />
               <Kpi icon="arrow-up-circle" label={t('pendingPayables')} value={inrShort(k.pendingPayables)} onPress={() => router.push('/more/accounts')} />
             </Grid>
@@ -542,7 +636,7 @@ function OwnerHome() {
             index={i}
             title={t('pendingApprovals')}
             right={pendingCount ? <CountBadge n={pendingCount} /> : undefined}
-            action={waiting.length > 3 ? { label: t('viewAll'), onPress: () => router.push('/more/approvals') } : undefined}
+            action={waiting.length > 3 ? { label: t('viewAll'), onPress: () => router.push('/approvals') } : undefined}
           >
             {errorOf(queue) ? (
               <ErrorBox message={errorOf(queue)!} onRetry={() => void queue.refetch()} />
@@ -658,12 +752,12 @@ function OwnerHome() {
   return (
     <Body
       hero={
-        <HomeHero bell={{ count: pendingCount, label: t('approvals'), onPress: () => router.push('/more/approvals') }}>
+        <HomeHero bell={{ count: pendingCount, label: t('approvals'), onPress: () => router.push('/approvals') }}>
           {!k ? (
-            <Skeleton className="h-28 rounded-2xl opacity-20" />
+            <Skeleton className="h-36 rounded-3xl" />
           ) : (
             <Appear>
-              <HeroCard bare label={t('totalStock')} value={num3(k.rawStockCft + k.finishedStockCft)} unit="CFT" icon="boxes" onPress={() => router.push('/inventory')}>
+              <HeroCard label={t('totalStock')} value={num3(k.rawStockCft + k.finishedStockCft)} unit="CFT" icon="boxes" onPress={() => router.push('/inventory')}>
                 <HeroStats
                   items={[
                     { label: t('rawStock'), value: `${num3(k.rawStockCft)} CFT` },
@@ -746,7 +840,7 @@ function AccountantHome() {
           {dash.isPending ? (
             <SkeletonList rows={2} />
           ) : progress.length === 0 ? (
-            <EmptyState icon="edit-3" title={t('noOpenLoads')} action={{ label: t('newImport'), onPress: () => router.push('/imports/new') }} />
+            <EmptyState mod="logs" icon="ruler" title={t('noOpenLoads')} action={{ label: t('newImport'), onPress: () => router.push('/imports/new') }} />
           ) : (
             progress.slice(0, 3).map((l) => <ImportCard key={l.id} measure item={{ ...l, arrivalAt: '', createdByName: '', updatedAt: '' } as ImportSummary} />)
           )}
@@ -816,9 +910,10 @@ function AccountantHome() {
       hero={
         <HomeHero bell={{ count: k?.rejectedEntries ?? 0, label: t('notifications'), onPress: () => router.push('/loads-in') }}>
           {!k ? (
-            <Skeleton className="h-14 rounded-2xl opacity-20" />
+            <Skeleton className="h-28 rounded-3xl" />
           ) : (
             <Appear>
+              <HeroPanel>
               <HeroStats
                 items={[
                   { label: t('todayImports'), value: int(k.todayImports) },
@@ -826,6 +921,7 @@ function AccountantHome() {
                   { label: t('measurementProgress'), value: int(progress.length), accent: progress.length > 0 },
                 ]}
               />
+              </HeroPanel>
             </Appear>
           )}
         </HomeHero>

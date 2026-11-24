@@ -234,7 +234,13 @@ export function ImportForm({ id }: { id?: string }) {
     ));
 
   return (
-    <FormScreen title={id ? t('edit') : simple ? t('simpleLoadIn') : t('newImport')} error={error ?? loadError} footer={footer}>
+    <FormScreen
+      title={id ? t('edit') : simple ? t('simpleLoadIn') : t('newImport')}
+      subtitle={id ? undefined : `${t('stepOf', { n: 1, total: 2 })} · ${t('newEntry')}`}
+      step={id ? undefined : { at: 1, of: 2 }}
+      error={error ?? loadError}
+      footer={footer}
+    >
       {forSawing && <Notice icon="factory">{t('loadInForSawing')}</Notice>}
       {!form ? (
         !loadError && <Loading />
@@ -242,10 +248,10 @@ export function ImportForm({ id }: { id?: string }) {
         <>
           <FormSection title={t('lorryAndWood')}>
             {lorry}
-            {wood}
             {arrival}
             {supplier}
           </FormSection>
+          <FormSection title={t('woodType')}>{wood}</FormSection>
           <Fold title={t('moreFields')} forceOpen={foldedError}>
             {field('woodCategory', 'woodCategory', { autoCapitalize: 'words' })}
             {field('originLocation', 'originLocation', { autoCapitalize: 'words' })}

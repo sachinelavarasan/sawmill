@@ -1,132 +1,72 @@
+import type { TKey } from '@timbertrail/shared';
 import { Pressable, View } from 'react-native';
-import { dateTime, int, num3, signed3, signedInt } from '../../lib/format';
+import { int, isoDay, num3, signed3, timeOnly, todayIso } from '../../lib/format';
 import { useT } from '../../lib/i18n';
-import type { ApprovalItem } from '../../lib/types';
-import { APPROVAL_KIND } from '../cards';
+import type { ApprovalItem, ApprovalKind } from '../../lib/types';
+import { APPROVAL_KIND, useDayLabel } from '../cards';
 import { Text } from '../text';
-import { ActionPill, cn, Icon, IconTile } from '../ui';
-import { ApprovalStatusBadge, formatWaitAge } from './ApprovalStatusBadge';
+import { cn, Icon, ModTile } from '../ui';
+import { formatWaitAge } from './ApprovalStatusBadge';
+
+/** The plain name of what is waiting, as the people in the yard say it. */
+const NAME: Record<ApprovalKind, TKey> = { IMPORT: 'simpleLoadIn', PRODUCTION: 'simpleCut', EXPORT: 'simpleLoadOut', ADJUSTMENT: 'adjustments' };
+
+/** The one line of figures the owner needs to decide. */
+function figures(i: ApprovalItem, t: ReturnType<typeof useT>): string {
+  switch (i.type) {
+    case 'IMPORT':
+      return `${i.code} · ${int(i.totalLogs)} ${t('logs').toLowerCase()} · ${num3(i.totalCft)} CFT`;
+    case 'PRODUCTION':
+      return `${i.code} · ${num3(i.outputCft)} CFT`;
+    case 'EXPORT':
+      return `${i.code} · ${int(i.totalPieces)} ${t('pieces').toLowerCase()} · ${num3(i.totalCft)} CFT`;
+    case 'ADJUSTMENT':
+      return `${i.importCode} · ${signed3(i.cftDelta)} CFT`;
+  }
+}
 
 /**
- * Focused approval queue card:
- * - Header: operation icon, record ID, operation type, wood type, status/aging badge
- * - Primary info: vehicle / source load + key measurements (no duplicated fields)
- * - Footer: submitted by, submission timestamp, waiting duration, Review CTA
+ * One entry waiting for the owner, as a plain row (Sawmill Pro): the area's tile, what it is and
+ * its figures, who sent it and when, and a chevron. Rows sit together in one white card: pass
+ * `first` / `last` to round its corners. Entries waiting a long time show their time in amber.
  */
-export function ApprovalQueueCard({ item, onPress }: { item: ApprovalItem; onPress: () => void }) {
+export function ApprovalQueueCard({ item, onPress, first, last }: { item: ApprovalItem; onPress: () => void; first?: boolean; last?: boolean }) {
   const t = useT();
+  const dayLabel = useDayLabel();
   const k = APPROVAL_KIND[item.type];
   const wait = formatWaitAge(item.submittedAt);
+  const today = !!item.submittedAt && isoDay(new Date(item.submittedAt)) === todayIso();
+  const when = item.submittedAt ? (today ? timeOnly(item.submittedAt) : dayLabel(item.submittedAt)) : '';
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${t('review')} ${item.code}, ${t(k.labelKey)}, ${item.woodType}`}
-      className="mb-3 gap-3 rounded-2xl border border-border bg-card p-4 active:bg-secondary"
+      accessibilityLabel={`${t(NAME[item.type])}, ${figures(item, t)}, ${item.createdByName ?? ''} ${when}`}
+      className={cn(
+        'min-h-[76px] flex-row items-center gap-3.5 bg-card px-4 py-3 active:bg-secondary',
+        first && 'rounded-t-3xl',
+        last ? 'mb-3 rounded-b-3xl' : 'border-b border-border',
+      )}
     >
-      {/* Header */}
-      <View className="flex-row items-center gap-3">
-        <IconTile icon={k.icon} tone={wait?.isAged ? 'warn' : 'saffron'} />
-        <View className="flex-1 gap-0.5">
-          <Text className="text-[15px] font-bold tracking-tight text-foreground font-display" numberOfLines={1}>
-            {item.code}
-          </Text>
-          <Text className="text-[13px] text-muted-foreground" numberOfLines={1}>
-            {t(k.labelKey)} · {item.woodType}
-          </Text>
-        </View>
-        <ApprovalStatusBadge status="SUBMITTED" submittedAt={item.submittedAt} />
+      <ModTile mod={k.mod} icon={k.icon} />
+      <View className="flex-1 gap-0.5">
+        <Text className="text-[17px] font-bold tracking-tight text-foreground font-display" numberOfLines={1}>
+          {t(NAME[item.type])}
+        </Text>
+        <Text className="text-[14px] tabular-nums text-muted-foreground" numberOfLines={1}>
+          {figures(item, t)}
+        </Text>
       </View>
-
-      {/* Primary operational metrics */}
-      <View className="gap-2 rounded-xl bg-background px-3.5 py-3">
-        {item.type === 'IMPORT' && (
-          <View className="flex-row items-center justify-between gap-3">
-            <MetricCell label={t('vehicleLabel')} value={item.lorryNumber} />
-            <MetricCell label={t('logs')} value={int(item.totalLogs)} align="center" />
-            <MetricCell label={t('totalCft')} value={`${num3(item.totalCft)} CFT`} align="right" strong />
-          </View>
-        )}
-
-        {item.type === 'PRODUCTION' && (
-          <View className="flex-row items-center justify-between gap-3">
-            <MetricCell label={t('sourceLoadShort')} value={item.importCode} />
-            <MetricCell label={t('rawCftLabel')} value={item.inputCft != null ? `${num3(item.inputCft)} CFT` : '—'} align="center" />
-            <MetricCell label={t('finishedCftLabel')} value={`${num3(item.outputCft)} CFT`} align="right" strong />
-          </View>
-        )}
-
-        {item.type === 'EXPORT' && (
-          <View className="flex-row items-center justify-between gap-3">
-            <MetricCell label={t('vehicleLabel')} value={item.lorryNumber} />
-            <MetricCell label={t('pieces')} value={int(item.totalPieces)} align="center" />
-            <MetricCell label={t('totalCft')} value={`${num3(item.totalCft)} CFT`} align="right" strong />
-          </View>
-        )}
-
-        {item.type === 'ADJUSTMENT' && (
-          <View className="gap-1.5">
-            <View className="flex-row items-center justify-between gap-3">
-              <MetricCell label={t('sourceLoadShort')} value={`${item.importCode} · ${t(item.kind === 'RAW' ? 'raw' : 'finished')}`} />
-              <MetricCell
-                label={t('change')}
-                value={`${signed3(item.cftDelta)} CFT${item.piecesDelta ? ` (${signedInt(item.piecesDelta)})` : ''}`}
-                align="right"
-                strong
-              />
-            </View>
-            {!!item.reason && (
-              <Text className="text-[12px] text-muted-foreground" numberOfLines={2}>
-                {item.reason}
-              </Text>
-            )}
-          </View>
-        )}
+      <View className="items-end gap-0.5">
+        <Text className="max-w-[96px] text-[13px] text-muted-foreground" numberOfLines={1}>
+          {item.createdByName}
+        </Text>
+        <Text className={cn('text-[13px] tabular-nums', wait?.isAged ? 'font-semibold text-warning' : 'text-muted-foreground')} numberOfLines={1}>
+          {when}
+        </Text>
       </View>
-
-      {/* Footer */}
-      <View className="flex-row items-center justify-between gap-3">
-        <View className="flex-1 gap-0.5">
-          <Text className="text-[13px] font-medium text-foreground" numberOfLines={1}>
-            {t('submittedBy')} {item.createdByName}
-          </Text>
-          <View className="flex-row items-center gap-1.5">
-            <Icon name="clock" size={12} colorClassName={wait?.isAged ? 'accent-warning' : 'accent-muted-foreground'} />
-            <Text className={cn('text-[12px] tabular-nums', wait?.isAged ? 'font-semibold text-warning' : 'text-muted-foreground')} numberOfLines={1}>
-              {dateTime(item.submittedAt)}
-              {wait ? ` · ${t('waitingDuration', { age: wait.label })}` : ''}
-            </Text>
-          </View>
-        </View>
-        <ActionPill label={t('review')} accent={wait?.isAged} />
-      </View>
+      <Icon name="chevron-right" size={18} colorClassName="accent-muted-foreground" />
     </Pressable>
-  );
-}
-
-function MetricCell({
-  label,
-  value,
-  align = 'left',
-  strong,
-}: {
-  label: string;
-  value: string;
-  align?: 'left' | 'center' | 'right';
-  strong?: boolean;
-}) {
-  return (
-    <View className={cn('flex-1 gap-0.5', align === 'center' && 'items-center', align === 'right' && 'items-end')}>
-      <Text className="text-[11px] font-medium text-muted-foreground" numberOfLines={1}>
-        {label}
-      </Text>
-      <Text
-        className={cn('tabular-nums text-foreground', strong ? 'text-[14px] font-bold' : 'text-[13px] font-semibold')}
-        numberOfLines={1}
-      >
-        {value}
-      </Text>
-    </View>
   );
 }

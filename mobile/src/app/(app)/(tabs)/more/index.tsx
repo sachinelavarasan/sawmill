@@ -11,8 +11,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandMark } from '../../../../components/Brand';
 import { useConfirm } from '../../../../components/confirm';
-import { Glow } from '../../../../components/glow';
-import { BandOverscroll, CornerBacking, SHEET_TOP, useStatusBar } from '../../../../components/header';
+import { useStatusBar } from '../../../../components/header';
 import { Appear } from '../../../../components/motion';
 import { Text } from '../../../../components/text';
 import { Avatar, cn, Icon, MenuGroup, MenuRow, Overline } from '../../../../components/ui';
@@ -23,6 +22,7 @@ import { labelOf, MORE_GROUPS, visible } from '../../../../lib/nav';
 import { useApi } from '../../../../lib/query';
 import { useSession, useUser } from '../../../../lib/session';
 import { useTabBarInset } from '../../../../lib/tab-chrome';
+import { useThemeToggle } from '../../../../lib/theme';
 
 function Group({ index, title, children }: { index: number; title: string; children: ReactNode }) {
   return (
@@ -39,7 +39,8 @@ export default function MoreHome() {
   const user = useUser();
   const insets = useSafeAreaInsets();
   const tabBar = useTabBarInset();
-  useStatusBar(true);
+  const { dark } = useThemeToggle();
+  useStatusBar(dark);
 
   const { can, logout, simple } = useSession();
   const confirm = useConfirm();
@@ -52,14 +53,11 @@ export default function MoreHome() {
   })).filter((g) => g.items.length > 0);
 
   return (
-    // white scroll view, dark band only (components/header.tsx): a dark one flickered on the tab's first frame
-    <ScrollView className="flex-1 bg-card" contentContainerClassName="grow" keyboardShouldPersistTaps="handled">
-      <BandOverscroll />
-      <View className="overflow-hidden bg-hero" style={{ paddingTop: insets.top }}>
-        <Glow />
-        <View className="gap-2.5 px-4 pb-5 pt-2">
-          <View className="min-h-10 justify-center">
-            <Text className="pl-1 text-[22px] font-bold tracking-tight text-hero-foreground font-display" numberOfLines={1} accessibilityRole="header">
+    <ScrollView className="flex-1 bg-background" contentContainerClassName="grow" keyboardShouldPersistTaps="handled">
+      <View style={{ paddingTop: insets.top }}>
+        <View className="gap-3 px-4 pb-2 pt-2">
+          <View className="min-h-[72px] justify-center">
+            <Text className="pl-1 text-[30px] font-bold leading-9 tracking-tight text-foreground font-display" numberOfLines={1} accessibilityRole="header">
               {t('more')}
             </Text>
           </View>
@@ -68,25 +66,24 @@ export default function MoreHome() {
             onPress={() => router.push('/more/settings')}
             accessibilityRole="button"
             accessibilityLabel={`${user.name}, ${t('securitySignIn')}`}
-            className="min-h-[88px] flex-row items-center gap-3.5 rounded-2xl border border-hero-border bg-hero-chip px-4 py-3.5 active:opacity-85"
+            className="min-h-[88px] flex-row items-center gap-3.5 rounded-3xl bg-card px-4 py-3.5 shadow-sm shadow-black/5 active:bg-secondary"
           >
-            <Avatar name={user.name} size="lg" tone="saffron" />
+            <Avatar name={user.name} size="lg" tone="hero" />
             <View className="flex-1 gap-0.5">
-              <Text className="text-base font-bold tracking-tight text-hero-foreground font-display" numberOfLines={1}>
+              <Text className="text-base font-bold tracking-tight text-foreground font-display" numberOfLines={1}>
                 {user.name}
               </Text>
-              <Text className="text-[13px] font-medium text-hero-muted" numberOfLines={1}>
+              <Text className="text-[13px] font-medium text-muted-foreground" numberOfLines={1}>
                 {can(Permission.DASHBOARD_OWNER) ? t('owner') : t('accountant')} · {user.mill.name}
               </Text>
             </View>
-            <Icon name="chevron-right" size={18} colorClassName="accent-hero-muted" />
+            <Icon name="chevron-right" size={18} colorClassName="accent-muted-foreground" />
           </Pressable>
         </View>
       </View>
 
       <View className="grow">
-      <CornerBacking />
-      <View className={cn('grow gap-3 px-4 pt-5', SHEET_TOP)} style={{ paddingBottom: 32 + tabBar }}>
+      <View className="grow gap-3 px-4 pt-2" style={{ paddingBottom: 32 + tabBar }}>
         {groups.map((g, gi) => (
           <Group key={g.labelKey} index={gi} title={t(g.labelKey)}>
             <MenuGroup inset>

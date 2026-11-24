@@ -1,8 +1,10 @@
 /** One import load: status and approval, measured totals, unloading vehicles, lorry details, and (owner) purchase. */
 import { formatDuration, Permission } from '@timbertrail/shared';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { useCSSVariable } from 'uniwind';
+import { TreeRings } from '../../../../components/glow';
 import { Text } from '../../../../components/text';
 import { useConfirm } from '../../../../components/confirm';
 import { Fold } from '../../../../components/fold';
@@ -13,9 +15,12 @@ import { AppBottomSheet, SheetActions, useSheet } from '../../../../components/b
 import {
   Button,
   Card,
+  cn,
   ErrorBox,
+  Icon,
   IconButton,
   KV,
+  ModTile,
   Muted,
   Notice,
   Reason,
@@ -63,11 +68,14 @@ export default function ImportDetailScreen() {
       ]
     : [];
 
-  const moreDetails = load && (
+  const unloading = load && (
     <>
       <SectionTitle>{t('unloading')}</SectionTitle>
       <UnloadingSection load={load} onChanged={() => void q.refetch()} />
-
+    </>
+  );
+  const moreDetails = load && (
+    <>
       <SectionTitle>{t('importDetails')}</SectionTitle>
       <Card>
         {details
@@ -125,6 +133,7 @@ export default function ImportDetailScreen() {
             {simple ? (
               // simple view: the daily work up front (measure, send), the purchase, then the rest folded away
               <>
+                {unloading}
                 {can(Permission.FINANCE_VIEW) && <PurchaseDetails importId={load.id} totalCft={load.totalCft} />}
                 <Fold title={t('moreDetails')}>
                   {moreDetails}
@@ -132,6 +141,7 @@ export default function ImportDetailScreen() {
               </>
             ) : (
               <>
+                {unloading}
                 {moreDetails}
                 {can(Permission.FINANCE_VIEW) && <PurchaseDetails importId={load.id} totalCft={load.totalCft} />}
               </>
@@ -194,36 +204,41 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
   return (
     <View className="gap-2.5">
       {load.unloadings.length === 0 && <Muted>{t('noUnloading')}</Muted>}
-      {load.unloadings.map((u) => (
-        <Card key={u.id}>
-          <View className="flex-row items-center justify-between gap-2.5">
-            <Text className="text-[15px] font-semibold text-foreground">{u.vehicleNumber}</Text>
-            {u.endAt ? (
-              <Text className="text-[15px] font-bold tabular-nums text-foreground">{u.totalCharges != null ? inr(u.totalCharges) : '—'}</Text>
-            ) : (
-              <Text className="text-xs font-semibold text-warning">{t('inProgress')}</Text>
-            )}
-          </View>
-          <Muted>
-            {timeOnly(u.startAt)} → {u.endAt ? timeOnly(u.endAt) : '…'}
-            {u.durationMinutes != null && ` · ${formatDuration(u.durationMinutes)}`}
-            {u.ratePerHour != null && ` · ${inr(u.ratePerHour)}/h`}
-            {u.driverName ? ` · ${u.driverName}` : ''}
-          </Muted>
-          {load.editable && (
-            <View className="flex-row items-center gap-2.5">
-              {!u.endAt && (
-                <Button className="flex-1" size="md" icon="square" title={t('endNow')} busy={busyId === u.id} onPress={() => void end(u)} />
-              )}
-              <View className="flex-1" />
-              <IconButton icon="trash-2" tone="bad" label={t('delete')} onPress={() => void remove(u)} />
+      {load.unloadings.map((u) =>
+        u.endAt ? (
+          <Card key={u.id} className="flex-row items-center gap-3">
+            <ModTile mod="unload" icon="truck" size="sm" />
+            <View className="flex-1 gap-0.5">
+              <Text className="text-[16px] font-bold text-foreground">{u.vehicleNumber}</Text>
+              <Muted>
+                {timeOnly(u.startAt)} → {timeOnly(u.endAt)}
+                {u.durationMinutes != null && ` · ${formatDuration(u.durationMinutes)}`}
+                {u.driverName ? ` · ${u.driverName}` : ''}
+              </Muted>
             </View>
-          )}
-        </Card>
-      ))}
+            <Text className="text-[16px] font-bold tabular-nums text-foreground">{u.totalCharges != null ? inr(u.totalCharges) : '—'}</Text>
+            {load.editable && <IconButton icon="trash-2" tone="bad" label={t('delete')} onPress={() => void remove(u)} />}
+          </Card>
+        ) : (
+          <RunningUnloading key={u.id} u={u} editable={load.editable} busy={busyId === u.id} onEnd={() => void end(u)} onRemove={() => void remove(u)} />
+        ),
+      )}
       {load.unloadings.some((u) => u.totalCharges != null) && <KV label={t('totalUnloadingCharges')} value={inr(total)} strong />}
       {rowError && <ErrorBox message={rowError} />}
-      {load.editable && <Button kind="secondary" icon="truck" title={t('startUnloading')} onPress={sheet.open} />}
+      {load.editable && (
+        <Pressable
+          onPress={sheet.open}
+          accessibilityRole="button"
+          className="min-h-[76px] flex-row items-center gap-3.5 rounded-3xl border border-dashed border-input bg-card px-4 py-3 active:bg-secondary"
+        >
+          <ModTile mod="unload" icon="truck" />
+          <View className="flex-1 gap-0.5">
+            <Text className="text-[16px] font-bold text-foreground">{t('startUnloading')}</Text>
+            <Muted>{t('unloadingVehicleHint')}</Muted>
+          </View>
+          <Icon name="plus" size={22} colorClassName="accent-saffron-strong" />
+        </Pressable>
+      )}
 
       <AppBottomSheet
         ref={sheet.ref}
@@ -240,6 +255,71 @@ function UnloadingSection({ load, onChanged }: { load: ImportDetail; onChanged: 
           {startError && <ErrorBox message={startError} />}
         </View>
       </AppBottomSheet>
+    </View>
+  );
+}
+
+/** "h:mm" from minutes */
+const clock = (min: number) => `${Math.floor(min / 60)}:${String(Math.floor(min % 60)).padStart(2, '0')}`;
+
+/**
+ * An unloading still running: the teal timer card (time since it started, ticking each half
+ * minute), Stop, and the charge so far at its rate per hour. The server works out the final
+ * duration and charge when it is stopped.
+ */
+function RunningUnloading({ u, editable, busy, onEnd, onRemove }: { u: Unloading; editable: boolean; busy: boolean; onEnd: () => void; onRemove: () => void }) {
+  const t = useT();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const h = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(h);
+  }, []);
+  const minutes = Math.max(0, (now - new Date(u.startAt).getTime()) / 60_000);
+  const soFar = u.ratePerHour != null ? Math.round((minutes / 60) * u.ratePerHour) : null;
+  const [ring] = useCSSVariable(['--color-hero-foreground']).map(String);
+  return (
+    <View className="gap-3">
+      <View className="gap-1 overflow-hidden rounded-3xl bg-mod-teal p-5">
+        <TreeRings color={ring} placement="top-right" size={240} opacity={0.12} />
+        <View className="flex-row items-center gap-2">
+          <View className="h-2.5 w-2.5 rounded-full bg-mod-green-soft" />
+          <Text className="flex-1 text-[15px] font-semibold text-white" numberOfLines={1}>
+            {u.vehicleNumber}
+            {u.driverName ? ` · ${u.driverName}` : ''}
+          </Text>
+          {editable && (
+            <Pressable onPress={onRemove} accessibilityRole="button" accessibilityLabel={t('delete')} hitSlop={8} className="h-9 w-9 items-center justify-center rounded-full active:bg-white/15">
+              <Icon name="trash-2" size={17} colorClassName="accent-white" />
+            </Pressable>
+          )}
+        </View>
+        <Text className="text-center text-[64px] font-bold leading-[72px] tabular-nums text-white font-display" accessibilityLabel={formatDuration(Math.round(minutes))}>
+          {clock(minutes)}
+        </Text>
+        <Text className="text-center text-[14px] text-white/80">
+          {t('inProgress')} · {timeOnly(u.startAt)}
+        </Text>
+        {editable && (
+          <Pressable
+            onPress={onEnd}
+            disabled={busy}
+            accessibilityRole="button"
+            className={cn('mt-3 min-h-[56px] flex-row items-center justify-center gap-2.5 rounded-2xl bg-white active:opacity-85', busy && 'opacity-70')}
+          >
+            <View className="h-4 w-4 rounded-[4px] bg-destructive" />
+            <Text className="text-[17px] font-bold text-destructive">{t('endNow')}</Text>
+          </Pressable>
+        )}
+      </View>
+      {soFar != null && (
+        <Card className="flex-row items-center justify-between">
+          <View>
+            <Muted>{t('chargeSoFar')}</Muted>
+            <Text className="text-[24px] font-bold tabular-nums text-foreground font-display">{inr(soFar)}</Text>
+          </View>
+          <Text className="text-right text-[14px] text-muted-foreground">{inr(u.ratePerHour!)} / h</Text>
+        </Card>
+      )}
     </View>
   );
 }

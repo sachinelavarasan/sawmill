@@ -13,7 +13,7 @@ export function ApprovalSummary({ counts, loading }: { counts?: ApprovalQueue['c
     return (
       <View className="flex-row gap-2">
         {[0, 1, 2, 3].map((i) => (
-          <View key={i} className="flex-1 gap-1.5 rounded-2xl bg-background p-3">
+          <View key={i} className="flex-1 gap-1.5 rounded-2xl bg-card p-3">
             <Skeleton className="h-3 w-12" />
             <Skeleton className="h-6 w-8" />
           </View>
@@ -38,7 +38,7 @@ export function ApprovalSummary({ counts, loading }: { counts?: ApprovalQueue['c
           key={c.label}
           className={cn(
             'flex-1 gap-0.5 rounded-2xl px-3 py-2.5',
-            c.highlight ? 'border border-saffron/25 bg-saffron-soft' : 'bg-background',
+            c.highlight ? 'border border-saffron/25 bg-saffron-soft' : 'bg-card',
           )}
           accessible
           accessibilityLabel={`${c.label}: ${int(c.count)}`}

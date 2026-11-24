@@ -23,7 +23,13 @@ export function WorkflowBar({
   submitBlocked,
   approvedNote,
   onDone,
+  onSubmit,
+  submitLabel,
 }: {
+  /** replaces the confirm-and-submit (e.g. open a "Check before sending" page that submits itself) */
+  onSubmit?: () => void;
+  /** the submit button's text; defaults to "Send to owner" */
+  submitLabel?: string;
   /** API path of the record, e.g. `/imports/<id>` */
   base: string;
   code: string;
@@ -102,7 +108,7 @@ export function WorkflowBar({
           </View>
           <View className="flex-row gap-2.5">
             <Button className="flex-1" kind="danger" icon="x" title={t('reject')} busy={busy === 'reject'} disabled={!!busy} onPress={reject} />
-            <Button className="flex-[1.4]" kind="primary" icon="check" title={t('approve')} busy={busy === 'approve'} disabled={!!busy} onPress={approve} />
+            <Button className="flex-[1.4]" kind="success" icon="check" title={t('approve')} busy={busy === 'approve'} disabled={!!busy} onPress={approve} />
           </View>
         </View>
       )}
@@ -114,7 +120,7 @@ export function WorkflowBar({
       )}
       {canSubmit && (
         <View className="gap-1.5">
-          <Button icon="send" title={t('submitForApproval')} busy={busy === 'submit'} disabled={!!submitBlocked || !!busy} onPress={submit} />
+          <Button icon={onSubmit ? 'arrow-right' : 'send'} title={submitLabel ?? t('submitForApproval')} busy={busy === 'submit'} disabled={!!submitBlocked || !!busy} onPress={onSubmit ?? submit} />
           {submitBlocked ? <Text className="text-center text-[13px] text-muted-foreground">{submitBlocked}</Text> : null}
         </View>
       )}
