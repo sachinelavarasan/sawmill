@@ -129,10 +129,11 @@ export class ExportsService {
     // Finished stock still available per line position (after this export, if it's already approved).
     const lineLoadIds = lines.map((l) => l.importLoadId).filter((v): v is string => !!v);
     const [codeRows, balances] = await Promise.all([
-      loadIds.length ? this.db.select({ id: importLoads.id, code: importLoads.code }).from(importLoads).where(inArray(importLoads.id, loadIds)) : [],
+      loadIds.length ? this.db.select({ id: importLoads.id, code: importLoads.code, lorryNumber: importLoads.lorryNumber }).from(importLoads).where(inArray(importLoads.id, loadIds)) : [],
       finishedBalances(this.db, { millId: exp.millId, woodType: exp.woodType, importLoadIds: lineLoadIds }),
     ]);
     const codes = new Map(codeRows.map((r) => [r.id, r.code]));
+    const lorries = new Map(codeRows.map((r) => [r.id, r.lorryNumber]));
     const availableOf = (l: LineRow) => (l.importLoadId ? (balances.get(positionKey(l))?.pieces ?? 0) : 0);
 
     const editable = canEdit(actor, exp);
@@ -168,6 +169,8 @@ export class ExportsService {
         lineNumber: l.lineNumber,
         importLoadId: l.importLoadId,
         importCode: l.importLoadId ? (codes.get(l.importLoadId) ?? '') : '',
+        /** the lorry the wood came in on ("Check before sending" groups by it) */
+        importLorryNumber: l.importLoadId ? (lorries.get(l.importLoadId) ?? null) : null,
         thicknessIn: Number(l.thicknessIn),
         widthIn: Number(l.widthIn),
         lengthFt: Number(l.lengthFt),
