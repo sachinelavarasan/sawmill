@@ -37,6 +37,8 @@ export default function ProductionTab() {
         statusFilter
         hero={<TodayHero />}
         header={<Summary />}
+        // headings by sawing day: Today, Yesterday, then the date
+        groupByDay={(i) => i.productionDate}
         renderItem={(i) => <ProductionCard item={i} />}
         empty={{ mod: 'cut', icon: 'factory', title: t('noProduction'), action: { label: t('newProduction'), onPress: add } }}
       />

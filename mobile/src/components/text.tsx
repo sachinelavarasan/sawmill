@@ -91,17 +91,24 @@ function displayLineHeight(className: string): number | undefined {
 
 const Nested = createContext(false);
 
+/**
+ * How far the phone's own text-size setting may enlarge the app's text. Large text stays readable,
+ * but past 1.3× fixed-height rows (keypads, steppers, plates) overflowed and cut content off.
+ * A screen can pass its own `maxFontSizeMultiplier` to change it.
+ */
+const MAX_FONT_SCALE = 1.3;
+
 export const Text = forwardRef<RNText, TextProps & { className?: string }>(function Text({ className, style, ...rest }, ref) {
   const nested = useContext(Nested);
   const f = fontFor(className) ?? (nested ? null : 'Inter_400Regular');
   const lineHeight = f?.startsWith('PlusJakartaSans') && className ? displayLineHeight(className) : undefined;
   const base = f ? (lineHeight ? { ...fontStyle(f), lineHeight } : fontStyle(f)) : null;
-  const el = <RNText ref={ref} {...rest} className={className} style={base ? [base, style] : style} />;
+  const el = <RNText ref={ref} maxFontSizeMultiplier={MAX_FONT_SCALE} {...rest} className={className} style={base ? [base, style] : style} />;
   return nested ? el : <Nested.Provider value>{el}</Nested.Provider>;
 });
 
 export const TextInput = forwardRef<RNTextInput, TextInputProps & { className?: string }>(function TextInput({ className, style, ...rest }, ref) {
-  return <RNTextInput ref={ref} {...rest} className={className} style={[fontStyle(fontFor(className) ?? 'Inter_400Regular'), style]} />;
+  return <RNTextInput ref={ref} maxFontSizeMultiplier={MAX_FONT_SCALE} {...rest} className={className} style={[fontStyle(fontFor(className) ?? 'Inter_400Regular'), style]} />;
 });
 
 /** For components that take a style rather than a className (calendar, bottom-sheet input). */

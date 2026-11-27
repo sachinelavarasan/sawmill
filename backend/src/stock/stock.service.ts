@@ -9,7 +9,7 @@ import { nextCode } from '../common/codes';
 import { assertEditable, assertVisible, canEdit } from '../common/editability';
 import type { AuthUser } from '../common/types';
 import { Database, DbOrTx, InjectDb } from '../db/db.module';
-import { exportLoads, importLoads, productionOutputs, productionRuns, stockAdjustments, stockMovements, users } from '../db/schema';
+import { exportLoads, exportMeasurements, importLoads, productionOutputs, productionRuns, stockAdjustments, stockMovements, users } from '../db/schema';
 import { assertStockNotNegative, lockImportLoads, syncMovements } from './ledger';
 import { CreateAdjustmentDto, ListAdjustmentsQuery, MovementsQuery, UpdateAdjustmentDto } from './stock.dto';
 
@@ -57,7 +57,8 @@ export class StockService {
   async balances(actor: AuthUser) {
     const millId = actor.millId;
     const nonZero = sql`sum(${stockMovements.cftDelta}) <> 0 or sum(${stockMovements.piecesDelta}) <> 0`;
-    const [raw, finished, pending, pendingRaw] = await Promise.all([
+    const lineLoad = sql<string>`coalesce(${exportMeasurements.importLoadId}, ${exportLoads.importLoadId})`;
+    const [raw, finished, pending, pendingRaw, reserved] = await Promise.all([
       this.db
         .select({
           importLoadId: importLoads.id,
@@ -127,6 +128,23 @@ export class StockService {
         .from(importLoads)
         .where(and(eq(importLoads.millId, millId), inArray(importLoads.status, ['DRAFT', 'SUBMITTED']), sql`${importLoads.totalCft} > 0`))
         .orderBy(desc(importLoads.arrivalAt)),
+      // finished pieces already on load outs that are not approved yet (draft, waiting, sent back): still
+      // in stock until the owner approves, but spoken for — so another load out doesn't take them too
+      this.db
+        .select({
+          exportLoadId: exportLoads.id,
+          exportCode: exportLoads.code,
+          woodType: exportLoads.woodType,
+          importLoadId: lineLoad,
+          thicknessIn: exportMeasurements.thicknessIn,
+          widthIn: exportMeasurements.widthIn,
+          lengthFt: exportMeasurements.lengthFt,
+          pieces: sum(exportMeasurements.pieces),
+        })
+        .from(exportMeasurements)
+        .innerJoin(exportLoads, eq(exportLoads.id, exportMeasurements.exportLoadId))
+        .where(and(eq(exportLoads.millId, millId), inArray(exportLoads.status, ['DRAFT', 'SUBMITTED', 'REJECTED'])))
+        .groupBy(exportLoads.id, lineLoad, exportMeasurements.thicknessIn, exportMeasurements.widthIn, exportMeasurements.lengthFt),
     ]);
 
     const rawRows = raw.map((r) => ({
@@ -168,6 +186,22 @@ export class StockService {
         logs: r.logs,
         cft: roundTo(Number(r.cft ?? 0)),
       })),
+      /**
+       * finished pieces on load outs not approved yet (per load out, so a screen editing one can leave
+       * its own out): subtract from `finished` to see what is free to load
+       */
+      reservedFinished: reserved
+        .filter((r) => r.importLoadId)
+        .map((r) => ({
+          exportLoadId: r.exportLoadId,
+          exportCode: r.exportCode,
+          woodType: r.woodType,
+          importLoadId: r.importLoadId,
+          thicknessIn: Number(r.thicknessIn),
+          widthIn: Number(r.widthIn),
+          lengthFt: Number(r.lengthFt),
+          pieces: Number(r.pieces ?? 0),
+        })),
       /** finished sizes from sawing that is saved but not approved yet — becomes stock on approval */
       pendingFinished: pending.map((f) => ({
         woodType: f.woodType,

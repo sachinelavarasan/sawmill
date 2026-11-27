@@ -29,6 +29,8 @@ export default function MeasurementScreen() {
         params={OPEN}
         search={t('searchImports')}
         header={<Muted>{t('measurementSub')}</Muted>}
+        groupByDay={(i) => i.arrivalAt}
+        daySummary={(day) => `${day.length === 1 ? t('lorryOne') : t('lorriesCount', { n: day.length })} · ${num3(day.reduce((a, x) => a + x.totalCft, 0))} CFT`}
         renderItem={(i) => (simple ? <MeasureCard item={i} /> : <ImportCard item={i} measure />)}
         empty={{ mod: 'logs', icon: 'ruler', title: t('noOpenLoads'), action: { label: t('newImport'), onPress: () => router.push('/imports/new') } }}
       />

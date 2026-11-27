@@ -9,6 +9,7 @@ import { ApprovalFilterBar, type ApprovalSort } from '../../../../components/app
 import { ApprovalQueueCard } from '../../../../components/approvals/ApprovalQueueCard';
 import { APPROVAL_KIND } from '../../../../components/cards';
 import { HeaderButton, ScreenHeader, SheetList } from '../../../../components/header';
+import { DayHeading, startsDay, toDay } from '../../../../components/RecordList';
 import { EmptyState, ErrorBox, refresher, SkeletonList } from '../../../../components/ui';
 import { int, isoDay, type Period } from '../../../../lib/format';
 import { useT } from '../../../../lib/i18n';
@@ -88,14 +89,18 @@ export function ApprovalsView({ asTab }: { asTab?: boolean }) {
             />
           )
         }
-        renderItem={({ item, index }) => (
-          <ApprovalQueueCard
-            item={item}
-            first={index === 0}
-            last={index === items.length - 1}
-            onPress={() => router.push(APPROVAL_KIND[item.type].href(item.id) as never)}
-          />
-        )}
+        renderItem={({ item, index }) => {
+          // a heading over each day's submissions; each day's cards are one group of their own
+          const at = (x: (typeof items)[number]) => x.submittedAt || '';
+          const first = startsDay(items, index, at);
+          const last = index === items.length - 1 || startsDay(items, index + 1, at);
+          return (
+            <>
+              {first && !!item.submittedAt && <DayHeading day={toDay(item.submittedAt)} />}
+              <ApprovalQueueCard item={item} first={first} last={last} onPress={() => router.push(APPROVAL_KIND[item.type].href(item.id) as never)} />
+            </>
+          );
+        }}
       />
     </View>
   );

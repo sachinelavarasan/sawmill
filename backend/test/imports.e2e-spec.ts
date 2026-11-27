@@ -61,6 +61,25 @@ describe('import entry', () => {
   });
 });
 
+describe('wood categories (GET /imports/categories)', () => {
+  it('lists the categories used, most used first, spellings merged, for this mill only', async () => {
+    await createLoad(accA, { woodCategory: 'Palagai' });
+    await createLoad(accA, { woodCategory: 'uruttu  maram' });
+    await createLoad(accB, { woodCategory: 'Uruttu Maram' });
+    await createLoad(accA, { woodCategory: '' });
+    const { status, body } = await accA('GET', '/imports/categories');
+    expect(status).toBe(200);
+    const items = body.items as string[];
+    // "Uruttu Maram" (from the loads above and the defaults) is used most; case and spaces don't split it
+    expect(items.filter((c) => c.toLowerCase().replace(/\s+/g, '') === 'uruttumaram')).toHaveLength(1);
+    expect(items[0].toLowerCase().replace(/\s+/g, '')).toBe('uruttumaram');
+    expect(items).toContain('Palagai');
+    expect(items).not.toContain('');
+    // another mill has its own list
+    expect((await otherMill('GET', '/imports/categories')).body.items).not.toContain('Palagai');
+  });
+});
+
 describe('log measurement & CFT', () => {
   it('numbers logs 1, 2, 3 … and computes CFT = G×G×L/2304', async () => {
     const load = await createLoad();

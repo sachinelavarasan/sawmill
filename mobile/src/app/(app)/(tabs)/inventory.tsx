@@ -567,6 +567,8 @@ function Corrections() {
       path="/stock-adjustments"
       statusFilter
       empty={{ mod: 'stock', icon: 'sliders', title: t('noAdjustments'), body: t('adjustHint') }}
+      // headings by the day each correction was made
+      groupByDay={(a) => a.createdAt}
       renderItem={(a) => <CorrectionRow a={a} />}
     />
   );

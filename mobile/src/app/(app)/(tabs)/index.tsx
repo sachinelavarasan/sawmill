@@ -24,7 +24,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActivityRow, ApprovalRow, ImportCard, toActivities } from '../../../components/cards';
 import { HeaderButton, HeroPanel, useStatusBar } from '../../../components/header';
 import { Appear, Tap } from '../../../components/motion';
+import { LorryHome } from '../../../components/lorry-flow/LorryHome';
 import { ProfileSheet } from '../../../components/ProfileSheet';
+import { LORRY_FLOW_ONLY } from '../../../lib/lorry-mode';
 import { QuickAddSheet } from '../../../components/QuickAddSheet';
 import { PeriodPicker, useSheet } from '../../../components/sheet';
 import { Text } from '../../../components/text';
@@ -83,6 +85,8 @@ import type {
 } from '../../../lib/types';
 
 export default function HomeScreen() {
+  // lorry-only mode (lib/lorry-mode.ts): the three jobs at the gate, nothing else
+  if (LORRY_FLOW_ONLY) return <LorryHome />;
   const { can, simple } = useSession();
   if (simple) return <SimpleHome />;
   return can(Permission.DASHBOARD_OWNER) ? <OwnerHome /> : <AccountantHome />;

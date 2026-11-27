@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { useCSSVariable } from 'uniwind';
 import { TabBar } from '../../../components/TabBar';
+import { LORRY_FLOW_ONLY } from '../../../lib/lorry-mode';
 import { useSession } from '../../../lib/session';
 import { TabChromeProvider, TabScreenLayout } from '../../../lib/tab-chrome';
 import { availableLandingScreens, usePreferences } from '../../../services/preferences';
@@ -24,6 +25,7 @@ export default function TabsLayout() {
   // read once: changing the preference applies on the next start, not by jumping away now
   const [landing] = useState(() => {
     const allowed = availableLandingScreens(can).map((l) => l.id);
+    if (LORRY_FLOW_ONLY) return 'index'; // lorry-only mode: Home is the only way in
     return allowed.includes(prefs.defaultLandingScreen) ? prefs.defaultLandingScreen : 'index';
   });
   return (
@@ -33,7 +35,8 @@ export default function TabsLayout() {
           initialRouteName={landing}
           screenOptions={{ headerShown: false, animation: 'fade', sceneStyle: { backgroundColor: sceneBg } }}
           screenLayout={({ route, children }) => <TabScreenLayout routeKey={route.key}>{children}</TabScreenLayout>}
-          tabBar={(props) => <TabBar {...props} />}
+          // lorry-only mode: no bottom bar — Home's three cards are the whole app
+          tabBar={(props) => (LORRY_FLOW_ONLY ? null : <TabBar {...props} />)}
         >
           <Tabs.Screen name="index" />
           <Tabs.Screen name="approvals" />

@@ -36,6 +36,7 @@ import { useLocked } from '../../../../lib/hooks';
 import { useT } from '../../../../lib/i18n';
 import { invalidateOperations, useApi } from '../../../../lib/query';
 import { useSession } from '../../../../lib/session';
+import { LORRY_FLOW_ONLY } from '../../../../lib/lorry-mode';
 import type { Balances, ExportDetail, ExportLine, FinishedStockRow } from '../../../../lib/types';
 
 const posKey = (l: { importLoadId: string | null; thicknessIn: number; widthIn: number; lengthFt: number }) => `${l.importLoadId}|${l.thicknessIn}|${l.widthIn}|${l.lengthFt}`;
@@ -97,7 +98,8 @@ export default function ExportDetailScreen() {
       </Card>
     </>
   );
-  const sale = exp && can(Permission.FINANCE_VIEW) && <SaleDetails exportId={exp.id} totalCft={exp.totalCft} />;
+  // lorry-only mode keeps money off the gate screens (the owner sees it on the web)
+  const sale = exp && can(Permission.FINANCE_VIEW) && !LORRY_FLOW_ONLY && <SaleDetails exportId={exp.id} totalCft={exp.totalCft} />;
 
   return (
     <View className="flex-1 bg-background">

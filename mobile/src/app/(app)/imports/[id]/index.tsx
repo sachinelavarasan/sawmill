@@ -40,6 +40,7 @@ import { type ImportDetail, importsApi, type Unloading } from '../../../../lib/i
 import { usePendingLogs } from '../../../../lib/offline-logs';
 import { invalidateOperations, useApi } from '../../../../lib/query';
 import { useSession } from '../../../../lib/session';
+import { LORRY_FLOW_ONLY } from '../../../../lib/lorry-mode';
 
 export default function ImportDetailScreen() {
   const { id, back } = useLocalSearchParams<{ id: string; back?: string }>();
@@ -134,7 +135,7 @@ export default function ImportDetailScreen() {
               // simple view: the daily work up front (measure, send), the purchase, then the rest folded away
               <>
                 {unloading}
-                {can(Permission.FINANCE_VIEW) && <PurchaseDetails importId={load.id} totalCft={load.totalCft} />}
+                {can(Permission.FINANCE_VIEW) && !LORRY_FLOW_ONLY && <PurchaseDetails importId={load.id} totalCft={load.totalCft} />}
                 <Fold title={t('moreDetails')}>
                   {moreDetails}
                 </Fold>
@@ -143,7 +144,7 @@ export default function ImportDetailScreen() {
               <>
                 {unloading}
                 {moreDetails}
-                {can(Permission.FINANCE_VIEW) && <PurchaseDetails importId={load.id} totalCft={load.totalCft} />}
+                {can(Permission.FINANCE_VIEW) && !LORRY_FLOW_ONLY && <PurchaseDetails importId={load.id} totalCft={load.totalCft} />}
               </>
             )}
           </>

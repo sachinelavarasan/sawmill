@@ -10,7 +10,7 @@ import {
   UnloadingInputError,
   unloadingCharges,
 } from '@timbertrail/shared';
-import { and, asc, count, desc, eq, inArray, max, ne, SQL, sum } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, max, ne, SQL, sql, sum } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { resolveOptionalWoodType, resolveWoodType } from '../common/wood-types';
 import { NotificationsService } from '../notifications/notifications.module';
@@ -147,6 +147,31 @@ export class ImportsService {
     }
     return {
       items: [...byNumber.values()].map(({ at, ...r }) => ({ ...r, lastAt: at })),
+    };
+  }
+
+  /**
+   * Wood categories used on this mill's loads in, most used first (then most recent), for the
+   * category buttons on the phone: a name entered once shows as a button for everyone next time.
+   * Spellings that differ only in case or spaces count as one; the latest spelling is shown.
+   */
+  async categories(actor: AuthUser) {
+    const rows = await this.db
+      .select({ name: importLoads.woodCategory, at: importLoads.createdAt })
+      .from(importLoads)
+      .where(and(eq(importLoads.millId, actor.millId), sql`coalesce(trim(${importLoads.woodCategory}), '') <> ''`))
+      .orderBy(desc(importLoads.createdAt))
+      .limit(5000);
+    const byKey = new Map<string, { name: string; uses: number; last: number }>();
+    for (const r of rows) {
+      const name = (r.name ?? '').trim().replace(/\s+/g, ' ');
+      const key = name.toLowerCase().replace(/\s+/g, '');
+      const seen = byKey.get(key);
+      if (seen) seen.uses++;
+      else byKey.set(key, { name, uses: 1, last: r.at.getTime() });
+    }
+    return {
+      items: [...byKey.values()].sort((a, b) => b.uses - a.uses || b.last - a.last).slice(0, 60).map((c) => c.name),
     };
   }
 

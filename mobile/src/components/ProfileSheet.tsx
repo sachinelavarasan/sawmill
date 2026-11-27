@@ -21,6 +21,7 @@ import { Glow } from './glow';
 import { AppBottomSheet, type SheetHandle } from './bottom-sheet';
 import { Text } from './text';
 import { Avatar, cn, Icon, MenuGroup, MenuRow, Overline, Segmented } from './ui';
+import { LORRY_FLOW_ONLY } from '../lib/lorry-mode';
 
 export const ProfileSheet = forwardRef<SheetHandle>(function ProfileSheet(_, ref) {
   const t = useT();
@@ -99,14 +100,17 @@ export const ProfileSheet = forwardRef<SheetHandle>(function ProfileSheet(_, ref
         <View className="gap-3">
           <Overline className="px-1">{t('account')}</Overline>
           <MenuGroup inset>
-            <MenuRow
-              icon="grid"
-              title={t('moreMenu')}
-              onPress={() => {
-                close();
-                router.push('/more');
-              }}
-            />
+            {/* lorry-only mode: the full menu stays hidden */}
+            {!LORRY_FLOW_ONLY && (
+              <MenuRow
+                icon="grid"
+                title={t('moreMenu')}
+                onPress={() => {
+                  close();
+                  router.push('/more');
+                }}
+              />
+            )}
             <MenuRow
               icon="lock"
               title={t('securitySignIn')}

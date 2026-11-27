@@ -43,6 +43,12 @@ export class ImportsController {
     return this.imports.lorries(user);
   }
 
+  /** wood categories used before, most used first, for the category buttons (phone) */
+  @Get('categories')
+  categories(@CurrentUser() user: AuthUser) {
+    return this.imports.categories(user);
+  }
+
   @Get(':id')
   detail(@CurrentUser() user: AuthUser, @Id('id') id: string) {
     return this.imports.detail(user, id);

@@ -4,11 +4,12 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { HeaderButton, ScreenHeader, SheetList, StickyFooter } from '../../../../components/header';
+import { DayHeading, startsDay, toDay } from '../../../../components/RecordList';
 import { PeriodPicker } from '../../../../components/sheet';
 import { Text } from '../../../../components/text';
 import { Button, Chip, EmptyState, ErrorBox, HeroCard, IconTile, Muted, PressableCard, refresher, SectionTitle, Skeleton, SkeletonList } from '../../../../components/ui';
 import { api } from '../../../../lib/api';
-import { dateOnly, inr, int, periodQuery, presets } from '../../../../lib/format';
+import { inr, int, periodQuery, presets } from '../../../../lib/format';
 import { useT } from '../../../../lib/i18n';
 import { mergePages, rowKey, useRefetchOnFocus } from '../../../../lib/query';
 import type { ExpenseList } from '../../../../lib/types';
@@ -67,7 +68,12 @@ export default function ExpensesScreen() {
         }
         ListEmptyComponent={q.isPending ? null : <EmptyState icon="credit-card" title={t('noExpenses')} action={{ label: t('addExpense'), onPress: add }} />}
         ListFooterComponent={q.isFetchingNextPage ? <ActivityIndicator className="py-4" colorClassName="accent-primary" /> : null}
-        renderItem={({ item: e }) => (
+        renderItem={({ item: e, index }) => (
+          <>
+          {/* a heading over each day's expenses, with that day's total */}
+          {startsDay(items, index, (x) => x.date) && (
+            <DayHeading day={toDay(e.date)} summary={inr(items.filter((x) => toDay(x.date) === toDay(e.date)).reduce((a, x) => a + x.amount, 0))} />
+          )}
           <PressableCard label={`${e.category}, ${inr(e.amount)}`} onPress={() => router.push({ pathname: '/expenses/form', params: { id: e.id } })}>
             <View className="flex-row items-center gap-3">
               <IconTile icon="receipt" />
@@ -75,15 +81,13 @@ export default function ExpensesScreen() {
                 <Text className="text-[15px] font-semibold text-foreground" numberOfLines={1}>
                   {e.category}
                 </Text>
-                <Muted lines={1}>
-                  {dateOnly(e.date)}
-                  {e.importCode ? ` · ${e.importCode}` : ''}
-                  {e.notes ? ` · ${e.notes}` : ''}
-                </Muted>
+                {/* the date is in the day heading above */}
+                {!!(e.importCode || e.notes) && <Muted lines={1}>{[e.importCode, e.notes].filter(Boolean).join(' · ')}</Muted>}
               </View>
               <Text className="text-base font-bold tabular-nums text-foreground">{inr(e.amount)}</Text>
             </View>
           </PressableCard>
+          </>
         )}
       />
       <StickyFooter tabBar>

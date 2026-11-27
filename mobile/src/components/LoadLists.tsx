@@ -8,6 +8,7 @@ import { ExportCard, ImportCard } from './cards';
 import { HeaderButton, ScreenHeader, StickyFooter } from './header';
 import { RecordList } from './RecordList';
 import { Button } from './ui';
+import { num3 } from '../lib/format';
 import { useT } from '../lib/i18n';
 import { useSimple } from '../lib/session';
 import type { ImportSummary } from '../lib/imports-api';
@@ -24,6 +25,9 @@ export function ImportsList() {
         path="/imports"
         search={t('searchImports')}
         statusFilter
+        // headings by arrival day: Today, Yesterday, then the date
+        groupByDay={(i) => i.arrivalAt}
+        daySummary={(day) => `${day.length === 1 ? t('lorryOne') : t('lorriesCount', { n: day.length })} · ${num3(day.reduce((a, x) => a + x.totalCft, 0))} CFT`}
         renderItem={(i) => <ImportCard item={i} />}
         empty={{ mod: 'in', icon: 'truck', title: t('noImports'), action: { label: t('newImport'), onPress: () => router.push('/imports/new') } }}
       />
@@ -45,6 +49,9 @@ export function ExportsList() {
         path="/exports"
         search={t('searchRecords')}
         statusFilter
+        // headings by load-out day
+        groupByDay={(i) => i.exportDate}
+        daySummary={(day) => `${day.length === 1 ? t('lorryOne') : t('lorriesCount', { n: day.length })} · ${num3(day.reduce((a, x) => a + x.totalCft, 0))} CFT`}
         renderItem={(i) => <ExportCard item={i} />}
         empty={{ mod: 'out', icon: 'truck-out', title: t('noExports'), action: { label: t('newExport'), onPress: () => router.push('/exports/new') } }}
       />

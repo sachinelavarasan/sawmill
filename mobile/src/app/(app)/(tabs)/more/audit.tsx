@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { Text } from '../../../../components/text';
 import { ScreenHeader, SheetList } from '../../../../components/header';
+import { DayHeading, startsDay, toDay } from '../../../../components/RecordList';
 import { Chip, EmptyState, ErrorBox, Icon, Muted, Pill, PressableCard, refresher, SkeletonList, type Tone } from '../../../../components/ui';
 import { api } from '../../../../lib/api';
 import { dateTime } from '../../../../lib/format';
@@ -91,7 +92,9 @@ export default function AuditScreen() {
         }
         ListEmptyComponent={q.isPending ? null : <EmptyState icon="file-text" title={t('auditNoMatch')} />}
         ListFooterComponent={q.isFetchingNextPage ? <ActivityIndicator className="py-4" colorClassName="accent-primary" /> : null}
-        renderItem={({ item: r }) => {
+        renderItem={({ item: r, index }) => {
+          // a heading over each day's changes: Today, Yesterday, then the date
+          const heading = startsDay(items, index, (x) => x.createdAt) ? <DayHeading day={toDay(r.createdAt)} /> : null;
           const a = ACTIONS[r.action];
           const e = ENTITIES[r.entityType];
           const page = e?.page && r.entityId && r.action !== 'DELETE' ? e.page(r.entityId) : null;
@@ -109,10 +112,15 @@ export default function AuditScreen() {
               </Muted>
             </>
           );
-          return page ? (
-            <PressableCard onPress={() => router.push(page as never)}>{body}</PressableCard>
-          ) : (
-            <View className="-mx-4 gap-2 border-b border-border px-4 py-4">{body}</View>
+          return (
+            <>
+              {heading}
+              {page ? (
+                <PressableCard onPress={() => router.push(page as never)}>{body}</PressableCard>
+              ) : (
+                <View className="-mx-4 gap-2 border-b border-border px-4 py-4">{body}</View>
+              )}
+            </>
           );
         }}
       />

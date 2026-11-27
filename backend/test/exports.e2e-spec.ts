@@ -194,6 +194,41 @@ describe('approval takes finished stock', () => {
   });
 });
 
+describe('pieces spoken for (GET /stock → reservedFinished)', () => {
+  type Reserved = { exportLoadId: string; importLoadId: string; thicknessIn: number; widthIn: number; lengthFt: number; pieces: number };
+  const reservedFor = async (exportId: string) => {
+    const { body } = await owner('GET', '/stock');
+    return (body.reservedFinished as Reserved[]).filter((r) => r.exportLoadId === exportId);
+  };
+
+  it('lists the pieces on load outs not approved yet, per load out and source load, until approval', async () => {
+    const load = await finishedStock();
+    const exp = await newExport({ importLoadId: load.id });
+    await accA('POST', `/exports/${exp.id}/measurements`, { thicknessIn: 4, widthIn: 2, lengthFt: 8, pieces: 5 });
+    await accA('POST', `/exports/${exp.id}/measurements`, { thicknessIn: 4, widthIn: 2, lengthFt: 8, pieces: 2 });
+    // a draft: spoken for (the two lines of one size add up), stock itself untouched
+    expect(await reservedFor(exp.id)).toEqual([expect.objectContaining({ importLoadId: load.id, thicknessIn: 4, widthIn: 2, lengthFt: 8, pieces: 7 })]);
+    expect(await finishedPieces(load.id, 4, 2, 8)).toBe(20);
+    // sent back: still spoken for (it will be corrected and sent again)
+    await accA('POST', `/exports/${exp.id}/submit`);
+    await owner('POST', `/exports/${exp.id}/reject`, { reason: 'Count again' });
+    expect(await reservedFor(exp.id)).toHaveLength(1);
+    // approved: taken from stock, so no longer listed as spoken for
+    await accA('POST', `/exports/${exp.id}/submit`);
+    expect((await owner('POST', `/exports/${exp.id}/approve`)).status).toBe(200);
+    expect(await reservedFor(exp.id)).toHaveLength(0);
+    expect(await finishedPieces(load.id, 4, 2, 8)).toBe(13);
+  });
+
+  it('another mill sees none of them', async () => {
+    const load = await finishedStock();
+    const exp = await newExport({ importLoadId: load.id });
+    await accA('POST', `/exports/${exp.id}/measurements`, { thicknessIn: 3, widthIn: 2, lengthFt: 8, pieces: 1 });
+    const { body } = await otherMill('GET', '/stock');
+    expect((body.reservedFinished as Reserved[]).some((r) => r.exportLoadId === exp.id)).toBe(false);
+  });
+});
+
 describe('sale details & clients (owner only)', () => {
   it('owner records the client and price; payment status is derived', async () => {
     const { body: c } = await owner('POST', '/clients', { name: 'Kumar Timbers', phone: '9876543210' });
